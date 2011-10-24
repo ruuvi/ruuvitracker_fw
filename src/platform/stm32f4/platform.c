@@ -177,7 +177,7 @@ static void NVIC_Configuration(void)
   NVIC_Init(&nvic_init_structure);
 
 #ifdef BUILD_ADC  
-  nvic_init_structure_adc.NVIC_IRQChannel = ADC_IRQn; //DMA1_Channel1_IRQn
+  nvic_init_structure_adc.NVIC_IRQChannel = DMA1_Stream1_IRQn; //DMA1_Channel1_IRQn
   nvic_init_structure_adc.NVIC_IRQChannelPreemptionPriority = 0; 
   nvic_init_structure_adc.NVIC_IRQChannelSubPriority = 2; 
   nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE; 
@@ -942,6 +942,7 @@ static const u32 adc_timer[] = { ADC_ExternalTrigInjecConv_T1_TRGO, ADC_External
 
 ADC_InitTypeDef adc_init_struct;
 DMA_InitTypeDef dma_init_struct;
+ADC_CommonInitTypeDef adc_common_struct;
 
 int platform_adc_check_timer_id( unsigned id, unsigned timer_id )
 {
@@ -1073,7 +1074,14 @@ static void adcs_init()
   ADC_StructInit( &adc_init_struct );
   
   // Universal Converter Setup
+  adc_common_struct.ADC_Mode = ADC_Mode_Independent;
+  adc_common_struct.ADC_Prescaler = ADC_Prescaler_Div2;
+  adc_common_struct.ADC_DMAAccessMode = ADC_DMAAccessMode_Disabled;
+  adc_common_struct.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_5Cycles;
+  ADC_CommonInit(&adc_common_struct);
+  
   //adc_init_struct.ADC_Mode = ADC_Mode_Independent;
+  adc_init_struct.ADC_Resolution = ADC_Resolution_12b;
   adc_init_struct.ADC_ScanConvMode = ENABLE;
   adc_init_struct.ADC_ContinuousConvMode = DISABLE;
   adc_init_struct.ADC_ExternalTrigConv = ADC_ExternalTrigInjecConvEdge_None;
@@ -1109,6 +1117,10 @@ static void adcs_init()
   dma_init_struct.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
   dma_init_struct.DMA_Mode = DMA_Mode_Circular;
   dma_init_struct.DMA_Priority = DMA_Priority_Low;
+  dma_init_struct.DMA_FIFOMode = DMA_FIFOMode_Disable;         
+  dma_init_struct.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
+  dma_init_struct.DMA_MemoryBurst = DMA_MemoryBurst_Single;
+  dma_init_struct.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
   //dma_init_struct.DMA_M2M = DMA_M2M_Disable;
   DMA_Init( DMA1_Stream1, &dma_init_struct );
   
