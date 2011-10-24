@@ -64,8 +64,8 @@ static void pwms_init();
 static void uarts_init();
 static void spis_init();
 static void pios_init();
-//static void adcs_init();
-//static void cans_init();
+static void adcs_init();
+static void cans_init();
 
 
 int platform_init()
@@ -96,8 +96,10 @@ int platform_init()
   adcs_init();
 #endif
 
-  // Setup CANs
-  //cans_init();
+#if (NUM_CAN > 0)
+    // Setup CANs
+   cans_init();
+#endif  
 
   // Setup system timer
   cmn_systimer_set_base_freq( HCLK );
@@ -319,198 +321,6 @@ pio_type platform_pio_op( unsigned port, pio_type pinmask, int op )
   }
   return retval;
 }
-
-// ****************************************************************************
-// CAN
-// TODO: Many things
-#if 0
-void cans_init( void )
-{
-  // Remap CAN to PB8/9
-  GPIO_PinRemapConfig( GPIO_Remap1_CAN1, ENABLE );
-
-  // CAN Periph clock enable
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_CAN1, ENABLE);
-}
-
-/*       BS1 BS2 SJW Pre
-1M:      5   3   1   4
-500k:    7   4   1   6
-250k:    9   8   1   8
-125k:    9   8   1   16
-100k:    9   8   1   20 */
-
-#define CAN_BAUD_COUNT 5
-static const u8 can_baud_bs1[]    = { CAN_BS1_9tq, CAN_BS1_9tq, CAN_BS1_9tq, CAN_BS1_7tq, CAN_BS1_5tq };
-static const u8 can_baud_bs2[]    = { CAN_BS1_8tq, CAN_BS1_8tq, CAN_BS1_8tq, CAN_BS1_4tq, CAN_BS1_3tq };
-static const u8 can_baud_sjw[]    = { CAN_SJW_1tq, CAN_SJW_1tq, CAN_SJW_1tq, CAN_SJW_1tq, CAN_SJW_1tq };
-static const u8 can_baud_pre[]    = { 20, 16, 8, 6, 4 };
-static const u32 can_baud_rate[]  = { 100000, 125000, 250000, 500000, 1000000 };
-
-u32 platform_can_setup( unsigned id, u32 clock )
-{
-  CAN_InitTypeDef        CAN_InitStructure;
-  CAN_FilterInitTypeDef  CAN_FilterInitStructure;
-  GPIO_InitTypeDef GPIO_InitStructure;
-  int cbaudidx = -1;
-
-  // Configure IO Pins -- This is for STM32F103RE
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
-  GPIO_Init( GPIOB, &GPIO_InitStructure );
-  
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_Init( GPIOB, &GPIO_InitStructure );
-
-  // Select baud rate up to requested rate, except for below min, where min is selected
-  if ( clock >= can_baud_rate[ CAN_BAUD_COUNT - 1 ] ) // round down to peak rate if >= peak rate
-    cbaudidx = CAN_BAUD_COUNT - 1;
-  else
-  {
-    for( cbaudidx = 0; cbaudidx < CAN_BAUD_COUNT - 1; cbaudidx ++ )
-    {
-      if( clock < can_baud_rate[ cbaudidx + 1 ] ) // take current idx if next is too large
-        break;
-    }
-  }
-
-  /* Deinitialize CAN Peripheral */
-  CAN_DeInit( CAN1 );
-  CAN_StructInit( &CAN_InitStructure );
-
-  /* CAN cell init */
-  CAN_InitStructure.CAN_TTCM=DISABLE;
-  CAN_InitStructure.CAN_ABOM=DISABLE;
-  CAN_InitStructure.CAN_AWUM=DISABLE;
-  CAN_InitStructure.CAN_NART=DISABLE;
-  CAN_InitStructure.CAN_RFLM=DISABLE;
-  CAN_InitStructure.CAN_TXFP=DISABLE;
-  CAN_InitStructure.CAN_Mode=CAN_Mode_Normal;
-  CAN_InitStructure.CAN_SJW=can_baud_sjw[ cbaudidx ];
-  CAN_InitStructure.CAN_BS1=can_baud_bs1[ cbaudidx ];
-  CAN_InitStructure.CAN_BS2=can_baud_bs2[ cbaudidx ];
-  CAN_InitStructure.CAN_Prescaler=can_baud_pre[ cbaudidx ];
-  CAN_Init( CAN1, &CAN_InitStructure );
-
-  /* CAN filter init */
-  CAN_FilterInitStructure.CAN_FilterNumber=0;
-  CAN_FilterInitStructure.CAN_FilterMode=CAN_FilterMode_IdMask;
-  CAN_FilterInitStructure.CAN_FilterScale=CAN_FilterScale_32bit;
-  CAN_FilterInitStructure.CAN_FilterIdHigh=0x0000;
-  CAN_FilterInitStructure.CAN_FilterIdLow=0x0000;
-  CAN_FilterInitStructure.CAN_FilterMaskIdHigh=0x0000;
-  CAN_FilterInitStructure.CAN_FilterMaskIdLow=0x0000;
-  CAN_FilterInitStructure.CAN_FilterFIFOAssignment=CAN_FIFO0;
-  CAN_FilterInitStructure.CAN_FilterActivation=ENABLE;
-  CAN_FilterInit(&CAN_FilterInitStructure);
-  
-  return can_baud_rate[ cbaudidx ];
-}
-/*
-u32 platform_can_op( unsigned id, int op, u32 data )
-{
-  u32 res = 0;
-  TIM_TypeDef *ptimer = timer[ id ];
-  volatile unsigned dummy;
-
-  data = data;
-  switch( op )
-  {
-    case PLATFORM_TIMER_OP_READ:
-      res = TIM_GetCounter( ptimer );
-      break;
-  }
-  return res;
-}
-*/
-
-void platform_can_send( unsigned id, u32 canid, u8 idtype, u8 len, const u8 *data )
-{
-  CanTxMsg TxMessage;
-  const char *s = ( char * )data;
-  char *d;
-  
-  switch( idtype )
-  {
-    case ELUA_CAN_ID_STD:
-      TxMessage.IDE = CAN_ID_STD;
-      TxMessage.StdId = canid;
-      break;
-    case ELUA_CAN_ID_EXT:
-      TxMessage.IDE = CAN_ID_EXT;
-      TxMessage.ExtId = canid;
-      break;
-  }
-  
-  TxMessage.RTR=CAN_RTR_DATA;
-  TxMessage.DLC=len;
-  
-  d = ( char * )TxMessage.Data;
-  DUFF_DEVICE_8( len,  *d++ = *s++ );
-  
-  CAN_Transmit( CAN1, &TxMessage );
-}
-
-void USB_LP_CAN_RX0_IRQHandler(void)
-{
-/*
-  CanRxMsg RxMessage;
-
-  RxMessage.StdId=0x00;
-  RxMessage.ExtId=0x00;
-  RxMessage.IDE=0;
-  RxMessage.DLC=0;
-  RxMessage.FMI=0;
-  RxMessage.Data[0]=0x00;
-  RxMessage.Data[1]=0x00;
-
-  CAN_Receive(CAN_FIFO0, &RxMessage);
-
-  if((RxMessage.ExtId==0x1234) && (RxMessage.IDE==CAN_ID_EXT)
-     && (RxMessage.DLC==2) && ((RxMessage.Data[1]|RxMessage.Data[0]<<8)==0xDECA))
-  {
-    ret = 1; 
-  }
-  else
-  {
-    ret = 0; 
-  }*/
-}
-
-int platform_can_recv( unsigned id, u32 *canid, u8 *idtype, u8 *len, u8 *data )
-{
-  CanRxMsg RxMessage;
-  const char *s;
-  char *d;
-
-  if( CAN_MessagePending( CAN1, CAN_FIFO0 ) > 0 )
-  {
-    CAN_Receive(CAN1, CAN_FIFO0, &RxMessage);
-
-    if( RxMessage.IDE == CAN_ID_STD )
-    {
-      *canid = ( u32 )RxMessage.StdId;
-      *idtype = ELUA_CAN_ID_STD;
-    }
-    else
-    {
-      *canid = ( u32 )RxMessage.ExtId;
-      *idtype = ELUA_CAN_ID_EXT;
-    }
-
-    *len = RxMessage.DLC;
-
-    s = ( const char * )RxMessage.Data;
-    d = ( char* )data;
-    DUFF_DEVICE_8( RxMessage.DLC,  *d++ = *s++ );
-    return PLATFORM_OK;
-  }
-  else
-    return PLATFORM_UNDERFLOW;
-}
-#endif
 
 // ****************************************************************************
 // SPI
@@ -1128,15 +938,15 @@ u32 platform_s_cpu_get_frequency()
 #define ADC1_DR_Address ((u32)ADC1_BASE + 0x4C)
 
 static ADC_TypeDef *const adc[] = { ADC1, ADC2, ADC3 };
-static const u32 adc_timer[] = { ADC_ExternalTrigConv_T1_CC1, ADC_ExternalTrigConv_T2_CC2, ADC_ExternalTrigConv_T3_TRGO, ADC_ExternalTrigConv_T4_CC4 };
+static const u32 adc_timer[] = { ADC_ExternalTrigInjecConv_T1_TRGO, ADC_ExternalTrigInjecConv_T2_TRGO, ADC_ExternalTrigInjecConv_T3_CC2, ADC_ExternalTrigInjecConv_T4_TRGO };
 
 ADC_InitTypeDef adc_init_struct;
 DMA_InitTypeDef dma_init_struct;
 
 int platform_adc_check_timer_id( unsigned id, unsigned timer_id )
 {
-  // NOTE: We only allow timer 2 at the moment, for the sake of implementation simplicity
-  return ( timer_id == 2 );
+  // NOTE: We only allow timer id 1, the TIM2, at the moment, for the sake of implementation simplicity
+  return ( (timer_id == 1) || (timer_id == 2) || (timer_id == 3) ||(timer_id == 0) );
 }
 
 void platform_adc_stop( unsigned id )
@@ -1151,7 +961,7 @@ void platform_adc_stop( unsigned id )
   if( d->ch_active == 0 )
   {
     // Ensure that no external triggers are firing
-    ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
+    //ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
     
     // Also ensure that DMA interrupt won't fire ( this shouldn't really be necessary )
     nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE; 
@@ -1168,51 +978,51 @@ int platform_adc_update_sequence( )
   // NOTE: this shutdown/startup stuff may or may not be absolutely necessary
   //       it is here to deal with the situation that a dma conversion has
   //       already started and should be reset.
-  ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
-  
+  //ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
+
   // Stop in-progress adc dma transfers
   // Later de/reinitialization should flush out synchronization problems
   ADC_DMACmd( adc[ d->seq_id ], DISABLE );
   
   // Bring down adc, update setup, bring back up
   ADC_Cmd( adc[ d->seq_id ], DISABLE );
-  ADC_DeInit( adc[ d->seq_id ] );
+  ADC_DeInit();
   
   d->seq_ctr = 0; 
   while( d->seq_ctr < d->seq_len )
   {
-    ADC_RegularChannelConfig( adc[ d->seq_id ], d->ch_state[ d->seq_ctr ]->id, d->seq_ctr+1, ADC_SampleTime_1Cycles5 );
+    ADC_RegularChannelConfig( adc[ d->seq_id ], d->ch_state[ d->seq_ctr ]->id, d->seq_ctr+1, ADC_SampleTime_3Cycles );
     d->seq_ctr++;
   }
   d->seq_ctr = 0;
   
-  adc_init_struct.ADC_NbrOfChannel = d->seq_len;
+  adc_init_struct.ADC_NbrOfConversion = d->seq_len;
   ADC_Init( adc[ d->seq_id ], &adc_init_struct );
   ADC_Cmd( adc[ d->seq_id ], ENABLE );
   
   // Bring down adc dma, update setup, bring back up
-  DMA_Cmd( DMA1_Channel1, DISABLE );
-  DMA_DeInit( DMA1_Channel1 );
+  DMA_Cmd( DMA1_Stream1, DISABLE );
+  DMA_DeInit( DMA1_Stream1 );
   dma_init_struct.DMA_BufferSize = d->seq_len;
-  dma_init_struct.DMA_MemoryBaseAddr = (u32)d->sample_buf;
-  DMA_Init( DMA1_Channel1, &dma_init_struct );
-  DMA_Cmd( DMA1_Channel1, ENABLE );
+  dma_init_struct.DMA_Memory0BaseAddr = (u32)d->sample_buf;
+  DMA_Init( DMA1_Stream1, &dma_init_struct );
+  DMA_Cmd( DMA1_Stream1, ENABLE );
   
   ADC_DMACmd( adc[ d->seq_id ], ENABLE );
-  DMA_ITConfig( DMA1_Channel1, DMA1_IT_TC1 , ENABLE ); 
+  DMA_ITConfig( DMA1_Stream1, DMA_IT_TCIF1 , ENABLE ); 
   
   if ( d->clocked == 1 && d->running == 1 )
-    ADC_ExternalTrigConvCmd( adc[ d->seq_id ], ENABLE );
+    ADC_GetSoftwareStartInjectedConvCmdStatus( adc[ d->seq_id ] );
   
   return PLATFORM_OK;
 }
 
-void DMA1_Channel1_IRQHandler(void) 
+void DMA1_Stream1_IRQHandler(void) 
 {
   elua_adc_dev_state *d = adc_get_dev_state( 0 );
   elua_adc_ch_state *s;
   
-  DMA_ClearITPendingBit( DMA1_IT_TC1 );
+  DMA_ClearITPendingBit(DMA1_Stream1, DMA_IT_TCIF1 );
   
   d->seq_ctr = 0;
   while( d->seq_ctr < d->seq_len )
@@ -1243,7 +1053,7 @@ void DMA1_Channel1_IRQHandler(void)
     adc_update_dev_sequence( 0 );
   
   if ( d->clocked == 0 && d->running == 1 )
-    ADC_SoftwareStartConvCmd( adc[ d->seq_id ], ENABLE );
+    ADC_SoftwareStartConv( adc[ d->seq_id ] );
 }
 
 static void adcs_init()
@@ -1255,39 +1065,43 @@ static void adcs_init()
     adc_init_ch_state( id );
 
   RCC_APB2PeriphClockCmd( RCC_APB2Periph_ADC1, ENABLE );
-  RCC_ADCCLKConfig( RCC_PCLK2_Div8 );
+
+  //?? No longer need
+  //RCC_ADCCLKConfig( RCC_PCLK2_Div8 );
   
-  ADC_DeInit( adc[ d->seq_id ] );
+  ADC_DeInit();
   ADC_StructInit( &adc_init_struct );
   
   // Universal Converter Setup
-  adc_init_struct.ADC_Mode = ADC_Mode_Independent;
+  //adc_init_struct.ADC_Mode = ADC_Mode_Independent;
   adc_init_struct.ADC_ScanConvMode = ENABLE;
   adc_init_struct.ADC_ContinuousConvMode = DISABLE;
-  adc_init_struct.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
+  adc_init_struct.ADC_ExternalTrigConv = ADC_ExternalTrigInjecConvEdge_None;
   adc_init_struct.ADC_DataAlign = ADC_DataAlign_Right;
-  adc_init_struct.ADC_NbrOfChannel = 1;
+  adc_init_struct.ADC_NbrOfConversion = 1;
   
   // Apply default config
   ADC_Init( adc[ d->seq_id ], &adc_init_struct );
-  ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
-    
+  //ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
+ 
   // Enable ADC
   ADC_Cmd( adc[ d->seq_id ], ENABLE );  
   
   // Reset/Perform ADC Calibration
-  ADC_ResetCalibration( adc[ d->seq_id ] );
-  while( ADC_GetResetCalibrationStatus( adc[ d->seq_id ] ) );
-  ADC_StartCalibration( adc[ d->seq_id ] );
-  while( ADC_GetCalibrationStatus( adc[ d->seq_id ] ) );
+  //ADC_ResetCalibration( adc[ d->seq_id ] );
+  //while( ADC_GetResetCalibrationStatus( adc[ d->seq_id ] ) );
+  //ADC_StartCalibration( adc[ d->seq_id ] );
+  //while( ADC_GetCalibrationStatus( adc[ d->seq_id ] ) );
   
   // Set up DMA to handle samples
-  RCC_AHBPeriphClockCmd( RCC_AHBPeriph_DMA1, ENABLE );
+  RCC_AHB1PeriphClockCmd( RCC_AHB1Periph_DMA1, ENABLE );
   
-  DMA_DeInit( DMA1_Channel1 );
+  DMA_DeInit( DMA1_Stream1 );
+  
+  DMA_StructInit(&dma_init_struct);
   dma_init_struct.DMA_PeripheralBaseAddr = ADC1_DR_Address;
-  dma_init_struct.DMA_MemoryBaseAddr = (u32)d->sample_buf;
-  dma_init_struct.DMA_DIR = DMA_DIR_PeripheralSRC;
+  dma_init_struct.DMA_Memory0BaseAddr = (u32)d->sample_buf;
+  dma_init_struct.DMA_DIR = DMA_DIR_PeripheralToMemory;
   dma_init_struct.DMA_BufferSize = 1;
   dma_init_struct.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
   dma_init_struct.DMA_MemoryInc = DMA_MemoryInc_Enable;
@@ -1295,13 +1109,13 @@ static void adcs_init()
   dma_init_struct.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
   dma_init_struct.DMA_Mode = DMA_Mode_Circular;
   dma_init_struct.DMA_Priority = DMA_Priority_Low;
-  dma_init_struct.DMA_M2M = DMA_M2M_Disable;
-  DMA_Init( DMA1_Channel1, &dma_init_struct );
+  //dma_init_struct.DMA_M2M = DMA_M2M_Disable;
+  DMA_Init( DMA1_Stream1, &dma_init_struct );
   
   ADC_DMACmd(ADC1, ENABLE );
   
-  DMA_Cmd( DMA1_Channel1, ENABLE );
-  DMA_ITConfig( DMA1_Channel1, DMA1_IT_TC1 , ENABLE ); 
+  DMA_Cmd( DMA1_Stream1, ENABLE );
+  DMA_ITConfig( DMA1_Stream1, DMA_IT_TCIF1 , ENABLE ); 
   
   platform_adc_set_clock( 0, 0 );
 }
@@ -1314,13 +1128,14 @@ u32 platform_adc_set_clock( unsigned id, u32 frequency )
   unsigned period, prescaler;
   
   // Make sure sequencer is disabled before making changes
-  ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
-  
+  //ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
+
   if ( frequency > 0 )
   {
     d->clocked = 1;
     // Attach timer to converter
     adc_init_struct.ADC_ExternalTrigConv = adc_timer[ d->timer_id ];
+    adc_init_struct.ADC_ExternalTrigConvEdge = ADC_ExternalTrigInjecConvEdge_Rising;
     
     period = TIM_GET_BASE_CLK( id ) / frequency;
     
@@ -1331,19 +1146,19 @@ u32 platform_adc_set_clock( unsigned id, u32 frequency )
     timer_base_struct.TIM_Prescaler = prescaler - 1;
     timer_base_struct.TIM_ClockDivision = TIM_CKD_DIV1;
     timer_base_struct.TIM_CounterMode = TIM_CounterMode_Down;
-    TIM_TimeBaseInit( timer[ d->timer_id ], &timer_base_struct );
+    TIM_TimeBaseInit( (TIM_TypeDef*)timer[ d->timer_id ], &timer_base_struct );
     
-    frequency = ( TIM_GET_BASE_CLK( id ) / ( TIM_GetPrescaler( timer[ d->timer_id ] ) + 1 ) ) / period;
+    frequency = ( TIM_GET_BASE_CLK( id ) / ( TIM_GetPrescaler( (TIM_TypeDef*)timer[ d->timer_id ] ) + 1 ) ) / period;
     
     // Set up output compare for timer
-    TIM_SelectOutputTrigger(timer[ d->timer_id ], TIM_TRGOSource_Update);
+    TIM_SelectOutputTrigger((TIM_TypeDef*)timer[ d->timer_id ], TIM_TRGOSource_Update);
   }
   else
   {
     d->clocked = 0;
     
     // Switch to Software-only Trigger
-    adc_init_struct.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;   
+    adc_init_struct.ADC_ExternalTrigConv = ADC_ExternalTrigInjecConvEdge_None;   
   }
   
   // Apply config
@@ -1364,21 +1179,226 @@ int platform_adc_start_sequence( )
     
     d->running = 1;
     
-    DMA_ClearITPendingBit( DMA1_IT_TC1 );
+    DMA_ClearITPendingBit( DMA1_Stream1, DMA_IT_TCIF1 );
 
     nvic_init_structure_adc.NVIC_IRQChannelCmd = ENABLE; 
     NVIC_Init(&nvic_init_structure_adc);
 
     if( d->clocked == 1 )
-      ADC_ExternalTrigConvCmd( adc[ d->seq_id ], ENABLE );
+    {
+      ADC_ExternalTrigInjectedConvConfig( adc[ d->seq_id ], adc_timer[ d->timer_id ] );
+      ADC_SoftwareStartInjectedConv(adc[ d->seq_id ]);
+    }
     else
-      ADC_SoftwareStartConvCmd( adc[ d->seq_id ], ENABLE );
+      ADC_SoftwareStartConv( adc[ d->seq_id ] );
   }
 
   return PLATFORM_OK;
 }
 
 #endif // ifdef BUILD_ADC
+
+// ****************************************************************************
+// CAN
+// TODO: Many things
+
+#if (NUM_CAN > 0)
+
+#define CANx                       CAN1
+#define CAN_CLK                    RCC_APB1Periph_CAN1
+#define CAN_RX_PIN                 GPIO_Pin_0
+#define CAN_TX_PIN                 GPIO_Pin_1
+#define CAN_GPIO_PORT              GPIOD
+#define CAN_GPIO_CLK               RCC_AHB1Periph_GPIOD
+#define CAN_AF_PORT                GPIO_AF_CAN1
+#define CAN_RX_SOURCE              GPIO_PinSource0
+#define CAN_TX_SOURCE              GPIO_PinSource1
+
+void cans_init( void )
+{
+  // CAN Periph clock enable
+  RCC_APB1PeriphClockCmd(CAN_CLK, ENABLE);
+}
+
+/*       BS1 BS2 SJW Pre
+1M:      5   3   1   4
+500k:    7   4   1   6
+250k:    9   8   1   8
+125k:    9   8   1   16
+100k:    9   8   1   20 */
+
+#define CAN_BAUD_COUNT 5
+static const u8 can_baud_bs1[]    = { CAN_BS1_9tq, CAN_BS1_9tq, CAN_BS1_9tq, CAN_BS1_7tq, CAN_BS1_5tq };
+static const u8 can_baud_bs2[]    = { CAN_BS1_8tq, CAN_BS1_8tq, CAN_BS1_8tq, CAN_BS1_4tq, CAN_BS1_3tq };
+static const u8 can_baud_sjw[]    = { CAN_SJW_1tq, CAN_SJW_1tq, CAN_SJW_1tq, CAN_SJW_1tq, CAN_SJW_1tq };
+static const u8 can_baud_pre[]    = { 20, 16, 8, 6, 4 };
+static const u32 can_baud_rate[]  = { 100000, 125000, 250000, 500000, 1000000 };
+
+u32 platform_can_setup( unsigned id, u32 clock )
+{
+  CAN_InitTypeDef        CAN_InitStructure;
+  CAN_FilterInitTypeDef  CAN_FilterInitStructure;
+  GPIO_InitTypeDef GPIO_InitStructure;
+  int cbaudidx = -1;
+
+  /* Connect CAN pins to AF9 */
+  GPIO_PinAFConfig(CAN_GPIO_PORT, CAN_RX_SOURCE, CAN_AF_PORT);
+  GPIO_PinAFConfig(CAN_GPIO_PORT, CAN_TX_SOURCE, CAN_AF_PORT); 
+
+  // Configure IO Pins -- This is for STM32F103RE
+  GPIO_InitStructure.GPIO_Pin   = CAN_RX_PIN | CAN_TX_PIN;
+  GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AF;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd  = GPIO_PuPd_UP;
+  GPIO_Init( CAN_GPIO_PORT, &GPIO_InitStructure );
+
+  // Select baud rate up to requested rate, except for below min, where min is selected
+  if ( clock >= can_baud_rate[ CAN_BAUD_COUNT - 1 ] ) // round down to peak rate if >= peak rate
+    cbaudidx = CAN_BAUD_COUNT - 1;
+  else
+  {
+    for( cbaudidx = 0; cbaudidx < CAN_BAUD_COUNT - 1; cbaudidx ++ )
+    {
+      if( clock < can_baud_rate[ cbaudidx + 1 ] ) // take current idx if next is too large
+        break;
+    }
+  }
+
+  /* Deinitialize CAN Peripheral */
+  CAN_DeInit( CANx );
+  CAN_StructInit( &CAN_InitStructure );
+
+  /* CAN cell init */
+  CAN_InitStructure.CAN_TTCM=DISABLE;
+  CAN_InitStructure.CAN_ABOM=DISABLE;
+  CAN_InitStructure.CAN_AWUM=DISABLE;
+  CAN_InitStructure.CAN_NART=DISABLE;
+  CAN_InitStructure.CAN_RFLM=DISABLE;
+  CAN_InitStructure.CAN_TXFP=DISABLE;
+  CAN_InitStructure.CAN_Mode=CAN_Mode_Normal;
+  CAN_InitStructure.CAN_SJW=can_baud_sjw[ cbaudidx ];
+  CAN_InitStructure.CAN_BS1=can_baud_bs1[ cbaudidx ];
+  CAN_InitStructure.CAN_BS2=can_baud_bs2[ cbaudidx ];
+  CAN_InitStructure.CAN_Prescaler=can_baud_pre[ cbaudidx ];
+  CAN_Init( CANx, &CAN_InitStructure );
+
+  /* CAN filter init */
+  CAN_FilterInitStructure.CAN_FilterNumber=0;
+  CAN_FilterInitStructure.CAN_FilterMode=CAN_FilterMode_IdMask;
+  CAN_FilterInitStructure.CAN_FilterScale=CAN_FilterScale_32bit;
+  CAN_FilterInitStructure.CAN_FilterIdHigh=0x0000;
+  CAN_FilterInitStructure.CAN_FilterIdLow=0x0000;
+  CAN_FilterInitStructure.CAN_FilterMaskIdHigh=0x0000;
+  CAN_FilterInitStructure.CAN_FilterMaskIdLow=0x0000;
+  CAN_FilterInitStructure.CAN_FilterFIFOAssignment=CAN_FIFO0;
+  CAN_FilterInitStructure.CAN_FilterActivation=ENABLE;
+  CAN_FilterInit(&CAN_FilterInitStructure);
+  
+  return can_baud_rate[ cbaudidx ];
+}
+
+u32 platform_can_op( unsigned id, int op, u32 data )
+{
+  u32 res = 0;
+  TIM_TypeDef *ptimer = (TIM_TypeDef*)timer[ id ];
+  //volatile unsigned dummy;
+
+  data = data;
+  switch( op )
+  {
+    case PLATFORM_TIMER_OP_READ:
+      res = TIM_GetCounter( ptimer );
+      break;
+  }
+  return res;
+}
+
+void platform_can_send( unsigned id, u32 canid, u8 idtype, u8 len, const u8 *data )
+{
+  CanTxMsg TxMessage;
+  const char *s = ( char * )data;
+  char *d;
+  
+  switch( idtype )
+  {
+    case ELUA_CAN_ID_STD:
+      TxMessage.IDE = CAN_ID_STD;
+      TxMessage.StdId = canid;
+      break;
+    case ELUA_CAN_ID_EXT:
+      TxMessage.IDE = CAN_ID_EXT;
+      TxMessage.ExtId = canid;
+      break;
+  }
+  
+  TxMessage.RTR=CAN_RTR_DATA;
+  TxMessage.DLC=len;
+  
+  d = ( char * )TxMessage.Data;
+  DUFF_DEVICE_8( len,  *d++ = *s++ );
+  
+  CAN_Transmit( CAN1, &TxMessage );
+}
+
+void USB_LP_CAN_RX0_IRQHandler(void)
+{
+  /*
+  CanRxMsg RxMessage;
+
+  RxMessage.StdId=0x00;
+  RxMessage.ExtId=0x00;
+  RxMessage.IDE=0;
+  RxMessage.DLC=0;
+  RxMessage.FMI=0;
+  RxMessage.Data[0]=0x00;
+  RxMessage.Data[1]=0x00;
+
+  CAN_Receive(CANx, CAN_FIFO0, &RxMessage);
+
+  if((RxMessage.ExtId==0x1234) && (RxMessage.IDE==CAN_ID_EXT)
+     && (RxMessage.DLC==2) && ((RxMessage.Data[1]|RxMessage.Data[0]<<8)==0xDECA))
+  {
+    ret = 1; 
+  }
+  else
+  {
+    ret = 0; 
+  }*/
+}
+
+int platform_can_recv( unsigned id, u32 *canid, u8 *idtype, u8 *len, u8 *data )
+{
+  CanRxMsg RxMessage;
+  const char *s;
+  char *d;
+
+  if( CAN_MessagePending( CAN1, CAN_FIFO0 ) > 0 )
+  {
+    CAN_Receive(CAN1, CAN_FIFO0, &RxMessage);
+
+    if( RxMessage.IDE == CAN_ID_STD )
+    {
+      *canid = ( u32 )RxMessage.StdId;
+      *idtype = ELUA_CAN_ID_STD;
+    }
+    else
+    {
+      *canid = ( u32 )RxMessage.ExtId;
+      *idtype = ELUA_CAN_ID_EXT;
+    }
+
+    *len = RxMessage.DLC;
+
+    s = ( const char * )RxMessage.Data;
+    d = ( char* )data;
+    DUFF_DEVICE_8( RxMessage.DLC,  *d++ = *s++ );
+    return PLATFORM_OK;
+  }
+  else
+    return PLATFORM_UNDERFLOW;
+}
+#endif
 
 // ****************************************************************************
 // Platform specific modules go here

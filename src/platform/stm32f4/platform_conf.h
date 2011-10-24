@@ -22,7 +22,7 @@
 //#define BUILD_DHCPC
 //#define BUILD_DNS
 #define BUILD_CON_GENERIC
-//#define BUILD_ADC
+#define BUILD_ADC
 //#define BUILD_RPC
 //#define BUILD_RFS
 //#define BUILD_CON_TCP
@@ -119,7 +119,7 @@
 #define NUM_PHYS_TIMER        5
 #define NUM_PWM               4
 #define NUM_ADC               16
-#define NUM_CAN               0 // 1
+#define NUM_CAN               1
 
 // Enable RX buffering on UART
 #define BUF_ENABLE_UART
