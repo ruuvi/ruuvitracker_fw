@@ -67,34 +67,6 @@ static void pios_init();
 //static void adcs_init();
 //static void cans_init();
 
-__IO uint32_t TimingDelay;
-__IO uint8_t UserButtonPressed = 0x00;
-
-/**
-  * @brief  Inserts a delay time.
-  * @param  nTime: specifies the delay time length, in 10 ms.
-  * @retval None
-  */
-void Delay(__IO uint32_t nTime)
-{
-  TimingDelay = nTime;
-
-  while(TimingDelay != 0);
-}
-
-/**
-  * @brief  Decrements the TimingDelay variable.
-  * @param  None
-  * @retval None
-  */
-void TimingDelay_Decrement(void)
-{
-  if (TimingDelay != 0x00)
-  { 
-    TimingDelay--;
-  }
-}
-
 
 int platform_init()
 {
@@ -203,7 +175,7 @@ static void NVIC_Configuration(void)
   NVIC_Init(&nvic_init_structure);
 
 #ifdef BUILD_ADC  
-  nvic_init_structure_adc.NVIC_IRQChannel = ADC_IRQn //DMA1_Channel1_IRQn; 
+  nvic_init_structure_adc.NVIC_IRQChannel = ADC_IRQn; //DMA1_Channel1_IRQn
   nvic_init_structure_adc.NVIC_IRQChannelPreemptionPriority = 0; 
   nvic_init_structure_adc.NVIC_IRQChannelSubPriority = 2; 
   nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE; 
@@ -232,7 +204,7 @@ static void pios_init()
     RCC_AHB1PeriphClockCmd(pio_port_clk[port], ENABLE);
 
     // Default all port pins to input and enable port.
-	  GPIO_StructInit(&GPIO_InitStructure);
+    GPIO_StructInit(&GPIO_InitStructure);
     GPIO_Init(pio_port[port], &GPIO_InitStructure);
   }
 
