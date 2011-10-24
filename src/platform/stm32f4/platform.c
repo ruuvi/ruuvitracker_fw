@@ -989,12 +989,12 @@ u64 platform_timer_sys_raw_read()
 
 void platform_timer_sys_disable_int()
 {
-  SysTick->CTRL &= ~( 1 << SYSTICK_TICKINT );
+  SysTick->CTRL &= ~( 1 << SysTick_CTRL_TICKINT_Pos );
 }
 
 void platform_timer_sys_enable_int()
 {
-  SysTick->CTRL |= 1 << SYSTICK_TICKINT;
+  SysTick->CTRL |= 1 << SysTick_CTRL_TICKINT_Pos;
 }
 
 timer_data_type platform_timer_read_sys()
