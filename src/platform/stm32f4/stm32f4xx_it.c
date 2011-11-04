@@ -213,5 +213,6 @@ void PendSV_Handler(void)
   * @}
   */ 
 
+extern void DMA2_Stream0_IRQHandler(void);
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/

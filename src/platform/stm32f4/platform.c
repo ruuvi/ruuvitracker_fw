@@ -38,14 +38,16 @@
 #define PLL_Q      7
 
 
-#define HCLK        ( (HSE_VALUE / PLL_M) * PLL_N)
+#define HCLK        ( (HSE_VALUE / PLL_M) * PLL_N / PLL_P)
+#define PCLK1_DIV   4
+#define PCLK2_DIV   2
 
 
 // SysTick Config Data
 // NOTE: when using virtual timers, SYSTICKHZ and VTMR_FREQ_HZ should have the
 // same value, as they're served by the same timer (the systick)
 // Max SysTick preload value is 16777215, for STM32F103RET6 @ 72 MHz, lowest acceptable rate would be about 5 Hz
-#define SYSTICKHZ               100  
+#define SYSTICKHZ               16  
 #define SYSTICKMS               (1000 / SYSTICKHZ)
 
 #if ( (HCLK / SYSTICKHZ)  > SysTick_LOAD_RELOAD_Msk)
@@ -64,8 +66,12 @@ static void pwms_init();
 static void uarts_init();
 static void spis_init();
 static void pios_init();
+#ifdef BUILD_ADC
 static void adcs_init();
+#endif
+#if (NUM_CAN > 0)
 static void cans_init();
+#endif
 
 
 int platform_init()
@@ -97,8 +103,8 @@ int platform_init()
 #endif
 
 #if (NUM_CAN > 0)
-    // Setup CANs
-   cans_init();
+  // Setup CANs
+  cans_init();
 #endif  
 
   // Setup system timer
@@ -177,7 +183,7 @@ static void NVIC_Configuration(void)
   NVIC_Init(&nvic_init_structure);
 
 #ifdef BUILD_ADC  
-  nvic_init_structure_adc.NVIC_IRQChannel = DMA1_Stream1_IRQn; //DMA1_Channel1_IRQn
+  nvic_init_structure_adc.NVIC_IRQChannel = DMA1_Stream0_IRQn; //DMA1_Channel1_IRQn
   nvic_init_structure_adc.NVIC_IRQChannelPreemptionPriority = 0; 
   nvic_init_structure_adc.NVIC_IRQChannelSubPriority = 2; 
   nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE; 
@@ -189,7 +195,7 @@ static void NVIC_Configuration(void)
 // PIO
 // This is pretty much common code to all STM32 devices.
 // todo: Needs updates to support different processor lines.
-static GPIO_TypeDef * const pio_port[] = { GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG };
+static GPIO_TypeDef * const pio_port[] = { GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG, GPIOH, GPIOI };
 static const u32 pio_port_clk[]        = { RCC_AHB1Periph_GPIOA , RCC_AHB1Periph_GPIOB
          , RCC_AHB1Periph_GPIOC , RCC_AHB1Periph_GPIOD , RCC_AHB1Periph_GPIOE
          , RCC_AHB1Periph_GPIOF , RCC_AHB1Periph_GPIOG , RCC_AHB1Periph_GPIOH
@@ -355,7 +361,7 @@ static void spis_init()
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_SPI3, ENABLE);
 }
 
-#define SPI_GET_BASE_CLK( id ) (HCLK / PLL_P)
+#define SPI_GET_BASE_CLK( id ) ( ( id ) == 0 ? ( HCLK / PCLK2_DIV ) : ( HCLK / PCLK1_DIV ) )
 
 u32 platform_spi_setup( unsigned id, int mode, u32 clock, unsigned cpol, unsigned cpha, unsigned databits )
 {
@@ -383,7 +389,7 @@ u32 platform_spi_setup( unsigned id, int mode, u32 clock, unsigned cpol, unsigne
   GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP; //pull-up or pull-down  
   GPIO_Init(spi_gpio_port[ id ], &GPIO_InitStructure);
 
-  SPI_DeInit(spi[ id ]);
+  SPI_I2S_DeInit(spi[ id ]);
   
   /* Take down, then reconfigure SPI peripheral */
   SPI_Cmd( spi[ id ], DISABLE );
@@ -602,8 +608,21 @@ int platform_s_uart_set_flow_control( unsigned id, int type )
 u8 stm32_timer_int_periodic_flag[ NUM_PHYS_TIMER ];
 
 // We leave out TIM6/TIM for now, as they are dedicated
-TIM_TypeDef * const timer[] = { TIM1, TIM2, TIM3, TIM4, TIM5 };
-#define TIM_GET_PRESCALE( id ) ( PLL_P )
+const TIM_TypeDef * const timer[] = { 
+  TIM1,   // ID: 0
+  TIM2,   // ID: 1
+  TIM3,   // ID: 2
+  TIM4,   // ID: 3
+  TIM5,   // ID: 4
+  TIM8,   // ID: 5
+  TIM9,   // ID: 5
+  TIM10,  // ID: 6
+  TIM11,  // ID: 7
+  TIM12,  // ID: 8
+  TIM13,  // ID: 10
+  TIM14   // ID: 11
+};
+#define TIM_GET_PRESCALE( id ) ( (((id) == 0) || ((id) == 5)|| ((id) == 6)|| ((id) == 7)|| ((id) == 8)) ? ( PCLK2_DIV ) : ( PCLK1_DIV ) )
 #define TIM_GET_BASE_CLK( id ) ( TIM_GET_PRESCALE( id ) == 1 ? ( HCLK / TIM_GET_PRESCALE( id ) ) : ( HCLK / ( TIM_GET_PRESCALE( id ) / 2 ) ) )
 #define TIM_STARTUP_CLOCK       50000
 
@@ -623,11 +642,18 @@ static void timers_init()
   unsigned i;
 
   // Enable clocks.
-  RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM1, ENABLE );  
+  RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM1, ENABLE );
+  RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM8, ENABLE );
+  RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM9, ENABLE );
+  RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM10, ENABLE );
+  RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM11, ENABLE );
   RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM2, ENABLE );
   RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM3, ENABLE );
   RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM4, ENABLE );
   RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM5, ENABLE );
+  RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM12, ENABLE );
+  RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM13, ENABLE );
+  RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM14, ENABLE );
 
   // Configure timers
   for( i = 0; i < NUM_TIMER; i ++ )
@@ -784,436 +810,9 @@ timer_data_type platform_timer_read_sys()
   return cmn_systimer_get();
 }
 
-#if 0
-// ****************************************************************************
-// Quadrature Encoder Support (uses timers)
-// No pin configuration, many of the timers should work with default config if
-// pins aren't reconfigured for another peripheral
-
-void stm32_enc_init( unsigned id )
-{
-  TIM_TypeDef *ptimer = timer[ id ];
-
-  TIM_Cmd( ptimer, DISABLE );
-  TIM_DeInit( ptimer );
-  TIM_SetCounter( ptimer, 0 );
-  TIM_EncoderInterfaceConfig( ptimer, TIM_EncoderMode_TI12, TIM_ICPolarity_Rising, TIM_ICPolarity_Rising);
-  TIM_Cmd( ptimer, ENABLE );
-}
-
-void stm32_enc_set_counter( unsigned id, unsigned count )
-{
-  TIM_TypeDef *ptimer = timer[ id ];
-  
-  TIM_SetCounter( ptimer, ( u16 )count );
-}
-#endif
-
-// ****************************************************************************
-// PWMs
-// Using Timer 8 (5 in eLua)
-
-#define PWM_TIMER_ID 5
-#define PWM_TIMER_NAME TIM8
-
-static const u16 pwm_gpio_pins[] = { GPIO_Pin_6, GPIO_Pin_7, GPIO_Pin_8, GPIO_Pin_9 };
-
-static void pwms_init()
-{
-  RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM8, ENABLE );  
-  // 
-}
-
-// Return the PWM clock
-// NOTE: Can't find a function to query for the period set for the timer,
-// therefore using the struct.
-// This may require adjustment if driver libraries are updated.
-u32 platform_pwm_get_clock( unsigned id )
-{
-  return ( ( TIM_GET_BASE_CLK( PWM_TIMER_ID ) / ( TIM_GetPrescaler( PWM_TIMER_NAME ) + 1 ) ) / ( PWM_TIMER_NAME->ARR + 1 ) );
-}
-
-// Set the PWM clock
-u32 platform_pwm_set_clock( unsigned id, u32 clock )
-{
-  TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
-  TIM_TypeDef* ptimer = PWM_TIMER_NAME;
-  unsigned period, prescaler;
-  
-  /* Time base configuration */
-  period = TIM_GET_BASE_CLK( PWM_TIMER_ID ) / clock;
-    
-  prescaler = (period / 0x10000) + 1;
-  period /= prescaler;
-  
-  TIM_TimeBaseStructure.TIM_Period = period - 1;
-  TIM_TimeBaseStructure.TIM_Prescaler = prescaler - 1;
-  TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
-  TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-  TIM_TimeBaseStructure.TIM_RepetitionCounter = 0x0000;
-  TIM_TimeBaseInit( ptimer, &TIM_TimeBaseStructure );
-    
-  return platform_pwm_get_clock( id );
-}
-
-u32 platform_pwm_setup( unsigned id, u32 frequency, unsigned duty )
-{
-  TIM_OCInitTypeDef  TIM_OCInitStructure;
-  TIM_TypeDef* ptimer = TIM8;
-  GPIO_InitTypeDef GPIO_InitStructure;
-  u32 clock;
-  
-  TIM_Cmd( ptimer, DISABLE);
-  TIM_SetCounter( ptimer, 0 );
-  
-  /* Configure USART Tx Pin as alternate function push-pull */
-  GPIO_InitStructure.GPIO_Pin = pwm_gpio_pins[ id ];
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_Init(GPIOC, &GPIO_InitStructure);
-  
-  clock = platform_pwm_set_clock( id, frequency );
-  TIM_ARRPreloadConfig( ptimer, ENABLE );
-  
-  /* PWM Mode configuration */  
-  TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
-  TIM_OCInitStructure.TIM_OutputState = ( PWM_TIMER_NAME->CCER & ( ( u16 )1 << 4 * id ) ) ? TIM_OutputState_Enable : TIM_OutputState_Disable;
-  TIM_OCInitStructure.TIM_OutputNState = TIM_OutputNState_Disable;
-  TIM_OCInitStructure.TIM_Pulse = ( u16 )( duty * ( PWM_TIMER_NAME->ARR + 1 ) / 100 );
-  TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
-  TIM_OCInitStructure.TIM_OCIdleState = TIM_OCIdleState_Set;
-  
-  switch ( id )
-  {
-    case 0:
-      TIM_OC1Init( ptimer, &TIM_OCInitStructure );
-      TIM_OC1PreloadConfig( ptimer, TIM_OCPreload_Enable );
-      break;
-    case 1:
-      TIM_OC2Init( ptimer, &TIM_OCInitStructure );
-      TIM_OC2PreloadConfig( ptimer, TIM_OCPreload_Enable );
-      break;
-    case 2:
-      TIM_OC3Init( ptimer, &TIM_OCInitStructure );
-      TIM_OC3PreloadConfig( ptimer, TIM_OCPreload_Enable );
-      break;
-    case 3:
-      TIM_OC4Init( ptimer, &TIM_OCInitStructure );
-      TIM_OC4PreloadConfig( ptimer, TIM_OCPreload_Enable ) ;
-      break;
-    default:
-      return 0;
-  }
-  
-  TIM_CtrlPWMOutputs(ptimer, ENABLE);  
-  
-  TIM_Cmd( ptimer, ENABLE );
-  
-  return clock;
-}
-
-void platform_pwm_start( unsigned id )
-{
-  PWM_TIMER_NAME->CCER |= ( ( u16 )1 << 4 * id );
-}
-
-void platform_pwm_stop( unsigned id )
-{
-  PWM_TIMER_NAME->CCER &= ~( ( u16 )1 << 4 * id );
-}
-
-// *****************************************************************************
-// CPU specific functions
- 
-u32 platform_s_cpu_get_frequency()
-{
-  return HCLK;
-}
-
-// *****************************************************************************
-// ADC specific functions and variables
-
-#ifdef BUILD_ADC
-
-#define ADC1_DR_Address ((u32)ADC1_BASE + 0x4C)
-
-static ADC_TypeDef *const adc[] = { ADC1, ADC2, ADC3 };
-static const u32 adc_timer[] = { ADC_ExternalTrigInjecConv_T1_TRGO, ADC_ExternalTrigInjecConv_T2_TRGO, ADC_ExternalTrigInjecConv_T3_CC2, ADC_ExternalTrigInjecConv_T4_TRGO };
-
-ADC_InitTypeDef adc_init_struct;
-DMA_InitTypeDef dma_init_struct;
-ADC_CommonInitTypeDef adc_common_struct;
-
-int platform_adc_check_timer_id( unsigned id, unsigned timer_id )
-{
-  // NOTE: We only allow timer id 1, the TIM2, at the moment, for the sake of implementation simplicity
-  return ( (timer_id == 1) || (timer_id == 2) || (timer_id == 3) ||(timer_id == 0) );
-}
-
-void platform_adc_stop( unsigned id )
-{
-  elua_adc_ch_state *s = adc_get_ch_state( id );
-  elua_adc_dev_state *d = adc_get_dev_state( 0 );
-  
-  s->op_pending = 0;
-  INACTIVATE_CHANNEL( d, id );
-
-  // If there are no more active channels, stop the sequencer
-  if( d->ch_active == 0 )
-  {
-    // Ensure that no external triggers are firing
-    //ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
-    
-    // Also ensure that DMA interrupt won't fire ( this shouldn't really be necessary )
-    nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE; 
-    NVIC_Init(&nvic_init_structure_adc);
-    
-    d->running = 0;
-  }
-}
-
-int platform_adc_update_sequence( )
-{  
-  elua_adc_dev_state *d = adc_get_dev_state( 0 );
-  
-  // NOTE: this shutdown/startup stuff may or may not be absolutely necessary
-  //       it is here to deal with the situation that a dma conversion has
-  //       already started and should be reset.
-  //ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
-
-  // Stop in-progress adc dma transfers
-  // Later de/reinitialization should flush out synchronization problems
-  ADC_DMACmd( adc[ d->seq_id ], DISABLE );
-  
-  // Bring down adc, update setup, bring back up
-  ADC_Cmd( adc[ d->seq_id ], DISABLE );
-  ADC_DeInit();
-  
-  d->seq_ctr = 0; 
-  while( d->seq_ctr < d->seq_len )
-  {
-    ADC_RegularChannelConfig( adc[ d->seq_id ], d->ch_state[ d->seq_ctr ]->id, d->seq_ctr+1, ADC_SampleTime_3Cycles );
-    d->seq_ctr++;
-  }
-  d->seq_ctr = 0;
-  
-  adc_init_struct.ADC_NbrOfConversion = d->seq_len;
-  ADC_Init( adc[ d->seq_id ], &adc_init_struct );
-  ADC_Cmd( adc[ d->seq_id ], ENABLE );
-  
-  // Bring down adc dma, update setup, bring back up
-  DMA_Cmd( DMA1_Stream1, DISABLE );
-  DMA_DeInit( DMA1_Stream1 );
-  dma_init_struct.DMA_BufferSize = d->seq_len;
-  dma_init_struct.DMA_Memory0BaseAddr = (u32)d->sample_buf;
-  DMA_Init( DMA1_Stream1, &dma_init_struct );
-  DMA_Cmd( DMA1_Stream1, ENABLE );
-  
-  ADC_DMACmd( adc[ d->seq_id ], ENABLE );
-  DMA_ITConfig( DMA1_Stream1, DMA_IT_TCIF1 , ENABLE ); 
-  
-  if ( d->clocked == 1 && d->running == 1 )
-    ADC_GetSoftwareStartInjectedConvCmdStatus( adc[ d->seq_id ] );
-  
-  return PLATFORM_OK;
-}
-
-void DMA1_Stream1_IRQHandler(void) 
-{
-  elua_adc_dev_state *d = adc_get_dev_state( 0 );
-  elua_adc_ch_state *s;
-  
-  DMA_ClearITPendingBit(DMA1_Stream1, DMA_IT_TCIF1 );
-  
-  d->seq_ctr = 0;
-  while( d->seq_ctr < d->seq_len )
-  {
-    s = d->ch_state[ d->seq_ctr ];
-    s->value_fresh = 1;
-    
-    // Fill in smoothing buffer until warmed up
-    if ( s->logsmoothlen > 0 && s->smooth_ready == 0)
-      adc_smooth_data( s->id );
-#if defined( BUF_ENABLE_ADC )
-    else if ( s->reqsamples > 1 )
-    {
-      buf_write( BUF_ID_ADC, s->id, ( t_buf_data* )s->value_ptr );
-      s->value_fresh = 0;
-    }
-#endif
-
-    // If we have the number of requested samples, stop sampling
-    if ( adc_samples_available( s->id ) >= s->reqsamples && s->freerunning == 0 )
-      platform_adc_stop( s->id );
-
-    d->seq_ctr++;
-  }
-  d->seq_ctr = 0;
-
-  if( d->running == 1 )
-    adc_update_dev_sequence( 0 );
-  
-  if ( d->clocked == 0 && d->running == 1 )
-    ADC_SoftwareStartConv( adc[ d->seq_id ] );
-}
-
-static void adcs_init()
-{
-  unsigned id;
-  elua_adc_dev_state *d = adc_get_dev_state( 0 );
-  
-  for( id = 0; id < NUM_ADC; id ++ )
-    adc_init_ch_state( id );
-
-  RCC_APB2PeriphClockCmd( RCC_APB2Periph_ADC1, ENABLE );
-
-  //?? No longer need
-  //RCC_ADCCLKConfig( RCC_PCLK2_Div8 );
-  
-  ADC_DeInit();
-  ADC_StructInit( &adc_init_struct );
-  
-  // Universal Converter Setup
-  adc_common_struct.ADC_Mode = ADC_Mode_Independent;
-  adc_common_struct.ADC_Prescaler = ADC_Prescaler_Div2;
-  adc_common_struct.ADC_DMAAccessMode = ADC_DMAAccessMode_Disabled;
-  adc_common_struct.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_5Cycles;
-  ADC_CommonInit(&adc_common_struct);
-  
-  //adc_init_struct.ADC_Mode = ADC_Mode_Independent;
-  adc_init_struct.ADC_Resolution = ADC_Resolution_12b;
-  adc_init_struct.ADC_ScanConvMode = ENABLE;
-  adc_init_struct.ADC_ContinuousConvMode = DISABLE;
-  adc_init_struct.ADC_ExternalTrigConv = ADC_ExternalTrigInjecConvEdge_None;
-  adc_init_struct.ADC_DataAlign = ADC_DataAlign_Right;
-  adc_init_struct.ADC_NbrOfConversion = 1;
-  
-  // Apply default config
-  ADC_Init( adc[ d->seq_id ], &adc_init_struct );
-  //ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
- 
-  // Enable ADC
-  ADC_Cmd( adc[ d->seq_id ], ENABLE );  
-  
-  // Reset/Perform ADC Calibration
-  //ADC_ResetCalibration( adc[ d->seq_id ] );
-  //while( ADC_GetResetCalibrationStatus( adc[ d->seq_id ] ) );
-  //ADC_StartCalibration( adc[ d->seq_id ] );
-  //while( ADC_GetCalibrationStatus( adc[ d->seq_id ] ) );
-  
-  // Set up DMA to handle samples
-  RCC_AHB1PeriphClockCmd( RCC_AHB1Periph_DMA1, ENABLE );
-  
-  DMA_DeInit( DMA1_Stream1 );
-  
-  DMA_StructInit(&dma_init_struct);
-  dma_init_struct.DMA_PeripheralBaseAddr = ADC1_DR_Address;
-  dma_init_struct.DMA_Memory0BaseAddr = (u32)d->sample_buf;
-  dma_init_struct.DMA_DIR = DMA_DIR_PeripheralToMemory;
-  dma_init_struct.DMA_BufferSize = 1;
-  dma_init_struct.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-  dma_init_struct.DMA_MemoryInc = DMA_MemoryInc_Enable;
-  dma_init_struct.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
-  dma_init_struct.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-  dma_init_struct.DMA_Mode = DMA_Mode_Circular;
-  dma_init_struct.DMA_Priority = DMA_Priority_Low;
-  dma_init_struct.DMA_FIFOMode = DMA_FIFOMode_Disable;         
-  dma_init_struct.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-  dma_init_struct.DMA_MemoryBurst = DMA_MemoryBurst_Single;
-  dma_init_struct.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-  //dma_init_struct.DMA_M2M = DMA_M2M_Disable;
-  DMA_Init( DMA1_Stream1, &dma_init_struct );
-  
-  ADC_DMACmd(ADC1, ENABLE );
-  
-  DMA_Cmd( DMA1_Stream1, ENABLE );
-  DMA_ITConfig( DMA1_Stream1, DMA_IT_TCIF1 , ENABLE ); 
-  
-  platform_adc_set_clock( 0, 0 );
-}
-
-u32 platform_adc_set_clock( unsigned id, u32 frequency )
-{
-  TIM_TimeBaseInitTypeDef timer_base_struct;
-  elua_adc_dev_state *d = adc_get_dev_state( 0 );
-  
-  unsigned period, prescaler;
-  
-  // Make sure sequencer is disabled before making changes
-  //ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
-
-  if ( frequency > 0 )
-  {
-    d->clocked = 1;
-    // Attach timer to converter
-    adc_init_struct.ADC_ExternalTrigConv = adc_timer[ d->timer_id ];
-    adc_init_struct.ADC_ExternalTrigConvEdge = ADC_ExternalTrigInjecConvEdge_Rising;
-    
-    period = TIM_GET_BASE_CLK( id ) / frequency;
-    
-    prescaler = (period / 0x10000) + 1;
-    period /= prescaler;
-
-    timer_base_struct.TIM_Period = period - 1;
-    timer_base_struct.TIM_Prescaler = prescaler - 1;
-    timer_base_struct.TIM_ClockDivision = TIM_CKD_DIV1;
-    timer_base_struct.TIM_CounterMode = TIM_CounterMode_Down;
-    TIM_TimeBaseInit( (TIM_TypeDef*)timer[ d->timer_id ], &timer_base_struct );
-    
-    frequency = ( TIM_GET_BASE_CLK( id ) / ( TIM_GetPrescaler( (TIM_TypeDef*)timer[ d->timer_id ] ) + 1 ) ) / period;
-    
-    // Set up output compare for timer
-    TIM_SelectOutputTrigger((TIM_TypeDef*)timer[ d->timer_id ], TIM_TRGOSource_Update);
-  }
-  else
-  {
-    d->clocked = 0;
-    
-    // Switch to Software-only Trigger
-    adc_init_struct.ADC_ExternalTrigConv = ADC_ExternalTrigInjecConvEdge_None;   
-  }
-  
-  // Apply config
-  ADC_Init( adc[ d->seq_id ], &adc_init_struct );
-  
-  return frequency;
-}
-
-int platform_adc_start_sequence( )
-{ 
-  elua_adc_dev_state *d = adc_get_dev_state( 0 );
-  
-  // Only force update and initiate if we weren't already running
-  // changes will get picked up during next interrupt cycle
-  if ( d->running != 1 )
-  {
-    adc_update_dev_sequence( 0 );
-    
-    d->running = 1;
-    
-    DMA_ClearITPendingBit( DMA1_Stream1, DMA_IT_TCIF1 );
-
-    nvic_init_structure_adc.NVIC_IRQChannelCmd = ENABLE; 
-    NVIC_Init(&nvic_init_structure_adc);
-
-    if( d->clocked == 1 )
-    {
-      ADC_ExternalTrigInjectedConvConfig( adc[ d->seq_id ], adc_timer[ d->timer_id ] );
-      ADC_SoftwareStartInjectedConv(adc[ d->seq_id ]);
-    }
-    else
-      ADC_SoftwareStartConv( adc[ d->seq_id ] );
-  }
-
-  return PLATFORM_OK;
-}
-
-#endif // ifdef BUILD_ADC
-
 // ****************************************************************************
 // CAN
 // TODO: Many things
-
 #if (NUM_CAN > 0)
 
 #define CANx                       CAN1
@@ -1411,6 +1010,514 @@ int platform_can_recv( unsigned id, u32 *canid, u8 *idtype, u8 *len, u8 *data )
     return PLATFORM_UNDERFLOW;
 }
 #endif
+
+
+#if 0
+// ****************************************************************************
+// Quadrature Encoder Support (uses timers)
+// No pin configuration, many of the timers should work with default config if
+// pins aren't reconfigured for another peripheral
+
+void stm32_enc_init( unsigned id )
+{
+  TIM_TypeDef *ptimer = timer[ id ];
+
+  TIM_Cmd( ptimer, DISABLE );
+  TIM_DeInit( ptimer );
+  TIM_SetCounter( ptimer, 0 );
+  TIM_EncoderInterfaceConfig( ptimer, TIM_EncoderMode_TI12, TIM_ICPolarity_Rising, TIM_ICPolarity_Rising);
+  TIM_Cmd( ptimer, ENABLE );
+}
+
+void stm32_enc_set_counter( unsigned id, unsigned count )
+{
+  TIM_TypeDef *ptimer = timer[ id ];
+  
+  TIM_SetCounter( ptimer, ( u16 )count );
+}
+#endif
+
+// ****************************************************************************
+// PWMs
+// Using Timer 4 (3 in eLua)
+
+#define PWM_TIMER_ID    3
+#define PWM_TIMER_NAME  TIM4
+#define PWM_TIMER_AF    GPIO_AF_TIM4
+#define PWM_GPIO_PORT   GPIOD
+static const u8 pwm_gpio_pins_source[] = { GPIO_PinSource12, GPIO_PinSource13, GPIO_PinSource14, GPIO_PinSource15 };
+
+static void pwms_init()
+{
+  RCC_APB2PeriphClockCmd( RCC_APB1Periph_TIM4, ENABLE );  
+  // 
+}
+
+// Return the PWM clock
+// NOTE: Can't find a function to query for the period set for the timer,
+// therefore using the struct.
+// This may require adjustment if driver libraries are updated.
+u32 platform_pwm_get_clock( unsigned id )
+{
+  return ( ( TIM_GET_BASE_CLK( PWM_TIMER_ID ) / ( TIM_GetPrescaler( PWM_TIMER_NAME ) + 1 ) ) / ( PWM_TIMER_NAME->ARR + 1 ) );
+}
+
+// Set the PWM clock
+u32 platform_pwm_set_clock( unsigned id, u32 clock )
+{
+  TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
+  TIM_TypeDef* ptimer = PWM_TIMER_NAME;
+  unsigned period, prescaler;
+  
+  /* Time base configuration */
+  period = TIM_GET_BASE_CLK( PWM_TIMER_ID ) / clock;
+    
+  prescaler = (period / 0x10000) + 1;
+  period /= prescaler;
+  
+  TIM_TimeBaseStructure.TIM_Period = period - 1;
+  TIM_TimeBaseStructure.TIM_Prescaler = prescaler - 1;
+  TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
+  TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+  TIM_TimeBaseStructure.TIM_RepetitionCounter = 0x0000;
+  TIM_TimeBaseInit( ptimer, &TIM_TimeBaseStructure );
+    
+  return platform_pwm_get_clock( id );
+}
+
+u32 platform_pwm_setup( unsigned id, u32 frequency, unsigned duty )
+{
+  TIM_OCInitTypeDef  TIM_OCInitStructure;
+  TIM_TypeDef* ptimer = PWM_TIMER_NAME;
+  GPIO_InitTypeDef GPIO_InitStructure;
+  u32 clock;
+  
+  TIM_Cmd( ptimer, DISABLE);
+  TIM_SetCounter( ptimer, 0 );
+
+  /* Configure GPIO Pin as alternate function push-pull */
+  GPIO_InitStructure.GPIO_Pin = GPIO_SOURCE2PIN(pwm_gpio_pins_source[ id ]);
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+  GPIO_Init(PWM_GPIO_PORT, &GPIO_InitStructure);
+  GPIO_PinAFConfig(PWM_GPIO_PORT, pwm_gpio_pins_source[ id ], PWM_TIMER_AF);
+
+  
+  clock = platform_pwm_set_clock( id, frequency );
+  TIM_ARRPreloadConfig( ptimer, ENABLE );
+  
+  /* PWM Mode configuration */  
+  TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
+  TIM_OCInitStructure.TIM_OutputState = ( PWM_TIMER_NAME->CCER & ( ( u16 )1 << 4 * id ) ) ? TIM_OutputState_Enable : TIM_OutputState_Disable;
+  TIM_OCInitStructure.TIM_OutputNState = TIM_OutputNState_Disable;
+  TIM_OCInitStructure.TIM_Pulse = ( u16 )( duty * ( PWM_TIMER_NAME->ARR + 1 ) / 100 );
+  TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
+  TIM_OCInitStructure.TIM_OCIdleState = TIM_OCIdleState_Set;
+  
+  switch ( id )
+  {
+    case 0:
+      TIM_OC1Init( ptimer, &TIM_OCInitStructure );
+      TIM_OC1PreloadConfig( ptimer, TIM_OCPreload_Enable );
+      break;
+    case 1:
+      TIM_OC2Init( ptimer, &TIM_OCInitStructure );
+      TIM_OC2PreloadConfig( ptimer, TIM_OCPreload_Enable );
+      break;
+    case 2:
+      TIM_OC3Init( ptimer, &TIM_OCInitStructure );
+      TIM_OC3PreloadConfig( ptimer, TIM_OCPreload_Enable );
+      break;
+    case 3:
+      TIM_OC4Init( ptimer, &TIM_OCInitStructure );
+      TIM_OC4PreloadConfig( ptimer, TIM_OCPreload_Enable ) ;
+      break;
+    default:
+      return 0;
+  }
+  
+  TIM_CtrlPWMOutputs(ptimer, ENABLE);  
+  
+  TIM_Cmd( ptimer, ENABLE );
+  
+  return clock;
+}
+
+void platform_pwm_start( unsigned id )
+{
+  PWM_TIMER_NAME->CCER |= ( ( u16 )1 << 4 * id );
+}
+
+void platform_pwm_stop( unsigned id )
+{
+  PWM_TIMER_NAME->CCER &= ~( ( u16 )1 << 4 * id );
+}
+
+// *****************************************************************************
+// CPU specific functions
+ 
+u32 platform_s_cpu_get_frequency()
+{
+  return HCLK;
+}
+
+// *****************************************************************************
+// ADC specific functions and variables
+
+#ifdef BUILD_ADC
+
+/* ADC EXTEN mask */
+#define CR2_EXTEN_RESET           ((uint32_t)0xCFFFFFFF)  
+
+/**
+  * @brief  Enables or disables the ADCx conversion through external trigger.
+  * @param  ADCx: where x can be 1, 2 or 3 to select the ADC peripheral.
+  * @param  ADC_ExternalTrigConvEdge: specifies the ADC external trigger edge
+  *         to start  conversion. 
+  *          This parameter can be one of the following values:
+  *            @arg ADC_ExternalTrigConvEdge_None: external trigger disabled for 
+  *                                                     injected conversion
+  *            @arg ADC_ExternalTrigConvEdge_Rising: detection on rising edge
+  *            @arg ADC_ExternalTrigConvEdge_Falling: detection on falling edge
+  *            @arg ADC_ExternalTrigConvEdge_RisingFalling: detection on both rising 
+  *                                                               and falling edge
+
+  * @retval None
+  */
+void ADC_ExternalTrigConvCmd(ADC_TypeDef* ADCx, uint32_t ADC_ExternalTrigConvEdge)
+{
+  uint32_t tmpreg = 0;
+  
+  /* Check the parameters */
+  assert_param(IS_ADC_ALL_PERIPH(ADCx));
+  assert_param(IS_ADC_EXT_TRIG_EDGE(ADC_ExternalTrigConvEdge));    
+  
+  /* Get the old register value */
+  tmpreg = ADCx->CR2;
+  /* Clear the old external trigger edge for regular group */
+  tmpreg &= CR2_EXTEN_RESET;
+  /* Set the new external trigger edge for regular group */
+  tmpreg |= ADC_ExternalTrigConvEdge;
+  /* Store the new register value */
+  ADCx->CR2 = tmpreg;
+}
+
+/**
+  * @brief  Enables or disables the selected ADC software start conversion .
+  * @param  ADCx: where x can be 1, 2 or 3 to select the ADC peripheral.
+  * @param  NewState: new state of the selected ADC software start conversion.
+  *   This parameter can be: ENABLE or DISABLE.
+  * @retval None
+  */
+void ADC_SoftwareStartConvCmd(ADC_TypeDef* ADCx, FunctionalState NewState)
+{
+  /* Check the parameters */
+  assert_param(IS_ADC_ALL_PERIPH(ADCx));
+  assert_param(IS_FUNCTIONAL_STATE(NewState));
+  if (NewState != DISABLE)
+  {
+    /* Enable the selected ADC conversion on external event and start the selected
+       ADC conversion */
+    ADCx->CR2 |= ADC_CR2_SWSTART;
+  }
+  else
+  {
+    /* Disable the selected ADC conversion on external event and stop the selected
+       ADC conversion */
+    ADCx->CR2 &= (~ADC_CR2_SWSTART);
+  }
+}
+
+#define ADC_DMA_STREAM  DMA2_Stream0
+#define ADC_DMA_CHANNEL DMA_Channel_0
+#define ADC_DMA_TCIF    DMA_IT_TCIF0
+#define ADC_PINS        GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_3
+#define ADC_PINS_PORT   GPIOA
+
+#define ADC_TRIG_CFG(adn, n) ADC_ExternalTrigConvCmd( (adn), (n)==ENABLE?ADC_ExternalTrigConvEdge_Rising:ADC_ExternalTrigConvEdge_None ) //ADC_AutoInjectedConvCmd( (adn), (n) )
+
+#define ADC1_DR_Address ((u32)ADC1_BASE + 0x4C)
+
+static ADC_TypeDef *const adc[] = { ADC1, ADC2, ADC3 };
+static const u32 adc_timer[] = { ADC_ExternalTrigConv_T1_CC1, ADC_ExternalTrigConv_T2_TRGO, ADC_ExternalTrigConv_T3_TRGO, ADC_ExternalTrigConv_T4_CC4 };
+
+
+ADC_InitTypeDef adc_init_struct;
+DMA_InitTypeDef dma_init_struct;
+
+int platform_adc_check_timer_id( unsigned id, unsigned timer_id )
+{
+  // NOTE: We only allow timer id 1, the TIM2, at the moment, for the sake of implementation simplicity
+  return ( (timer_id == 1) ||(timer_id == 2) );
+}
+
+void platform_adc_stop( unsigned id )
+{
+  elua_adc_ch_state *s = adc_get_ch_state( id );
+  elua_adc_dev_state *d = adc_get_dev_state( 0 );
+
+  s->op_pending = 0;
+  INACTIVATE_CHANNEL( d, id );
+
+  // If there are no more active channels, stop the sequencer
+  if( d->ch_active == 0 )
+  {
+    // Ensure that no external triggers are firing
+    ADC_TRIG_CFG( adc[ d->seq_id ], DISABLE );
+
+    // Also ensure that DMA interrupt won't fire ( this shouldn't really be necessary )
+    nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE; 
+    NVIC_Init(&nvic_init_structure_adc);
+    
+    d->running = 0;
+  }
+}
+
+int platform_adc_update_sequence( )
+{  
+  elua_adc_dev_state *d = adc_get_dev_state( 0 );
+  
+  // NOTE: this shutdown/startup stuff may or may not be absolutely necessary
+  //       it is here to deal with the situation that a dma conversion has
+  //       already started and should be reset.
+  ADC_TRIG_CFG( adc[ d->seq_id ], DISABLE );
+
+
+  // Stop in-progress adc dma transfers
+  // Later de/reinitialization should flush out synchronization problems
+  ADC_DMACmd( adc[ d->seq_id ], DISABLE );
+  
+  // Bring down adc, update setup, bring back up
+  ADC_Cmd( adc[ d->seq_id ], DISABLE );
+  ADC_DeInit();
+  
+  d->seq_ctr = 0; 
+  while( d->seq_ctr < d->seq_len )
+  {
+    ADC_RegularChannelConfig( adc[ d->seq_id ], d->ch_state[ d->seq_ctr ]->id, d->seq_ctr+1, ADC_SampleTime_3Cycles );
+    d->seq_ctr++;
+  }
+  d->seq_ctr = 0;
+  
+  adc_init_struct.ADC_NbrOfConversion = d->seq_len;
+  ADC_Init( adc[ d->seq_id ], &adc_init_struct );
+  ADC_Cmd( adc[ d->seq_id ], ENABLE );
+  
+  // Bring down adc dma, update setup, bring back up
+  DMA_Cmd( ADC_DMA_STREAM, DISABLE );
+  DMA_DeInit( ADC_DMA_STREAM );
+  dma_init_struct.DMA_BufferSize = d->seq_len;
+  dma_init_struct.DMA_Memory0BaseAddr = (u32)d->sample_buf;
+  DMA_Init( ADC_DMA_STREAM, &dma_init_struct );
+  DMA_Cmd( ADC_DMA_STREAM, ENABLE );
+
+  ADC_DMARequestAfterLastTransferCmd( ADC1, ENABLE );
+  
+  ADC_DMACmd( adc[ d->seq_id ], ENABLE );
+  DMA_ITConfig( ADC_DMA_STREAM, DMA_IT_TC , ENABLE ); 
+  
+  if ( d->clocked == 1 && d->running == 1 )
+  {
+    ADC_TRIG_CFG( adc[ d->seq_id ], ENABLE );
+  }
+  
+  return PLATFORM_OK;
+}
+
+void DMA2_Stream0_IRQHandler(void) 
+{
+  elua_adc_dev_state *d = adc_get_dev_state( 0 );
+  elua_adc_ch_state *s;
+  
+  DMA_ClearITPendingBit(ADC_DMA_STREAM, ADC_DMA_TCIF );
+
+  d->seq_ctr = 0;
+  while( d->seq_ctr < d->seq_len )
+  {
+    s = d->ch_state[ d->seq_ctr ];
+    s->value_fresh = 1;
+    
+    // Fill in smoothing buffer until warmed up
+    if ( s->logsmoothlen > 0 && s->smooth_ready == 0)
+      adc_smooth_data( s->id );
+#if defined( BUF_ENABLE_ADC )
+    else if ( s->reqsamples > 1 )
+    {
+      buf_write( BUF_ID_ADC, s->id, ( t_buf_data* )s->value_ptr );
+      s->value_fresh = 0;
+    }
+#endif
+
+    // If we have the number of requested samples, stop sampling
+    if ( adc_samples_available( s->id ) >= s->reqsamples && s->freerunning == 0 )
+      platform_adc_stop( s->id );
+
+    d->seq_ctr++;
+  }
+  d->seq_ctr = 0;
+
+  if( d->running == 1 )
+    adc_update_dev_sequence( 0 );
+  
+  if ( d->clocked == 0 && d->running == 1 )
+    ADC_SoftwareStartConvCmd( adc[ d->seq_id ], ENABLE );
+}
+
+static void adcs_init()
+{
+  unsigned id;
+  GPIO_InitTypeDef GPIO_InitStructure;
+  ADC_CommonInitTypeDef ADC_CommonInitStructure;
+  elua_adc_dev_state *d = adc_get_dev_state( 0 );
+  
+  for( id = 0; id < NUM_ADC; id ++ )
+    adc_init_ch_state( id );
+
+  // Setup PA0-3 for ADC input
+  GPIO_InitStructure.GPIO_Pin = ADC_PINS;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_25MHz;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+
+  GPIO_Init(ADC_PINS_PORT, &GPIO_InitStructure);
+
+  RCC_APB2PeriphClockCmd( RCC_APB2Periph_ADC1, ENABLE );
+
+  ADC_DeInit();
+  ADC_StructInit( &adc_init_struct );
+  
+  // Universal Converter Setup
+  ADC_CommonInitStructure.ADC_Mode = ADC_Mode_Independent;
+  ADC_CommonInitStructure.ADC_Prescaler = ADC_Prescaler_Div8;
+  ADC_CommonInitStructure.ADC_DMAAccessMode = ADC_DMAAccessMode_Disabled;
+  ADC_CommonInitStructure.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_5Cycles;
+  ADC_CommonInit(&ADC_CommonInitStructure);
+
+  adc_init_struct.ADC_Resolution = ADC_Resolution_12b;
+  adc_init_struct.ADC_ScanConvMode = ENABLE;
+  adc_init_struct.ADC_ContinuousConvMode = DISABLE;
+  adc_init_struct.ADC_ExternalTrigConv = ADC_ExternalTrigConv_T3_TRGO;
+  adc_init_struct.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_None;
+  adc_init_struct.ADC_DataAlign = ADC_DataAlign_Right;
+  adc_init_struct.ADC_NbrOfConversion = 1;
+  
+  // Apply default config
+  ADC_Init( adc[ d->seq_id ], &adc_init_struct );
+
+  // Enable ADC
+  ADC_Cmd( adc[ d->seq_id ], ENABLE );  
+
+  // Set up DMA to handle samples
+  RCC_AHB1PeriphClockCmd( RCC_AHB1Periph_DMA2, ENABLE );
+  
+  DMA_DeInit( ADC_DMA_STREAM );
+
+  DMA_StructInit(&dma_init_struct);
+  dma_init_struct.DMA_Channel = ADC_DMA_CHANNEL;
+  dma_init_struct.DMA_PeripheralBaseAddr = ADC1_DR_Address;
+  dma_init_struct.DMA_Memory0BaseAddr = (u32)d->sample_buf;
+  dma_init_struct.DMA_DIR = DMA_DIR_PeripheralToMemory;
+  dma_init_struct.DMA_BufferSize = 1;
+  dma_init_struct.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+  dma_init_struct.DMA_MemoryInc = DMA_MemoryInc_Enable;
+  dma_init_struct.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
+  dma_init_struct.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+  dma_init_struct.DMA_Mode = DMA_Mode_Circular;
+  dma_init_struct.DMA_Priority = DMA_Priority_Low;
+  DMA_Init( ADC_DMA_STREAM, &dma_init_struct );
+
+  // Clear flags
+  DMA_ClearFlag(ADC_DMA_STREAM, DMA_FLAG_TEIF0 | DMA_FLAG_TCIF0 | DMA_FLAG_HTIF0);
+
+  DMA_ClearITPendingBit(ADC_DMA_STREAM, ADC_DMA_TCIF );
+
+  ADC_DMARequestAfterLastTransferCmd( ADC1, DISABLE );
+
+  ADC_DMACmd(ADC1, ENABLE );
+
+  DMA_Cmd( ADC_DMA_STREAM, ENABLE );
+  DMA_ITConfig( ADC_DMA_STREAM, DMA_IT_TC , ENABLE ); 
+
+  platform_adc_set_clock( 0, 0 );
+}
+
+u32 platform_adc_set_clock( unsigned id, u32 frequency )
+{
+  TIM_TimeBaseInitTypeDef timer_base_struct;
+  elua_adc_dev_state *d = adc_get_dev_state( 0 );
+  
+  unsigned period, prescaler;
+  
+  // Make sure sequencer is disabled before making changes
+  ADC_TRIG_CFG( adc[ d->seq_id ], DISABLE );
+
+  if ( frequency > 0 )
+  {
+    d->clocked = 1;
+    // Attach timer to converter
+    adc_init_struct.ADC_ExternalTrigConv = adc_timer[ d->timer_id ];
+    adc_init_struct.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_Rising;
+
+    period = TIM_GET_BASE_CLK( id ) / frequency;
+    
+    prescaler = (period / 0x10000) + 1;
+    period /= prescaler;
+
+    timer_base_struct.TIM_Period = period - 1;
+    timer_base_struct.TIM_Prescaler = prescaler - 1;
+    timer_base_struct.TIM_ClockDivision = TIM_CKD_DIV1;
+    timer_base_struct.TIM_CounterMode = TIM_CounterMode_Down;
+    TIM_TimeBaseInit( (TIM_TypeDef*)timer[ d->timer_id ], &timer_base_struct );
+    
+    frequency = ( TIM_GET_BASE_CLK( id ) / ( TIM_GetPrescaler( (TIM_TypeDef*)timer[ d->timer_id ] ) + 1 ) ) / period;
+    
+    // Set up output compare for timer
+    TIM_SelectOutputTrigger((TIM_TypeDef*)timer[ d->timer_id ], TIM_TRGOSource_Update);
+  }
+  else
+  {
+    d->clocked = 0;
+    
+    // Switch to Software-only Trigger
+    adc_init_struct.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_None;   
+  }
+  
+  // Apply config
+  ADC_Init( adc[ d->seq_id ], &adc_init_struct );
+  
+  return frequency;
+}
+
+int platform_adc_start_sequence( )
+{ 
+  elua_adc_dev_state *d = adc_get_dev_state( 0 );
+  
+  // Only force update and initiate if we weren't already running
+  // changes will get picked up during next interrupt cycle
+  if ( d->running != 1 )
+  {
+    adc_update_dev_sequence( 0 );
+    
+    d->running = 1;
+    
+    DMA_ClearITPendingBit( ADC_DMA_STREAM, ADC_DMA_TCIF );
+
+    nvic_init_structure_adc.NVIC_IRQChannelCmd = ENABLE; 
+    NVIC_Init(&nvic_init_structure_adc);
+
+    if( d->clocked == 1 )
+      ADC_TRIG_CFG( adc[ d->seq_id ], ENABLE );
+    else
+      ADC_SoftwareStartConvCmd( adc[ d->seq_id ], ENABLE );
+  }
+
+  return PLATFORM_OK;
+}
+
+#endif // ifdef BUILD_ADC
 
 // ****************************************************************************
 // Platform specific modules go here

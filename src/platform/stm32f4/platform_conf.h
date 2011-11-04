@@ -114,9 +114,9 @@
 // Number of resources (0 if not available/not implemented)
 #define NUM_PIO               5
 #define NUM_SPI               3
-#define NUM_UART              5
-#define NUM_TIMER             5
-#define NUM_PHYS_TIMER        5
+#define NUM_UART              6
+#define NUM_TIMER             12
+#define NUM_PHYS_TIMER        12
 #define NUM_PWM               4
 #define NUM_ADC               16
 #define NUM_CAN               1
@@ -142,9 +142,9 @@
 // For STM32F407VGT6 - PA5 = CLK, PA6 = MISO, PA7 = MOSI, PA4 = CS
 #define MMCFS_TICK_HZ                10
 #define MMCFS_TICK_MS                ( 1000 / MMCFS_TICK_HZ )
-#define MMCFS_CS_PORT                0
-#define MMCFS_CS_PIN                 4
-#define MMCFS_SPI_NUM                0
+#define MMCFS_CS_PORT                1
+#define MMCFS_CS_PIN                 11
+#define MMCFS_SPI_NUM                1
 
 // CPU frequency (needed by the CPU module, 0 if not used)
 u32 platform_s_cpu_get_frequency();
@@ -190,8 +190,8 @@ u32 platform_s_cpu_get_frequency();
   _C( INT_TMR_MATCH ),        \
   _C( INT_UART_RX )
 
-void TimingDelay_Decrement(void);
-void Delay(__IO uint32_t nTime);
+// Conver from GPIO_PinSourceXX to GPIO_Pin_XX
+#define GPIO_SOURCE2PIN(n)    (1 << (n))
 
 #endif // #ifndef __PLATFORM_CONF_H__
 
