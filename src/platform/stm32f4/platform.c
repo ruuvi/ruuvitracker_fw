@@ -1168,6 +1168,16 @@ u32 platform_s_cpu_get_frequency()
 
 #ifdef BUILD_ADC
 
+static const u16 adc_gpio_pins[] = { GPIO_Pin_0,  GPIO_Pin_1,  GPIO_Pin_2,  GPIO_Pin_3,
+                                     GPIO_Pin_4,  GPIO_Pin_5,  GPIO_Pin_6,  GPIO_Pin_7,
+                                     GPIO_Pin_0,  GPIO_Pin_1,  GPIO_Pin_0,  GPIO_Pin_1,
+                                     GPIO_Pin_2,  GPIO_Pin_3,  GPIO_Pin_4,  GPIO_Pin_5};
+
+static GPIO_TypeDef * const adc_gpio_port[] = { GPIOA, GPIOA, GPIOA, GPIOA,
+                                               GPIOA, GPIOA, GPIOA, GPIOA, 
+                                               GPIOB, GPIOB, GPIOC, GPIOC,
+                                               GPIOC, GPIOC, GPIOC, GPIOC };
+
 /* ADC EXTEN mask */
 #define CR2_EXTEN_RESET           ((uint32_t)0xCFFFFFFF)  
 
@@ -1233,8 +1243,8 @@ void ADC_SoftwareStartConvCmd(ADC_TypeDef* ADCx, FunctionalState NewState)
 #define ADC_DMA_STREAM  DMA2_Stream0
 #define ADC_DMA_CHANNEL DMA_Channel_0
 #define ADC_DMA_TCIF    DMA_IT_TCIF0
-#define ADC_PINS        GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_3
-#define ADC_PINS_PORT   GPIOA
+//#define ADC_PINS        GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_3
+//#define ADC_PINS_PORT   GPIOA
 
 #define ADC_TRIG_CFG(adn, n) ADC_ExternalTrigConvCmd( (adn), (n)==ENABLE?ADC_ExternalTrigConvEdge_Rising:ADC_ExternalTrigConvEdge_None ) //ADC_AutoInjectedConvCmd( (adn), (n) )
 
@@ -1277,13 +1287,13 @@ void platform_adc_stop( unsigned id )
 
 int platform_adc_update_sequence( )
 {  
+  GPIO_InitTypeDef GPIO_InitStructure;
   elua_adc_dev_state *d = adc_get_dev_state( 0 );
   
   // NOTE: this shutdown/startup stuff may or may not be absolutely necessary
   //       it is here to deal with the situation that a dma conversion has
   //       already started and should be reset.
   ADC_TRIG_CFG( adc[ d->seq_id ], DISABLE );
-
 
   // Stop in-progress adc dma transfers
   // Later de/reinitialization should flush out synchronization problems
@@ -1292,10 +1302,18 @@ int platform_adc_update_sequence( )
   // Bring down adc, update setup, bring back up
   ADC_Cmd( adc[ d->seq_id ], DISABLE );
   ADC_DeInit();
+
+  // prep for configuring pins as analog input with no pull
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
   
   d->seq_ctr = 0; 
   while( d->seq_ctr < d->seq_len )
   {
+    // Map pin as analog input
+    GPIO_InitStructure.GPIO_Pin = adc_gpio_pins[ d->ch_state[ d->seq_ctr ]->id ];
+    GPIO_Init(adc_gpio_port[ d->ch_state[ d->seq_ctr ]->id ], &GPIO_InitStructure);
+
     ADC_RegularChannelConfig( adc[ d->seq_id ], d->ch_state[ d->seq_ctr ]->id, d->seq_ctr+1, ADC_SampleTime_3Cycles );
     d->seq_ctr++;
   }
@@ -1368,21 +1386,11 @@ void DMA2_Stream0_IRQHandler(void)
 static void adcs_init()
 {
   unsigned id;
-  GPIO_InitTypeDef GPIO_InitStructure;
   ADC_CommonInitTypeDef ADC_CommonInitStructure;
   elua_adc_dev_state *d = adc_get_dev_state( 0 );
   
   for( id = 0; id < NUM_ADC; id ++ )
     adc_init_ch_state( id );
-
-  // Setup PA0-3 for ADC input
-  GPIO_InitStructure.GPIO_Pin = ADC_PINS;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AN;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_25MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-
-  GPIO_Init(ADC_PINS_PORT, &GPIO_InitStructure);
 
   RCC_APB2PeriphClockCmd( RCC_APB2Periph_ADC1, ENABLE );
 
