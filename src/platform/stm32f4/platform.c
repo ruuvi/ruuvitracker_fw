@@ -615,15 +615,15 @@ const TIM_TypeDef * const timer[] = {
   TIM4,   // ID: 3
   TIM5,   // ID: 4
   TIM8,   // ID: 5
-  TIM9,   // ID: 5
-  TIM10,  // ID: 6
-  TIM11,  // ID: 7
-  TIM12,  // ID: 8
+  TIM9,   // ID: 6
+  TIM10,  // ID: 7
+  TIM11,  // ID: 8
+  TIM12,  // ID: 9
   TIM13,  // ID: 10
   TIM14   // ID: 11
 };
 #define TIM_GET_PRESCALE( id ) ( (((id) == 0) || ((id) == 5)|| ((id) == 6)|| ((id) == 7)|| ((id) == 8)) ? ( PCLK2_DIV ) : ( PCLK1_DIV ) )
-#define TIM_GET_BASE_CLK( id ) ( TIM_GET_PRESCALE( id ) == 1 ? ( HCLK / TIM_GET_PRESCALE( id ) ) : ( HCLK / ( TIM_GET_PRESCALE( id ) / 2 ) ) )
+#define TIM_GET_BASE_CLK( id ) ( HCLK / ( TIM_GET_PRESCALE( id ) / 2 ) )
 #define TIM_STARTUP_CLOCK       50000
 
 static u32 platform_timer_set_clock( unsigned id, u32 clock );
@@ -641,12 +641,14 @@ static void timers_init()
 {
   unsigned i;
 
-  // Enable clocks.
+  // Enable PHB2 Clocks
   RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM1, ENABLE );
   RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM8, ENABLE );
   RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM9, ENABLE );
   RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM10, ENABLE );
   RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM11, ENABLE );
+
+  // Enable PHB1 Clocks
   RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM2, ENABLE );
   RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM3, ENABLE );
   RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM4, ENABLE );
@@ -663,25 +665,27 @@ static void timers_init()
 static u32 platform_timer_get_clock( unsigned id )
 {
   TIM_TypeDef* ptimer = (TIM_TypeDef*)timer[ id ];
-
   return TIM_GET_BASE_CLK( id ) / ( TIM_GetPrescaler( ptimer ) + 1 );
 }
 
 static u32 platform_timer_set_clock( unsigned id, u32 clock )
 {
-  TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
+  TIM_TimeBaseInitTypeDef timer_base_struct;
   TIM_TypeDef *ptimer = (TIM_TypeDef*)timer[ id ];
-  u16 pre = ( TIM_GET_BASE_CLK( id ) / clock ) - 1;
+  u32 pre = ( TIM_GET_BASE_CLK( id ) / clock ) - 1;
+
+  if( pre > 65535 ) // Limit prescaler to 16-bits
+    pre = 65535;
   
-  TIM_TimeBaseStructure.TIM_Period = 0xFFFF;
-  TIM_TimeBaseStructure.TIM_Prescaler = pre;
-  TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
-  TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-  TIM_TimeBaseStructure.TIM_RepetitionCounter = 0x0000;
-  TIM_TimeBaseInit( (TIM_TypeDef*)timer[ id ], &TIM_TimeBaseStructure );
+  timer_base_struct.TIM_Period = 0xFFFF;
+  timer_base_struct.TIM_Prescaler = ( u16 )pre;
+  timer_base_struct.TIM_ClockDivision = TIM_CKD_DIV1;
+  timer_base_struct.TIM_CounterMode = TIM_CounterMode_Up;
+  timer_base_struct.TIM_RepetitionCounter = 0x0000;
+  TIM_TimeBaseInit( (TIM_TypeDef*)timer[ id ], &timer_base_struct );
   TIM_Cmd( ptimer, ENABLE );
   
-  return TIM_GET_BASE_CLK( id ) / ( pre + 1 );
+  return  platform_timer_get_clock( id );
 }
 
 void platform_s_timer_delay( unsigned id, timer_data_type delay_us )
