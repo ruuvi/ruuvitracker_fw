@@ -170,9 +170,15 @@ u32 platform_s_cpu_get_frequency();
 
 // Allocator data: define your free memory zones here in two arrays
 // (start address and end address)
-#define SRAM_SIZE             ( 64 * 1024 )
-#define MEM_START_ADDRESS     { ( void* )end }
-#define MEM_END_ADDRESS       { ( void* )( SRAM_BASE + SRAM_SIZE - STACK_SIZE_TOTAL - 1 ) }
+// The F4 has 196K in total, but it is split into 3 sections:
+// SRAM (xrw) : ORIGIN = 0x20000000, SIZE = 128K      // Major SRAM
+// CCMDATARAM (xrw) : ORIGIN = 0x10000000, SIZE = 64K    // Core Coupled Data SRAM
+// BKPSRAM, SIZE = 4K // Backup SRAM
+//
+#define CCMDATARAM_SIZE         ( 64 * 1024 )
+#define SRAM_SIZE               ( 128 * 1024 )
+#define MEM_START_ADDRESS       { ( void* )end, (void* )( CCMDATARAM_BASE ) }
+#define MEM_END_ADDRESS         { ( void* )( SRAM_BASE + SRAM_SIZE - STACK_SIZE_TOTAL - 1 ), (void*)( CCMDATARAM_BASE + CCMDATARAM_SIZE - 1 ) }
 
 // Interrupt queue size
 #define PLATFORM_INT_QUEUE_LOG_SIZE 5
