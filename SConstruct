@@ -276,6 +276,8 @@ if not GetOption( 'help' ):
   if comp['allocator'] == 'auto':
     if comp['board'] in ['LPC-H2888', 'ATEVK1100', 'MBED']:
       comp['allocator'] = 'multiple'
+    elif comp['cpu'] in [ 'STM32F407VG', 'STM32F407IG' ]:
+      comp['allocator'] = 'multiple'
     else:
       comp['allocator'] = 'newlib'
 
