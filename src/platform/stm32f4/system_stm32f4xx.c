@@ -78,7 +78,7 @@
   *-----------------------------------------------------------------------------
   *        Flash Latency(WS)                      | 5
   *-----------------------------------------------------------------------------
-  *        Prefetch Buffer                        | OFF
+  *        Prefetch Buffer                        | ON
   *-----------------------------------------------------------------------------
   *        Instruction cache                      | ON
   *-----------------------------------------------------------------------------
@@ -146,7 +146,7 @@
 
 /************************* PLL Parameters *************************************/
 /* PLL_VCO = (HSE_VALUE or HSI_VALUE / PLL_M) * PLL_N */
-#define PLL_M      8  //25
+#define PLL_M      25
 #define PLL_N      336
 
 /* SYSCLK = PLL_VCO / PLL_P */
@@ -393,7 +393,7 @@ static void SetSysClock(void)
     }
    
     /* Configure Flash prefetch, Instruction cache, Data cache and wait state */
-    FLASH->ACR = FLASH_ACR_ICEN |FLASH_ACR_DCEN |FLASH_ACR_LATENCY_5WS;
+    FLASH->ACR = FLASH_ACR_PRFTEN |FLASH_ACR_ICEN |FLASH_ACR_DCEN |FLASH_ACR_LATENCY_5WS;
 
     /* Select the main PLL as system clock source */
     RCC->CFGR &= (uint32_t)((uint32_t)~(RCC_CFGR_SW));

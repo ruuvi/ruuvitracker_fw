@@ -28,7 +28,7 @@
 // Clock data
 // IMPORTANT: if you change these, make sure to modify RCC_Configuration() too!
 /* PLL_VCO = (HSE_VALUE or HSI_VALUE / PLL_M) * PLL_N */
-#define PLL_M      8  //25
+#define PLL_M      25
 #define PLL_N      336
 
 /* SYSCLK = PLL_VCO / PLL_P */
@@ -56,7 +56,6 @@
 // Platform initialization
 
 // forward dcls
-static void RCC_Configuration(void);
 static void NVIC_Configuration(void);
 
 static void timers_init();
@@ -74,9 +73,6 @@ static void cans_init();
 
 int platform_init()
 {
-  // Set the clocking to run from PLL
-  RCC_Configuration();
-
   // Setup IRQ's
   NVIC_Configuration();
 
@@ -120,23 +116,6 @@ int platform_init()
 
   // All done
   return PLATFORM_OK;
-}
-
-// ****************************************************************************
-// Clocks
-// Shared by all STM32 devices.
-// TODO: Fix to handle different crystal frequencies and CPU frequencies.
-
-/*******************************************************************************
-* Function Name  : RCC_Configuration
-* Description    : Configures the different system clocks.
-* Input          : None
-* Output         : None
-* Return         : None
-*******************************************************************************/
-static void RCC_Configuration(void)
-{
-  SystemInit();
 }
 
 // ****************************************************************************
