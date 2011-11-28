@@ -569,14 +569,6 @@ timer_data_type platform_s_timer_op( unsigned id, int op, timer_data_type data )
       res = tc_read_tc( tc, id );
       break;
 
-    case PLATFORM_TIMER_OP_GET_MAX_DELAY:
-      res = platform_timer_get_diff_us( id, 0, 0xFFFF );
-      break;
-
-    case PLATFORM_TIMER_OP_GET_MIN_DELAY:
-      res = platform_timer_get_diff_us( id, 0, 1 );
-      break;
-
     case PLATFORM_TIMER_OP_SET_CLOCK:
       res = platform_timer_set_clock( id, data );
       break;
@@ -679,7 +671,7 @@ u32 platform_spi_setup( unsigned id, int mode, u32 clock, unsigned cpol, unsigne
   opt.bits = min(databits, 16);
   opt.spck_delay = 0;
   opt.trans_delay = 0;
-  opt.mode = ((cpol & 1) << 1) | (cpha & 1);
+  opt.mode = (cpol << 1) | cpha;
 
   // Set actual interface
   gpio_enable_module(spi_pins + (id >> 2) * 4, 4);
