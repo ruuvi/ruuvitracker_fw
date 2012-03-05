@@ -25,7 +25,7 @@ AND TITLE FIELDS! See the definition of 'forum.html' below for an example of suc
 local menu =
 {
   -- "eLua project" (menu separator)
-  { { "eLua project", "Projeto eLua" } },
+ --[[ { { "eLua project", "Projeto eLua" } },
 
   -- "Overview"
   { { "Overview", "Apresentação" }, "overview.html", 
@@ -107,6 +107,18 @@ local menu =
       },
     },
   },
+  --]]
+  { { "Introduction"}, "index.html"},
+
+  -- "Status"
+  { {"Status"}, "status.html", 
+    {
+      { { "Supported platforms", "Plataformas Suportadas" }, "status.html" },
+      { { "Modules per platform table", "Módulos por plataforma" }, "status.html#plat_modules" },
+      { { "Modules overview status", "Visão geral dos módulos" }, "status.html#gen_modules" },
+      { { "Roadmap", "Planejamento Futuro" }, "status.html#roadmap" }
+    },
+  },
   { { "Generic info", "Doc Genérica" }, "using.html", 
     {
       { { "Using eLua", "Usando eLua" }, "using.html", 
@@ -144,7 +156,7 @@ local menu =
       },
     },
   }, 
-  { { "Platform info", "Doc Específica" }, "installing.html", 
+--[[  { { "Platform info", "Doc Específica" }, "installing.html", 
     {
       { "AT91SAM7x", "installing_at91sam7x.html" },
       { "AVR32", "installing_avr32.html" },
@@ -156,71 +168,74 @@ local menu =
       { "STM32", "installing_stm32.html" },
       { "LPC2468", "installing_lpc2468.html" }
     },
-  },        
+  },--]]
           
   
   -- "eLua internals" (menu separator)
-  { { "eLua internals", "Arquitetura de eLua" } },
-
-  -- "Overview"
-  { { "Overview", "Visão Geral" }, "arch_overview.html", 
-    {
-      { { "eLua's Architecture", "Arquitetura de eLua" }, "arch_overview.html#structure" },
-      { { "Common code", "Código Básico" }, "arch_overview.html#common" },
-      { { "Interface architecture", "Interfaceamento" }, "arch_overview.html#platform" },
-      { { "Booting eLua", "O Boot de eLua" }, "arch_overview.html#boot" },
-      { { "Platforms and ports", "Portabilização" }, "arch_overview.html#platforms" },
-      { { "Adding a new port", "Portando eLua" }, "arch_newport.html" },
-      { "Implementing interrupts", "arch_ints.html",
+  { { "eLua internals" },"",
+    { 
+      { -- "Overview"      
+        { "Overview", "Visão Geral" }, "arch_overview.html", 
         {
-          { "Interrupt list", "arch_ints.html#intlist" }
+          { { "eLua's Architecture", "Arquitetura de eLua" }, "arch_overview.html#structure" },
+          { { "Common code", "Código Básico" }, "arch_overview.html#common" },
+          { { "Interface architecture", "Interfaceamento" }, "arch_overview.html#platform" },
+          { { "Booting eLua", "O Boot de eLua" }, "arch_overview.html#boot" },
+          { { "Platforms and ports", "Portabilização" }, "arch_overview.html#platforms" },
+          { { "Adding a new port", "Portando eLua" }, "arch_newport.html" },
+          { "Implementing interrupts", "arch_ints.html",
+            {
+              { "Interrupt list", "arch_ints.html#intlist" }
+            }
+          }
+        }
+      },
+       -- Platform interface (automatically generated)
+      { { "Platform interface", "Interfaceamento" }, "arch_platform.html", "arch_platform" },
+
+      -- Other WRITE THE arch_platform_other.html file
+      { { "More information", "Informações Adicionais" }, "#", 
+        {
+          { { "Consoles and terminals", "Consoles e Terminais" }, "arch_con_term.html" },
+          { { "TCP/IP in eLua", "TCP/IP em eLua" }, "arch_tcpip.html" },
+          { { "LTR (Lua Tiny RAM) in eLua", "LTR (Lua Tiny RAM) em eLua" }, "arch_ltr.html" },
+          { "EGC (Emergency GC) in eLua", "elua_egc.html" },
+          { { "Booting on a PC", "Bootando num PC" }, "tut_bootpc.html" },
+          { { "Booting from a PenDrive", "Bootando de um Pen-Drive" }, "tut_bootstick.html" },
+          { { "Using OpenOCD", "Usando OpenOCD" }, "tut_openocd.html" },
+          { { "eLua toolchains", "Toolchains para eLua" }, "toolchains.html" },
+          { { "Building toolchains", "Build de Toolchains" }, "tchainbuild.html",
+            {
+              { "ARM7 and ARM9", "tc_arm.html" },
+              { "ARM Cortex-M3", "tc_cortex.html" },
+              { "i386", "tc_386.html" }
+            },
+          },
+          { { "eLua coding style", "Regras de Codificação" }, "arch_coding.html" },
+        }
+      },
+    }
+  },
+  
+  {  -- "Reference manual" (menu separator)
+    { "Reference Manual", "Manual de Referência" },"",
+    {
+      -- "Generic modules" (automatically generated)
+      { { "Generic modules", "Módulos Genéricos" }, "refman_gen.html", "refman_gen" },
+
+      -- "Platform modules" (automatically generated)
+      { { "Platform modules", "Módulos Específicos" }, "refman_dep.html", 
+        {
+           { "lm3s", "modules_lm3s.html", "refman_ps_lm3s" },
+           { "str9", "modules_str9.html", "refman_ps_str9" },
+           { "mbed", "modules_mbed.html", "refman_ps_mbed" },
+           { "mizar32", "modules_mizar32.html", "refman_ps_mizar32" },
         }
       }
     }
-  },
-
-  -- Platform interface (automatically generated)
-  { { "Platform interface", "Interfaceamento" }, "arch_platform.html", "arch_platform" },
-
-  -- Other WRITE THE arch_platform_other.html file
-  { { "More information", "Informações Adicionais" }, "#", 
-    {
-      { { "Consoles and terminals", "Consoles e Terminais" }, "arch_con_term.html" },
-      { { "TCP/IP in eLua", "TCP/IP em eLua" }, "arch_tcpip.html" },
-      { { "LTR (Lua Tiny RAM) in eLua", "LTR (Lua Tiny RAM) em eLua" }, "arch_ltr.html" },
-      { "EGC (Emergency GC) in eLua", "elua_egc.html" },
-      { { "Booting on a PC", "Bootando num PC" }, "tut_bootpc.html" },
-      { { "Booting from a PenDrive", "Bootando de um Pen-Drive" }, "tut_bootstick.html" },
-      { { "Using OpenOCD", "Usando OpenOCD" }, "tut_openocd.html" },
-      { { "eLua toolchains", "Toolchains para eLua" }, "toolchains.html" },
-      { { "Building toolchains", "Build de Toolchains" }, "tchainbuild.html",
-        {
-          { "ARM7 and ARM9", "tc_arm.html" },
-          { "ARM Cortex-M3", "tc_cortex.html" },
-          { "i386", "tc_386.html" }
-        },
-      },
-      { { "eLua coding style", "Regras de Codificação" }, "arch_coding.html" },
-    }
-  },
-
-  -- "Reference manual" (menu separator)
-  { { "Reference Manual", "Manual de Referência" } },
-
-  -- "Generic modules" (automatically generated)
-  { { "Generic modules", "Módulos Genéricos" }, "refman_gen.html", "refman_gen" },
-
-  -- "Platform modules" (automatically generated)
-  { { "Platform modules", "Módulos Específicos" }, "refman_dep.html", 
-    {
-      { "lm3s", "modules_lm3s.html", "refman_ps_lm3s" },
-      { "str9", "modules_str9.html", "refman_ps_str9" },
-      { "mbed", "modules_mbed.html", "refman_ps_mbed" },
-      { "mizar32", "modules_mizar32.html", "refman_ps_mizar32" },
-    }
   }
-}
 
+}
 -- Translations for different strings needed by the generator
 -- The order of languages is the same as the one defines in the languages array 
 -- defined at the beginning of buildall.lua
@@ -238,10 +253,11 @@ local translations =
 -- HTML documentation distribution. Directories end with a "/", files don't.
 local fixed = 
 {
-  "style1.css",
-  "menu.css",
   "images/",
-  "ddlevelsfiles/"
+  "js/",
+  "css/",
+  "index.html"
+  
 }
 
 -- Return our whole data defined above

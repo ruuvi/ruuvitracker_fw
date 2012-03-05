@@ -93,7 +93,7 @@ end
 -- Returns the english name if the name for the specified language can't be found
 -- If the link field doesn't exists, the name is returned instead
 local function get_menu_title( menuitem, lang )
-  return "eLua - " .. ( get_menu_field( menuitem, lang, title_idx ) or  get_menu_field( menuitem, lang, name_idx ) )
+  return "" .. ( get_menu_field( menuitem, lang, title_idx ) or  get_menu_field( menuitem, lang, name_idx ) )
 end
 
 -- Set "print" to print indented (with 2 spaces)
@@ -296,18 +296,21 @@ local function gen_submenus( item, lang, level )
   level = level or 1
   local data = ''
   local lidx = langidx[ lang ]
-  local arrptr = '<img class="rightarrowpointer" src="ddlevelsfiles/arrow-right.gif" alt="right arrow" />'
+  local arrptr = ''
   for i = 1, #item do
     local l = item[ i ]
     if l[ submenu_idx ] then
-      data = data .. string.rep( " ", level * 2 + 8 ) .. string.format( '<li><a href="%s">%s%s</a>\n', get_link( lang, l[ link_idx ] ), arrptr, get_menu_name( l, lang ) )
+      local link = l[ link_idx ]
+      local string_item = (link == "" or not link) and '<li>%s<span class="folder">%s%s</span>\n' or '<li> <a href="%s">%s%s</a>\n'
+      data = data .. string.rep( " ", level * 2 + 8 ) .. string.format( string_item, get_link( lang, l[ link_idx ] ), arrptr, get_menu_name( l, lang ) )
       data = data .. string.rep( " ", level * 2 + 8 ) .. "<ul>\n"
       data = data .. gen_submenus( l[ submenu_idx ], lang, level + 1 )
       data = data .. string.rep( " ", level * 2 + 8 ) .. "</ul></li>\n"
     else
       if get_menu_name( l, lang ) then
-        data = data .. string.rep( " ", level * 2 + 8 ) .. string.format( '<li><a href="%s">%s</a></li>\n', 
-               get_link( lang, l[ link_idx ] ), get_menu_name( l, lang ) )
+        local link = l[ link_idx ]
+        local string_item = (link == "" or not link) and '<li>%s<span class="folder">%s</span></li>\n' or '<li> <a href="%s">%s</a></li>\n'
+        data = data .. string.rep( " ", level * 2 + 8 ) .. string.format( string_item, get_link( lang, l[ link_idx ] ), get_menu_name( l, lang ) )
       end
     end
   end
@@ -318,8 +321,7 @@ end
 -- If "is_offline" is true, don't generate links to the counter and the BerliOS logo
 local function gen_html_nav( parentid, lang )
   local htmlstr = [[
-<div id="nav">
-    <ul id="menu">
+    <ul id="menu-nav">
 ]]
   local lidx = langidx[ lang ]
   for i = 1, #themenu do
@@ -336,22 +338,24 @@ local function gen_html_nav( parentid, lang )
       if themenu[ i ][ submenu_idx ] then
         menudata = string.format( [[
         <ul id="%s">      
-%s
+          %s
         </ul>
-]], relname, string.sub( gen_submenus( themenu[ i ][ submenu_idx ], lang ), 1, -2 ) )
-        imginsert = '<img class="rightarrowpointer" src="ddlevelsfiles/arrow-right.gif" alt="right arrow" />'
+        ]], relname, string.sub( gen_submenus( themenu[ i ][ submenu_idx ], lang ), 1, -2 ) )
+        imginsert = ''
       end
       if name then
         if i == parentid then
           -- If this is the parent, use a special style for it (<a class="current"> or <li class="current">, depending on the item type)
           if themenu[ i ][ submenu_idx ] then
-            htmlstr = htmlstr .. string.format('      <li><a class="current" href="%s" rel="%s"%s>%s%s</a>\n%s      </li>\n', get_link( lang, link ), relname, styledef, imginsert, name, menudata )
+            local string_item = (link == "" or not link) and '      <li><span class="folder" %s rel="%s"%s>%s%s</span>\n%s      </li>\n' or '      <li><a class="current" href="%s" rel="%s"%s>%s%s</a>\n%s      </li>\n'
+            htmlstr = htmlstr .. string.format(string_item, get_link( lang, link ), relname, styledef, imginsert, name, menudata )
           else
             htmlstr = htmlstr .. string.format('      <li class="current"%s>%s%s\n%s      </li>\n', styledef, imginsert, name, menudata )
           end
         else
           local submenustr = themenu[ i ][ submenu_idx ] and string.format( ' rel="%s"', relname ) or ""
-          htmlstr = htmlstr .. string.format('      <li><a href="%s"%s%s>%s%s</a>\n%s     </li>\n', get_link( lang, link ), submenustr, styledef, imginsert, name, menudata )
+          local string_item = (link == "" or not link) and '      <li> <span class="folder" %s %s%s>%s%s</span>\n%s     </li>\n' or '      <li> <a href="%s"%s%s>%s%s</a>\n%s     </li>\n'
+          htmlstr = htmlstr .. string.format(string_item, get_link( lang, link ), submenustr, styledef, imginsert, name, menudata )
         end
       end
     end
@@ -362,7 +366,7 @@ local function gen_html_nav( parentid, lang )
 ]] or ""
   htmlstr = htmlstr .. string.format( [[
     </ul>  
-%s</div>
+%s
 ]], offline_data )
   return htmlstr
 end
@@ -397,38 +401,7 @@ local function gen_logo( fname, lang )
     end
   end
 return string.format( [[
-<form method="get" action="http://www.google.com/search">   
-<div id="logo">
-  <table border="0" style="width: 100%%%%;" cellspacing="0" cellpadding="0">
-    <tr>
-      <td valign="middle" style="width: 90px;"><img src="images/eLuaLogo.png" alt="eLua logo" class="logo_elua" /></td>
-      <td class="header_title" valign="middle">%s</td> 
-      
-      <td style="width: 280px;" align="center" valign="middle">   
-        <table border="0" cellspacing="0" cellpadding="0">        
-        <tr style="height: 40px;">
-          <td colspan="%d">
-            <input type="hidden" name="ie" value="utf-8" />
-            <input type="hidden" name="oe" value="utf-8" />
-            <input type="text" name="q" size="21" maxlength="255" value="" />
-          </td>
-          <td style="padding-left: 5px;">
-            <input type="submit" name="btnG" value="%s" style="height: 21px; font-size: x-small;" />
-            <input type="hidden" name="domains" value="http://www.eluaproject.net" />
-            <input type="hidden" name="sitesearch" value="http://www.eluaproject.net" />
-          </td>
-        </tr>
-        <tr>
-          <td align="center"><h6>%s:</h6></td>
-%s
-          <td align="center">&nbsp;</td>          
-        </tr>        
-        </table>       
-      </td>
-    </tr>
-  </table>
-</div>
-</form>
+
 ]], getstr( "eLua - Embedded Lua", lang ), numl + 1, getstr( "Search", lang ), getstr( "Language", lang ), langdata:sub( 1, -2 ) )
 end
 
@@ -497,56 +470,128 @@ local function gen_html_page( fname, lang )
   end
   -- Replace local links with language-dependent links
   orig = language_for_links( lang, orig )
-
+  local main_header_title = "eLua Doc"
+  
   -- Generate actual data
-  local header = string.format( [=[
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
+  local header = [=[
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html>
+ <head>
+  <meta charset="utf-8">
+	<meta name="subject" content="eLua - Lua for the embedded world" />
+  <meta name="Description" content="eLua stands for Embedded Lua and the project aims to offer the full set of features of the Lua Programming Language to the embedded world." />
+  <meta name="Keywords" content="eLua, lua, embedded, ARM, Cortex-M3, AVR32, ARM7TDMI, microcontroller, mcu, programming, electronics, tools, development" />
+  
+	<script src="js/jquery.js" type="text/javascript"></script>
+	<script src="js/jquery.cookie.js" type="text/javascript"></script>
+	<script src="js/jquery.treeview.js" type="text/javascript"></script>
 
-<head>
-<title>%s</title>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="subject" content="eLua - Lua for the embedded world" />
-<meta name="Description" content="eLua stands for Embedded Lua and the project aims to offer the full set of features of the Lua Programming Language to the embedded world." />
-<meta name="Keywords" content="eLua, lua, embedded, ARM, Cortex-M3, AVR32, ARM7TDMI, microcontroller, mcu, programming, electronics, tools, development" />
-<link href="menu.css" rel="stylesheet" type="text/css" />
-<link href="style1.css" rel="stylesheet" type="text/css" />
-<link REL="SHORTCUT ICON" HREF="images/eLua_16x16.ico">
-<script type="text/javascript"><!--//--><![CDATA[//><!--
+  <link href="css/style1.css" rel="stylesheet" type="text/css"> 
+  <link rel="stylesheet" href="css/jquery.treeview.css" />
+  <title>eLua - ]=]..get_menu_title( item, lang )..[=[</title>
+  
+  <link REL="SHORTCUT ICON" HREF="images/eLua_16x16.ico">
+  <script type="text/javascript">
 
-sfHover = function() {
-	var sfEls = document.getElementById("nav").getElementsByTagName("LI");
-	for (var i=0; i<sfEls.length; i++) {
-		sfEls[i].onmouseover=function() {
-			this.className+=" sfhover";
-		}
-		sfEls[i].onmouseout=function() {
-			this.className=this.className.replace(new RegExp(" sfhover\\b"), "");
-		}
-	}
-}
-if (window.attachEvent) window.attachEvent("onload", sfHover);
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-11834941-1']);
+  _gaq.push(['_setDomainName', 'eluaproject.net']);
+  _gaq.push(['_trackPageview']);
 
-//--><!]]></script>
-</head>
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+  </script>
+ </head>
+  
+ <body id="interna_2">
+  <!--header-->
+ <div id="header">
+  	<div class="wrapper">
+    
+  	<form method="get" action="http://www.google.com/search" class="searchform" style="margin-top:62px;">
+        <input type="hidden" name="ie" value="utf-8" />
+        <input type="hidden" name="oe" value="utf-8" />
+        <input type="hidden" name="domains" value="http://www.eluaproject.net" />
+        <input type="hidden" name="sitesearch" value="http://www.eluaproject.net" />
+				<input class="searchfield" type="text"  name="q" maxlength="255" value="Search..." onfocus="if (this.value == 'Search...') {this.value = '';}" onblur="if (this.value == '') {this.value = 'Search...';}" />
+				<input class="searchbutton" type="submit" value="Go" />
+    </form>
+	
+  		<h1><a href="en_index.html" title="eLua Project"><img src="images/logo_elua_menor.png" alt="eLua Project"/></a></h1>
+  		
+  		<!--navegação-->
+  		<div id="nav_top">
+  			<ul class="sections">
+          <li><a href="http://www.eluaproject.net" >Site</a></li>
+  				<li><a href="http://www.eluaproject.net/get-started/downloads" >Downloads</a></li>
+  				<li><a href="http://www.eluaproject.net/doc" class="selected">Doc</a></li>
+  				<li><a href="http://wiki.eluaproject.net" >Wiki</a></li>
+  				<li><a href="http://builder.eluaproject.net" >Builder</a></li>
+  				<li><a href="http://tracker.eluaproject.net" >Tracker</a></li>
+  				<li><a href="http://www.github.com/elua" >Repos</a></li>
+  			</ul>
+  		</div>
+  		<!--navegação-->
+  		
+  		<!--chamada-->
+  		<div class="chamada_elua">
+  				<h2>]=]..main_header_title..[=[</h2>
+			</div>
+  			<!--chamada-->
+	
+  </div>
+  <!--header-->
+</div>  
+
+<div id="article">
+		<div class="wrapper">
+		
+			<div class="section_menu">
+			<!--conteudo Esquerda-->
+		]=] ..gen_logo( fname, lang ) .. "\n"..gen_html_nav( parentid, lang )
+		..
+	[=[
+			<!--conteudo esquerda-->
+			</div>
+
+  			<div class="section_conteudo section_size">
+			<!--conteudo-->
+      <h1>]=]..get_menu_title( item, lang )..[=[ </h1>
+      ]=] 
 
 
-<body>
-]=], get_menu_title( item, lang ) )
-  header = header .. gen_logo( fname, lang ) .. "\n"
-  local menuitems = gen_html_nav( parentid, lang )
-  header = header .. menuitems .. '<div id="content">\n' .. ( asciimode and "" or '<div class="sectionbody">' )
-  local footer = ( asciimode and "" or '</div>' ) .. [[
-</div>
+  
+  local footer =  [[
+			<!--conteudo-->
+			</div>
+			
+		
+		</div>
+	<br/>
+	</div>
+
+  <!--footer-->
+  <div id="footer">
+  	<div class="wrapper">
+       <br/>
+        <span class="rodape">© 2011 eLua Project. All rights reserved.</span> 
+  	</div>
+  	<br/>
+  </div>
+  <!--footer-->
+
 <script type="text/javascript">
-var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
-document.write(unescape("%%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%%3E%%3C/script%%3E"));
+	$("#menu-nav").treeview({
+		persist: "location",
+		collapsed: true,
+		unique: true
+	});
 </script>
-<script type="text/javascript">
-try {
-var pageTracker = _gat._getTracker("UA-11834941-1");
-pageTracker._trackPageview();
-} catch(err) {}</script>
+
 </body>
 </html>
 ]]
