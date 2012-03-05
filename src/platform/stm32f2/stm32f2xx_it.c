@@ -1,11 +1,11 @@
 /**
   ******************************************************************************
-  * @file    Project/STM32F2xx_StdPeriph_Template/stm32f2xx_it.c 
+  * @file    Project/STM32F2xx_StdPeriph_Template/stm32f2xx_it.c
   * @author  MCD Application Team
   * @version V1.0.0
   * @date    18-April-2011
   * @brief   Main Interrupt Service Routines.
-  *          This file provides template for all exceptions handler and 
+  *          This file provides template for all exceptions handler and
   *          peripherals interrupt service routine.
   ******************************************************************************
   * @attention
@@ -19,7 +19,7 @@
   *
   * <h2><center>&copy; COPYRIGHT 2011 STMicroelectronics</center></h2>
   ******************************************************************************
-  */ 
+  */
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f2xx_it.h"
@@ -191,16 +191,6 @@ void PendSV_Handler(void)
 {
 }
 
-/**
-  * @brief  This function handles SysTick Handler.
-  * @param  None
-  * @retval None
-  */
-void SysTick_Handler(void)
-{
-  TimingDelay_Decrement();
-}
-
 /******************************************************************************/
 /*                 STM32F2xx Peripherals Interrupt Handlers                   */
 /*  Add here the Interrupt Handler for the used peripheral(s) (PPP), for the  */
@@ -219,7 +209,7 @@ void SysTick_Handler(void)
 
 /**
   * @}
-  */ 
+  */
 
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/

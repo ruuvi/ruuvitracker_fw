@@ -31,6 +31,8 @@
 #define BUILD_LUA_INT_HANDLERS
 //#define ENABLE_ENC
 
+#define PLATFORM_HAS_SYSTIMER
+
 #define ENABLE_TRACE       // Enable the ETM TRACE interface (TRACECLK, TRACE D0-3)
 #define ENABLE_JTAG_SWD    // Do NOT remove this unless you really not need JTAG/SWD
 
@@ -39,7 +41,7 @@
 
 #define CON_UART_ID           0
 #define CON_UART_SPEED        115200
-#define CON_TIMER_ID          0
+//#define CON_TIMER_ID          0
 #define TERM_LINES            25
 #define TERM_COLS             80
 
@@ -69,7 +71,7 @@
 #define BUILD_RPC
 #endif
 
-#if defined( BUILD_RPC ) 
+#if defined( BUILD_RPC )
 #define RPCLINE _ROM( AUXLIB_RPC, luaopen_rpc, rpc_map )
 #else
 #define RPCLINE
@@ -135,7 +137,7 @@
 
 // RPC boot options
 #define RPC_UART_ID           CON_UART_ID
-#define RPC_TIMER_ID          CON_TIMER_ID
+// #define RPC_TIMER_ID          CON_TIMER_ID
 #define RPC_UART_SPEED        CON_UART_SPEED
 
 // MMCFS Support (FatFs on SD/MMC)
@@ -161,7 +163,7 @@ u32 platform_s_cpu_get_frequency();
 // Remote file system data
 #define RFS_BUFFER_SIZE       BUF_SIZE_512
 #define RFS_UART_ID           0
-#define RFS_TIMER_ID          0
+// #define RFS_TIMER_ID          0
 #define RFS_TIMEOUT           100000
 #define RFS_UART_SPEED        115200
 

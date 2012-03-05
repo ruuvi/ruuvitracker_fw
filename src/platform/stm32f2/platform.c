@@ -45,7 +45,7 @@
 // NOTE: when using virtual timers, SYSTICKHZ and VTMR_FREQ_HZ should have the
 // same value, as they're served by the same timer (the systick)
 // Max SysTick preload value is 16777215, for STM32F103RET6 @ 72 MHz, lowest acceptable rate would be about 5 Hz
-#define SYSTICKHZ               100  
+#define SYSTICKHZ               100
 #define SYSTICKMS               (1000 / SYSTICKHZ)
 
 #if ( (HCLK / SYSTICKHZ)  > SysTick_LOAD_RELOAD_Msk)
@@ -67,35 +67,6 @@ static void pios_init();
 //static void adcs_init();
 //static void cans_init();
 
-__IO uint32_t TimingDelay;
-__IO uint8_t UserButtonPressed = 0x00;
-
-/**
-  * @brief  Inserts a delay time.
-  * @param  nTime: specifies the delay time length, in 10 ms.
-  * @retval None
-  */
-void Delay(__IO uint32_t nTime)
-{
-  TimingDelay = nTime;
-
-  while(TimingDelay != 0);
-}
-
-/**
-  * @brief  Decrements the TimingDelay variable.
-  * @param  None
-  * @retval None
-  */
-void TimingDelay_Decrement(void)
-{
-  if (TimingDelay != 0x00)
-  { 
-    TimingDelay--;
-  }
-}
-
-
 int platform_init()
 {
   // Set the clocking to run from PLL
@@ -109,13 +80,13 @@ int platform_init()
 
   // Setup UARTs
   uarts_init();
-  
+
   // Setup SPIs
   spis_init();
-  
+
   // Setup timers
   timers_init();
-  
+
   // Setup PWMs
   pwms_init();
 
@@ -126,14 +97,18 @@ int platform_init()
 
   // Setup CANs
   //cans_init();
-  
+
+  // Setup system timer
+  cmn_systimer_set_base_freq( HCLK );
+  cmn_systimer_set_interrupt_freq( SYSTICKHZ );
+
   // Enable SysTick
   if ( SysTick_Config( HCLK / SYSTICKHZ ) )
-  { 
-    /* Capture error */ 
+  {
+    /* Capture error */
     while (1);
   }
-  
+
   cmn_platform_init();
 
   // All done
@@ -155,7 +130,7 @@ int platform_init()
 static void RCC_Configuration(void)
 {
   SystemInit();
-  
+
   //RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
 }
 
@@ -176,7 +151,7 @@ NVIC_InitTypeDef nvic_init_structure_adc;
 static void NVIC_Configuration(void)
 {
   NVIC_InitTypeDef nvic_init_structure;
-  
+
 
 #ifdef  VECT_TAB_RAM
   /* Set the Vector Table base location at 0x20000000 */
@@ -193,16 +168,16 @@ static void NVIC_Configuration(void)
   // Lower the priority of the SysTick interrupt to let the
   // UART interrupt preempt it
   nvic_init_structure.NVIC_IRQChannel = SysTick_IRQn;
-  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 0; 
-  nvic_init_structure.NVIC_IRQChannelSubPriority = 1; 
-  nvic_init_structure.NVIC_IRQChannelCmd = ENABLE; 
+  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 0;
+  nvic_init_structure.NVIC_IRQChannelSubPriority = 1;
+  nvic_init_structure.NVIC_IRQChannelCmd = ENABLE;
   NVIC_Init(&nvic_init_structure);
 
-#ifdef BUILD_ADC  
-  nvic_init_structure_adc.NVIC_IRQChannel = ADC_IRQn //DMA1_Channel1_IRQn; 
-  nvic_init_structure_adc.NVIC_IRQChannelPreemptionPriority = 0; 
-  nvic_init_structure_adc.NVIC_IRQChannelSubPriority = 2; 
-  nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE; 
+#ifdef BUILD_ADC
+  nvic_init_structure_adc.NVIC_IRQChannel = ADC_IRQn //DMA1_Channel1_IRQn;
+  nvic_init_structure_adc.NVIC_IRQChannelPreemptionPriority = 0;
+  nvic_init_structure_adc.NVIC_IRQChannelSubPriority = 2;
+  nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE;
   NVIC_Init(&nvic_init_structure_adc);
 #endif
 }
@@ -233,27 +208,27 @@ static void pios_init()
   }
 
 #if defined(ENABLE_JTAG_SWD) || defined(ENABLE_TRACE)
-  //Mapping JTAG / SWD pins 
+  //Mapping JTAG / SWD pins
   GPIO_PinAFConfig(GPIOB, GPIO_PinSource4,  GPIO_AF_SWJ); // PB4  TRST
-  GPIO_PinAFConfig(GPIOB, GPIO_PinSource3,  GPIO_AF_SWJ); // PB3  TDO   / SWO  
-  
+  GPIO_PinAFConfig(GPIOB, GPIO_PinSource3,  GPIO_AF_SWJ); // PB3  TDO   / SWO
+
   GPIO_PinAFConfig(GPIOA, GPIO_PinSource13, GPIO_AF_SWJ); // PA13 TMS   / SWDIO
   GPIO_PinAFConfig(GPIOA, GPIO_PinSource14, GPIO_AF_SWJ); // PA14 TCK   / SWDCLK
   GPIO_PinAFConfig(GPIOA, GPIO_PinSource15, GPIO_AF_SWJ); // PA15 TDI
-  
+
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13 | GPIO_Pin_14 | GPIO_Pin_15;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
   GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
   GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
   GPIO_Init(GPIOA, &GPIO_InitStructure);
-  
+
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3 | GPIO_Pin_4;
   GPIO_Init(GPIOB, &GPIO_InitStructure);
-#endif  
+#endif
 
 #ifdef ENABLE_TRACE
-  //Mapping TRACE pins, PE2,3,4,5,6 
+  //Mapping TRACE pins, PE2,3,4,5,6
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2 | GPIO_Pin_3 | GPIO_Pin_4 | GPIO_Pin_5 | GPIO_Pin_6;
   GPIO_Init(GPIOE, &GPIO_InitStructure);
 
@@ -272,7 +247,7 @@ pio_type platform_pio_op( unsigned port, pio_type pinmask, int op )
   GPIO_InitTypeDef GPIO_InitStructure;
   GPIO_TypeDef * base = pio_port[ port ];
 
-  
+
   GPIO_StructInit(&GPIO_InitStructure);
 
   switch( op )
@@ -382,7 +357,7 @@ u32 platform_can_setup( unsigned id, u32 clock )
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
   GPIO_Init( GPIOB, &GPIO_InitStructure );
-  
+
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
@@ -429,7 +404,7 @@ u32 platform_can_setup( unsigned id, u32 clock )
   CAN_FilterInitStructure.CAN_FilterFIFOAssignment=CAN_FIFO0;
   CAN_FilterInitStructure.CAN_FilterActivation=ENABLE;
   CAN_FilterInit(&CAN_FilterInitStructure);
-  
+
   return can_baud_rate[ cbaudidx ];
 }
 /*
@@ -455,7 +430,7 @@ void platform_can_send( unsigned id, u32 canid, u8 idtype, u8 len, const u8 *dat
   CanTxMsg TxMessage;
   const char *s = ( char * )data;
   char *d;
-  
+
   switch( idtype )
   {
     case ELUA_CAN_ID_STD:
@@ -467,13 +442,13 @@ void platform_can_send( unsigned id, u32 canid, u8 idtype, u8 len, const u8 *dat
       TxMessage.ExtId = canid;
       break;
   }
-  
+
   TxMessage.RTR=CAN_RTR_DATA;
   TxMessage.DLC=len;
-  
+
   d = ( char * )TxMessage.Data;
   DUFF_DEVICE_8( len,  *d++ = *s++ );
-  
+
   CAN_Transmit( CAN1, &TxMessage );
 }
 
@@ -495,11 +470,11 @@ void USB_LP_CAN_RX0_IRQHandler(void)
   if((RxMessage.ExtId==0x1234) && (RxMessage.IDE==CAN_ID_EXT)
      && (RxMessage.DLC==2) && ((RxMessage.Data[1]|RxMessage.Data[0]<<8)==0xDECA))
   {
-    ret = 1; 
+    ret = 1;
   }
   else
   {
-    ret = 0; 
+    ret = 0;
   }*/
 }
 
@@ -543,17 +518,17 @@ int platform_can_recv( unsigned id, u32 *canid, u8 *idtype, u8 *len, u8 *data )
 static SPI_TypeDef *const spi[]  = { SPI1, SPI2, SPI3 };
 static const u8 spi_AF[]  = { GPIO_AF_SPI1, GPIO_AF_SPI2, GPIO_AF_SPI3 };
 
-static const u16 spi_prescaler[] = { SPI_BaudRatePrescaler_2, SPI_BaudRatePrescaler_4, SPI_BaudRatePrescaler_8, 
+static const u16 spi_prescaler[] = { SPI_BaudRatePrescaler_2, SPI_BaudRatePrescaler_4, SPI_BaudRatePrescaler_8,
                                      SPI_BaudRatePrescaler_16, SPI_BaudRatePrescaler_32, SPI_BaudRatePrescaler_64,
                                      SPI_BaudRatePrescaler_128, SPI_BaudRatePrescaler_256 };
 
-static const u8 spi_gpio_pins_source[][3] = { 
+static const u8 spi_gpio_pins_source[][3] = {
   //SCK,    MISO,   MOSI
   {GPIO_PinSource5  , GPIO_PinSource6  , GPIO_PinSource7},
   {GPIO_PinSource13 , GPIO_PinSource14 , GPIO_PinSource15},
   {GPIO_PinSource10 , GPIO_PinSource11 , GPIO_PinSource12}
 };
-                                   
+
 static const u16 spi_gpio_pins[] = { GPIO_Pin_5  | GPIO_Pin_6  | GPIO_Pin_7,
                                      GPIO_Pin_13 | GPIO_Pin_14 | GPIO_Pin_15,
                                      GPIO_Pin_10 | GPIO_Pin_11 | GPIO_Pin_12,
@@ -577,7 +552,7 @@ u32 platform_spi_setup( unsigned id, int mode, u32 clock, unsigned cpol, unsigne
   GPIO_InitTypeDef GPIO_InitStructure;
   u8 prescaler_idx = intlog2( ( unsigned ) ( SPI_GET_BASE_CLK( id ) / clock ) );
   int i;
-  
+
   if ( prescaler_idx < 0 )
     prescaler_idx = 0;
   if ( prescaler_idx > 7 )
@@ -588,17 +563,17 @@ u32 platform_spi_setup( unsigned id, int mode, u32 clock, unsigned cpol, unsigne
   {
     GPIO_PinAFConfig(spi_gpio_port[id], spi_gpio_pins_source[id][i], spi_AF[id]);
   }
-  
+
   /* Configure SPI pins */
   GPIO_InitStructure.GPIO_Pin = spi_gpio_pins[ id ];
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
   GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP; //pull-up or pull-down  
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP; //pull-up or pull-down
   GPIO_Init(spi_gpio_port[ id ], &GPIO_InitStructure);
 
   SPI_DeInit(spi[ id ]);
-  
+
   /* Take down, then reconfigure SPI peripheral */
   SPI_Cmd( spi[ id ], DISABLE );
   SPI_InitStructure.SPI_Direction = SPI_Direction_2Lines_FullDuplex;
@@ -619,9 +594,9 @@ u32 platform_spi_setup( unsigned id, int mode, u32 clock, unsigned cpol, unsigne
 spi_data_type platform_spi_send_recv( unsigned id, spi_data_type data )
 {
   SPI_I2S_SendData( spi[ id ], data );
-  
+
   while ( SPI_I2S_GetFlagStatus( spi[ id ], SPI_I2S_FLAG_RXNE ) == RESET );
-  
+
   return SPI_I2S_ReceiveData( spi[ id ] );
 }
 
@@ -667,13 +642,13 @@ static void usart_init(u32 id, USART_InitTypeDef * initVals)
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_25MHz;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
   GPIO_InitStructure.GPIO_OType = GPIO_OType_PP; //push pull or open drain
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL; //pull-up or pull-down  
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL; //pull-up or pull-down
   GPIO_Init(usart_gpio_tx_port[id], &GPIO_InitStructure);
 
   /* Configure USART Rx Pin as input floating */
   GPIO_InitStructure.GPIO_Pin = usart_gpio_rx_pin[id];
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP; //pull-up or pull-down  
-  GPIO_Init(usart_gpio_rx_port[id], &GPIO_InitStructure);  
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP; //pull-up or pull-down
+  GPIO_Init(usart_gpio_rx_port[id], &GPIO_InitStructure);
 
   USART_DeInit(stm32_usart[id]);
 
@@ -759,7 +734,7 @@ void platform_s_uart_send( unsigned id, u8 data )
   USART_SendData(stm32_usart[id], data);
 }
 
-int platform_s_uart_recv( unsigned id, s32 timeout )
+int platform_s_uart_recv( unsigned id, timer_data_type timeout )
 {
   if( timeout == 0 )
   {
@@ -775,7 +750,7 @@ int platform_s_uart_recv( unsigned id, s32 timeout )
 
 int platform_s_uart_set_flow_control( unsigned id, int type )
 {
-  USART_TypeDef *usart = stm32_usart[ id ]; 
+  USART_TypeDef *usart = stm32_usart[ id ];
   int temp = 0;
   GPIO_InitTypeDef GPIO_InitStructure;
 
@@ -789,7 +764,7 @@ int platform_s_uart_set_flow_control( unsigned id, int type )
   {
     usart->CR3 &= ~USART_HardwareFlowControl_RTS_CTS;
     GPIO_InitStructure.GPIO_Pin = usart_gpio_rts_pin[ id ] | usart_gpio_cts_pin[ id ];
-    GPIO_Init( usart_gpio_hwflow_port[ id ], &GPIO_InitStructure );      
+    GPIO_Init( usart_gpio_hwflow_port[ id ], &GPIO_InitStructure );
     return PLATFORM_OK;
   }
   if( type & PLATFORM_UART_FLOW_CTS )
@@ -831,6 +806,9 @@ void SysTick_Handler( void )
 #ifdef BUILD_MMCFS
   disk_timerproc();
 #endif
+
+  // Handle system timer call
+  cmn_systimer_periodic();
 }
 
 static void timers_init()
@@ -838,7 +816,7 @@ static void timers_init()
   unsigned i;
 
   // Enable clocks.
-  RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM1, ENABLE );  
+  RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM1, ENABLE );
   RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM2, ENABLE );
   RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM3, ENABLE );
   RCC_APB1PeriphClockCmd( RCC_APB1Periph_TIM4, ENABLE );
@@ -861,7 +839,7 @@ static u32 platform_timer_set_clock( unsigned id, u32 clock )
   TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
   TIM_TypeDef *ptimer = (TIM_TypeDef*)timer[ id ];
   u16 pre = ( TIM_GET_BASE_CLK( id ) / clock ) - 1;
-  
+
   TIM_TimeBaseStructure.TIM_Period = 0xFFFF;
   TIM_TimeBaseStructure.TIM_Prescaler = pre;
   TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
@@ -869,11 +847,11 @@ static u32 platform_timer_set_clock( unsigned id, u32 clock )
   TIM_TimeBaseStructure.TIM_RepetitionCounter = 0x0000;
   TIM_TimeBaseInit( (TIM_TypeDef*)timer[ id ], &TIM_TimeBaseStructure );
   TIM_Cmd( ptimer, ENABLE );
-  
+
   return TIM_GET_BASE_CLK( id ) / ( pre + 1 );
 }
 
-void platform_s_timer_delay( unsigned id, u32 delay_us )
+void platform_s_timer_delay( unsigned id, timer_data_type delay_us )
 {
   TIM_TypeDef *ptimer = (TIM_TypeDef*)timer[ id ];
   volatile unsigned dummy;
@@ -885,7 +863,7 @@ void platform_s_timer_delay( unsigned id, u32 delay_us )
   while( TIM_GetCounter( ptimer ) < final );
 }
 
-u32 platform_s_timer_op( unsigned id, int op, u32 data )
+timer_data_type platform_s_timer_op( unsigned id, int op, timer_data_type data )
 {
   u32 res = 0;
   TIM_TypeDef *ptimer = (TIM_TypeDef*)timer[ id ];
@@ -919,11 +897,15 @@ u32 platform_s_timer_op( unsigned id, int op, u32 data )
       res = platform_timer_get_clock( id );
       break;
 
+    case PLATFORM_TIMER_OP_GET_MAX_CNT:
+      res = 0xFFFF;
+      break;
+
   }
   return res;
 }
 
-int platform_s_timer_set_match_int( unsigned id, u32 period_us, int type )
+int platform_s_timer_set_match_int( unsigned id, timer_data_type period_us, int type )
 {
   TIM_TypeDef* base = ( TIM_TypeDef* )timer[ id ];
   u32 period, prescaler, freq;
@@ -939,7 +921,7 @@ int platform_s_timer_set_match_int( unsigned id, u32 period_us, int type )
   }
 
   period = ( ( u64 )TIM_GET_BASE_CLK( id ) * period_us ) / 1000000;
-    
+
   prescaler = ( period / 0x10000 ) + 1;
   period /= prescaler;
 
@@ -960,19 +942,39 @@ int platform_s_timer_set_match_int( unsigned id, u32 period_us, int type )
   TIM_OCInitStructure.TIM_Pulse = final;
   TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
   TIM_OC1Init( base, &TIM_OCInitStructure );
-  
+
   // Patch timer configuration to reload when period is reached
   TIM_SetAutoreload( base, final );
 
   TIM_OC1PreloadConfig( base, TIM_OCPreload_Enable );
 
   stm32_timer_int_periodic_flag[ id ] = type;
-  
+
   TIM_SetCounter( base, 0 );
   TIM_Cmd( base, ENABLE );
   //TIM_ITConfig( base, TIM_IT_CC1, ENABLE );
 
   return PLATFORM_TIMER_INT_OK;
+}
+
+u64 platform_timer_sys_raw_read()
+{
+  return SysTick->LOAD - SysTick->VAL;
+}
+
+void platform_timer_sys_disable_int()
+{
+  SysTick->CTRL &= ~( 1 << SysTick_CTRL_TICKINT_Pos );
+}
+
+void platform_timer_sys_enable_int()
+{
+  SysTick->CTRL |= 1 << SysTick_CTRL_TICKINT_Pos;
+}
+
+timer_data_type platform_timer_read_sys()
+{
+  return cmn_systimer_get();
 }
 
 #if 0
@@ -995,7 +997,7 @@ void stm32_enc_init( unsigned id )
 void stm32_enc_set_counter( unsigned id, unsigned count )
 {
   TIM_TypeDef *ptimer = timer[ id ];
-  
+
   TIM_SetCounter( ptimer, ( u16 )count );
 }
 #endif
@@ -1011,8 +1013,8 @@ static const u16 pwm_gpio_pins[] = { GPIO_Pin_6, GPIO_Pin_7, GPIO_Pin_8, GPIO_Pi
 
 static void pwms_init()
 {
-  RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM8, ENABLE );  
-  // 
+  RCC_APB2PeriphClockCmd( RCC_APB2Periph_TIM8, ENABLE );
+  //
 }
 
 // Return the PWM clock
@@ -1030,20 +1032,20 @@ u32 platform_pwm_set_clock( unsigned id, u32 clock )
   TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
   TIM_TypeDef* ptimer = PWM_TIMER_NAME;
   unsigned period, prescaler;
-  
+
   /* Time base configuration */
   period = TIM_GET_BASE_CLK( PWM_TIMER_ID ) / clock;
-    
+
   prescaler = (period / 0x10000) + 1;
   period /= prescaler;
-  
+
   TIM_TimeBaseStructure.TIM_Period = period - 1;
   TIM_TimeBaseStructure.TIM_Prescaler = prescaler - 1;
   TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
   TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
   TIM_TimeBaseStructure.TIM_RepetitionCounter = 0x0000;
   TIM_TimeBaseInit( ptimer, &TIM_TimeBaseStructure );
-    
+
   return platform_pwm_get_clock( id );
 }
 
@@ -1053,27 +1055,27 @@ u32 platform_pwm_setup( unsigned id, u32 frequency, unsigned duty )
   TIM_TypeDef* ptimer = TIM8;
   GPIO_InitTypeDef GPIO_InitStructure;
   u32 clock;
-  
+
   TIM_Cmd( ptimer, DISABLE);
   TIM_SetCounter( ptimer, 0 );
-  
+
   /* Configure USART Tx Pin as alternate function push-pull */
   GPIO_InitStructure.GPIO_Pin = pwm_gpio_pins[ id ];
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
   GPIO_Init(GPIOC, &GPIO_InitStructure);
-  
+
   clock = platform_pwm_set_clock( id, frequency );
   TIM_ARRPreloadConfig( ptimer, ENABLE );
-  
-  /* PWM Mode configuration */  
+
+  /* PWM Mode configuration */
   TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
   TIM_OCInitStructure.TIM_OutputState = ( PWM_TIMER_NAME->CCER & ( ( u16 )1 << 4 * id ) ) ? TIM_OutputState_Enable : TIM_OutputState_Disable;
   TIM_OCInitStructure.TIM_OutputNState = TIM_OutputNState_Disable;
   TIM_OCInitStructure.TIM_Pulse = ( u16 )( duty * ( PWM_TIMER_NAME->ARR + 1 ) / 100 );
   TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
   TIM_OCInitStructure.TIM_OCIdleState = TIM_OCIdleState_Set;
-  
+
   switch ( id )
   {
     case 0:
@@ -1095,11 +1097,11 @@ u32 platform_pwm_setup( unsigned id, u32 frequency, unsigned duty )
     default:
       return 0;
   }
-  
-  TIM_CtrlPWMOutputs(ptimer, ENABLE);  
-  
+
+  TIM_CtrlPWMOutputs(ptimer, ENABLE);
+
   TIM_Cmd( ptimer, ENABLE );
-  
+
   return clock;
 }
 
@@ -1115,7 +1117,7 @@ void platform_pwm_stop( unsigned id )
 
 // *****************************************************************************
 // CPU specific functions
- 
+
 u32 platform_s_cpu_get_frequency()
 {
   return HCLK;
@@ -1144,7 +1146,7 @@ void platform_adc_stop( unsigned id )
 {
   elua_adc_ch_state *s = adc_get_ch_state( id );
   elua_adc_dev_state *d = adc_get_dev_state( 0 );
-  
+
   s->op_pending = 0;
   INACTIVATE_CHANNEL( d, id );
 
@@ -1153,44 +1155,44 @@ void platform_adc_stop( unsigned id )
   {
     // Ensure that no external triggers are firing
     ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
-    
+
     // Also ensure that DMA interrupt won't fire ( this shouldn't really be necessary )
-    nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE; 
+    nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE;
     NVIC_Init(&nvic_init_structure_adc);
-    
+
     d->running = 0;
   }
 }
 
 int platform_adc_update_sequence( )
-{  
+{
   elua_adc_dev_state *d = adc_get_dev_state( 0 );
-  
+
   // NOTE: this shutdown/startup stuff may or may not be absolutely necessary
   //       it is here to deal with the situation that a dma conversion has
   //       already started and should be reset.
   ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
-  
+
   // Stop in-progress adc dma transfers
   // Later de/reinitialization should flush out synchronization problems
   ADC_DMACmd( adc[ d->seq_id ], DISABLE );
-  
+
   // Bring down adc, update setup, bring back up
   ADC_Cmd( adc[ d->seq_id ], DISABLE );
   ADC_DeInit( adc[ d->seq_id ] );
-  
-  d->seq_ctr = 0; 
+
+  d->seq_ctr = 0;
   while( d->seq_ctr < d->seq_len )
   {
     ADC_RegularChannelConfig( adc[ d->seq_id ], d->ch_state[ d->seq_ctr ]->id, d->seq_ctr+1, ADC_SampleTime_1Cycles5 );
     d->seq_ctr++;
   }
   d->seq_ctr = 0;
-  
+
   adc_init_struct.ADC_NbrOfChannel = d->seq_len;
   ADC_Init( adc[ d->seq_id ], &adc_init_struct );
   ADC_Cmd( adc[ d->seq_id ], ENABLE );
-  
+
   // Bring down adc dma, update setup, bring back up
   DMA_Cmd( DMA1_Channel1, DISABLE );
   DMA_DeInit( DMA1_Channel1 );
@@ -1198,29 +1200,29 @@ int platform_adc_update_sequence( )
   dma_init_struct.DMA_MemoryBaseAddr = (u32)d->sample_buf;
   DMA_Init( DMA1_Channel1, &dma_init_struct );
   DMA_Cmd( DMA1_Channel1, ENABLE );
-  
+
   ADC_DMACmd( adc[ d->seq_id ], ENABLE );
-  DMA_ITConfig( DMA1_Channel1, DMA1_IT_TC1 , ENABLE ); 
-  
+  DMA_ITConfig( DMA1_Channel1, DMA1_IT_TC1 , ENABLE );
+
   if ( d->clocked == 1 && d->running == 1 )
     ADC_ExternalTrigConvCmd( adc[ d->seq_id ], ENABLE );
-  
+
   return PLATFORM_OK;
 }
 
-void DMA1_Channel1_IRQHandler(void) 
+void DMA1_Channel1_IRQHandler(void)
 {
   elua_adc_dev_state *d = adc_get_dev_state( 0 );
   elua_adc_ch_state *s;
-  
+
   DMA_ClearITPendingBit( DMA1_IT_TC1 );
-  
+
   d->seq_ctr = 0;
   while( d->seq_ctr < d->seq_len )
   {
     s = d->ch_state[ d->seq_ctr ];
     s->value_fresh = 1;
-    
+
     // Fill in smoothing buffer until warmed up
     if ( s->logsmoothlen > 0 && s->smooth_ready == 0)
       adc_smooth_data( s->id );
@@ -1242,7 +1244,7 @@ void DMA1_Channel1_IRQHandler(void)
 
   if( d->running == 1 )
     adc_update_dev_sequence( 0 );
-  
+
   if ( d->clocked == 0 && d->running == 1 )
     ADC_SoftwareStartConvCmd( adc[ d->seq_id ], ENABLE );
 }
@@ -1251,16 +1253,16 @@ static void adcs_init()
 {
   unsigned id;
   elua_adc_dev_state *d = adc_get_dev_state( 0 );
-  
+
   for( id = 0; id < NUM_ADC; id ++ )
     adc_init_ch_state( id );
 
   RCC_APB2PeriphClockCmd( RCC_APB2Periph_ADC1, ENABLE );
   RCC_ADCCLKConfig( RCC_PCLK2_Div8 );
-  
+
   ADC_DeInit( adc[ d->seq_id ] );
   ADC_StructInit( &adc_init_struct );
-  
+
   // Universal Converter Setup
   adc_init_struct.ADC_Mode = ADC_Mode_Independent;
   adc_init_struct.ADC_ScanConvMode = ENABLE;
@@ -1268,23 +1270,23 @@ static void adcs_init()
   adc_init_struct.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
   adc_init_struct.ADC_DataAlign = ADC_DataAlign_Right;
   adc_init_struct.ADC_NbrOfChannel = 1;
-  
+
   // Apply default config
   ADC_Init( adc[ d->seq_id ], &adc_init_struct );
   ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
-    
+
   // Enable ADC
-  ADC_Cmd( adc[ d->seq_id ], ENABLE );  
-  
+  ADC_Cmd( adc[ d->seq_id ], ENABLE );
+
   // Reset/Perform ADC Calibration
   ADC_ResetCalibration( adc[ d->seq_id ] );
   while( ADC_GetResetCalibrationStatus( adc[ d->seq_id ] ) );
   ADC_StartCalibration( adc[ d->seq_id ] );
   while( ADC_GetCalibrationStatus( adc[ d->seq_id ] ) );
-  
+
   // Set up DMA to handle samples
   RCC_AHBPeriphClockCmd( RCC_AHBPeriph_DMA1, ENABLE );
-  
+
   DMA_DeInit( DMA1_Channel1 );
   dma_init_struct.DMA_PeripheralBaseAddr = ADC1_DR_Address;
   dma_init_struct.DMA_MemoryBaseAddr = (u32)d->sample_buf;
@@ -1298,12 +1300,12 @@ static void adcs_init()
   dma_init_struct.DMA_Priority = DMA_Priority_Low;
   dma_init_struct.DMA_M2M = DMA_M2M_Disable;
   DMA_Init( DMA1_Channel1, &dma_init_struct );
-  
+
   ADC_DMACmd(ADC1, ENABLE );
-  
+
   DMA_Cmd( DMA1_Channel1, ENABLE );
-  DMA_ITConfig( DMA1_Channel1, DMA1_IT_TC1 , ENABLE ); 
-  
+  DMA_ITConfig( DMA1_Channel1, DMA1_IT_TC1 , ENABLE );
+
   platform_adc_set_clock( 0, 0 );
 }
 
@@ -1311,20 +1313,20 @@ u32 platform_adc_set_clock( unsigned id, u32 frequency )
 {
   TIM_TimeBaseInitTypeDef timer_base_struct;
   elua_adc_dev_state *d = adc_get_dev_state( 0 );
-  
+
   unsigned period, prescaler;
-  
+
   // Make sure sequencer is disabled before making changes
   ADC_ExternalTrigConvCmd( adc[ d->seq_id ], DISABLE );
-  
+
   if ( frequency > 0 )
   {
     d->clocked = 1;
     // Attach timer to converter
     adc_init_struct.ADC_ExternalTrigConv = adc_timer[ d->timer_id ];
-    
+
     period = TIM_GET_BASE_CLK( id ) / frequency;
-    
+
     prescaler = (period / 0x10000) + 1;
     period /= prescaler;
 
@@ -1333,41 +1335,41 @@ u32 platform_adc_set_clock( unsigned id, u32 frequency )
     timer_base_struct.TIM_ClockDivision = TIM_CKD_DIV1;
     timer_base_struct.TIM_CounterMode = TIM_CounterMode_Down;
     TIM_TimeBaseInit( timer[ d->timer_id ], &timer_base_struct );
-    
+
     frequency = ( TIM_GET_BASE_CLK( id ) / ( TIM_GetPrescaler( timer[ d->timer_id ] ) + 1 ) ) / period;
-    
+
     // Set up output compare for timer
     TIM_SelectOutputTrigger(timer[ d->timer_id ], TIM_TRGOSource_Update);
   }
   else
   {
     d->clocked = 0;
-    
+
     // Switch to Software-only Trigger
-    adc_init_struct.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;   
+    adc_init_struct.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
   }
-  
+
   // Apply config
   ADC_Init( adc[ d->seq_id ], &adc_init_struct );
-  
+
   return frequency;
 }
 
 int platform_adc_start_sequence( )
-{ 
+{
   elua_adc_dev_state *d = adc_get_dev_state( 0 );
-  
+
   // Only force update and initiate if we weren't already running
   // changes will get picked up during next interrupt cycle
   if ( d->running != 1 )
   {
     adc_update_dev_sequence( 0 );
-    
+
     d->running = 1;
-    
+
     DMA_ClearITPendingBit( DMA1_IT_TC1 );
 
-    nvic_init_structure_adc.NVIC_IRQChannelCmd = ENABLE; 
+    nvic_init_structure_adc.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&nvic_init_structure_adc);
 
     if( d->clocked == 1 )
