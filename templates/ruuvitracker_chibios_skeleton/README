@@ -10,10 +10,10 @@ be changed by adjusting the TRGT variable in the Makefile.
 Change the Makefile using an existing ChibiOS demo as an example.
 
 Modify the CHIBIOS variable in the makefile to tell the location of
-your local ChibiOS repository. e.g. /home/username/eclipse_workspace/chibios/ver_2.3.4
+your local ChibiOS repository. e.g. /home/username/eclipse_workspace/chibios/ver_2.4.0
 or more handy could be to use shorter symbolic link
 
-Different versions of ChibiOS may or may not work, version 2.2.7 was
+Different versions of ChibiOS may or may not work, version 2.4.0 was
 used to setup this skeleton project.
 
 ChibiOS sources can be downloaded from the ChibiOS site at
