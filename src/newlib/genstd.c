@@ -16,7 +16,7 @@ static p_std_get_char std_get_char_func;
 int std_prev_char = -1;
 
 // 'read'
-static _ssize_t std_read( struct _reent *r, int fd, void* vptr, size_t len )
+static _ssize_t std_read( struct _reent *r, int fd, void* vptr, size_t len, void *pdata )
 {
   int i, c;
   char* ptr = ( char* )vptr;
@@ -87,7 +87,7 @@ static _ssize_t std_read( struct _reent *r, int fd, void* vptr, size_t len )
 }
 
 // 'write'
-static _ssize_t std_write( struct _reent *r, int fd, const void* vptr, size_t len )
+static _ssize_t std_write( struct _reent *r, int fd, const void* vptr, size_t len, void *pdata )
 {   
   int i;
   const char* ptr = ( const char* )vptr;
@@ -134,7 +134,6 @@ void std_set_get_func( p_std_get_char pfunc )
 // Our UART device descriptor structure
 static const DM_DEVICE std_device = 
 {
-  STD_DEV_NAME,
   NULL,                 // open
   NULL,                 // close
   std_write,            // write
@@ -142,12 +141,14 @@ static const DM_DEVICE std_device =
   NULL,                 // lseek
   NULL,                 // opendir
   NULL,                 // readdir
-  NULL                  // closedir
+  NULL,                 // closedir
+  NULL,                 // getaddr
+  NULL                  // mkdir
 };
 
-const DM_DEVICE* std_get_desc()
+int std_register()
 {
-  return &std_device;
+  return dm_register( STD_DEV_NAME, NULL, &std_device );
 }
 
 #endif // #ifdef BUILD_CON_GENERIC

@@ -6,6 +6,7 @@
 #include "type.h"
 #include <reent.h>
 #include <unistd.h>
+#include <sys/types.h>
 
 // Maximum number of devices in the system
 #define DM_MAX_DEVICES        16
@@ -29,11 +30,15 @@
 #define DM_STDOUT_NUM             1
 #define DM_STDERR_NUM             2
 
+// Directory entry flags
+#define DM_DIRENT_FLAG_DIR        1
+
 // Our platform independent "dirent" structure (for opendir/readdir)
 struct dm_dirent {
   u32 fsize;
   const char *fname;
   u32 ftime;
+  u8 flags;
 };
 typedef struct {
   u8 devid;
@@ -41,18 +46,36 @@ typedef struct {
 } DM_DIR;
 
 // A device structure with pointers to all the device functions
+typedef int mkdir_mode_t;
+
 typedef struct
 {
-  char name[ DM_MAX_DEV_NAME + 1 ];
-  int ( *p_open_r )( struct _reent *r, const char *path, int flags, int mode );
-  int ( *p_close_r )( struct _reent *r, int fd );
-  _ssize_t ( *p_write_r ) ( struct _reent *r, int fd, const void *ptr, size_t len );
-  _ssize_t ( *p_read_r )( struct _reent *r, int fd, void *ptr, size_t len );  
-  off_t ( *p_lseek_r )( struct _reent *r, int fd, off_t off, int whence );
-  void* ( *p_opendir_r )( struct _reent *r, const char* name );
-  struct dm_dirent* ( *p_readdir_r )( struct _reent *r, void *dir );  
-  int ( *p_closedir_r )( struct _reent *r, void* dir );  
+  int ( *p_open_r )( struct _reent *r, const char *path, int flags, int mode, void *pdata );
+  int ( *p_close_r )( struct _reent *r, int fd, void *pdata );
+  _ssize_t ( *p_write_r ) ( struct _reent *r, int fd, const void *ptr, size_t len, void *pdata );
+  _ssize_t ( *p_read_r )( struct _reent *r, int fd, void *ptr, size_t len, void *pdata );
+  off_t ( *p_lseek_r )( struct _reent *r, int fd, off_t off, int whence, void *pdata );
+  void* ( *p_opendir_r )( struct _reent *r, const char* name, void *pdata );
+  struct dm_dirent* ( *p_readdir_r )( struct _reent *r, void *dir, void *pdata );
+  int ( *p_closedir_r )( struct _reent *r, void* dir, void *pdata );
+  const char* ( *p_getaddr_r )( struct _reent *r, int fd, void *pdata );
+  int ( *p_mkdir_r )( struct _reent *r, const char *pathname, mkdir_mode_t mode, void *pdata );
 } DM_DEVICE;
+
+// Additional registration data for each FS (per FS instance)
+// This contains the name and additional data that the FS wants to save inside DM
+// This data can be received later by the FS
+// With this method, one can implement more than one instance of the same FS.
+// For example, multiple ROM file systems can be implemented by calling
+// "dm_register" multiple times with different DM_INSTANCE_DATA structures.
+// The name will be different and "pdata" can point to a structure uniquely
+// identifying this FS (pointer to its read function, start address, end address...)
+
+typedef struct {
+  const char *name;
+  void *pdata;
+  const DM_DEVICE *pdev;
+} DM_INSTANCE_DATA;
 
 // Errors
 #define DM_ERR_ALREADY_REGISTERED   (-1)
@@ -60,14 +83,18 @@ typedef struct
 #define DM_ERR_NO_SPACE             (-3)
 #define DM_ERR_INVALID_NAME         (-4)
 #define DM_ERR_NO_DEVICE            (-5)
+#define DM_ERR_INVALID_OPS          (-6)
+#define DM_ERR_INIT                 (-7)
 #define DM_OK                       (0)
 
 // Add a device
-int dm_register( const DM_DEVICE *pdev );
+int dm_register( const char *name, void *pdata, const DM_DEVICE* pdev );
 // Unregister a device
 int dm_unregister( const char* name );
 // Get a device entry
 const DM_DEVICE* dm_get_device_at( int idx );
+// Get an instance
+const DM_INSTANCE_DATA* dm_get_instance_at( int idx );
 // Returns the number of registered devices
 int dm_get_num_devices();
 // Initialize device manager
@@ -77,6 +104,7 @@ int dm_init();
 DM_DIR *dm_opendir( const char* dirname );
 struct dm_dirent* dm_readdir( DM_DIR *d );
 int dm_closedir( DM_DIR *d );
+const char* dm_getaddr( int fd );
 
 #endif
 

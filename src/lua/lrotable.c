@@ -84,7 +84,7 @@ static void luaR_next_helper(lua_State *L, const luaR_entry *pentries, int pos, 
   if (pentries[pos].key.type != LUA_TNIL) {
     /* Found an entry */
     if (pentries[pos].key.type == LUA_TSTRING)
-      setsvalue(L, key, luaS_new(L, pentries[pos].key.id.strkey))
+      setsvalue(L, key, luaS_newro(L, pentries[pos].key.id.strkey))
     else
       setnvalue(key, (lua_Number)pentries[pos].key.id.numkey)
    setobj2s(L, val, &pentries[pos].value);
@@ -126,9 +126,9 @@ void luaR_getcstr(char *dest, const TString *src, size_t maxsize) {
 
 /* Return 1 if the given pointer is a rotable */
 #ifdef LUA_META_ROTABLES
-extern char stext[];
-extern char etext[];
+extern char stext;
+extern char etext;
 int luaR_isrotable(void *p) {
-  return stext <= ( char* )p && ( char* )p <= etext;
+  return &stext <= ( char* )p && ( char* )p <= &etext;
 }
 #endif

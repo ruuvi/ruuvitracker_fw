@@ -6,12 +6,15 @@
 #include "devman.h"
 #include <stdio.h>
 #include "ioctl.h"
+#include <sys/types.h>
 
 #include "platform_conf.h"
 #ifdef BUILD_MMCFS
 #include "ff.h"
 #include "diskio.h"
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <stdlib.h>
 
 #define MMCFS_MAX_FDS   4
 static FIL mmcfs_fd_table[ MMCFS_MAX_FDS ];
@@ -22,6 +25,11 @@ static FATFS mmc_fs;
 static FIL mmc_fileObject;
 //static DIR mmc_dir;
 //static FILINFO mmc_fileInfo;
+typedef struct
+{
+  DIR *dir;
+  struct dm_dirent *pdm;
+} MMCFS_DIRENT_DATA;
 
 #define PATH_BUF_SIZE   40
 static char mmc_pathBuf[PATH_BUF_SIZE];
@@ -36,7 +44,7 @@ static int mmcfs_find_empty_fd( void )
   return -1;
 }
 
-static int mmcfs_open_r( struct _reent *r, const char *path, int flags, int mode )
+static int mmcfs_open_r( struct _reent *r, const char *path, int flags, int mode, void *pdata )
 {
   int fd;
   int mmc_mode;
@@ -109,7 +117,7 @@ static int mmcfs_open_r( struct _reent *r, const char *path, int flags, int mode
   return fd;
 }
 
-static int mmcfs_close_r( struct _reent *r, int fd )
+static int mmcfs_close_r( struct _reent *r, int fd, void *pdata )
 {
   FIL* pFile = mmcfs_fd_table + fd;
 
@@ -119,7 +127,7 @@ static int mmcfs_close_r( struct _reent *r, int fd )
   return 0;
 }
 
-static _ssize_t mmcfs_write_r( struct _reent *r, int fd, const void* ptr, size_t len )
+static _ssize_t mmcfs_write_r( struct _reent *r, int fd, const void* ptr, size_t len, void *pdata )
 {
 #if _FS_READONLY
   {
@@ -139,7 +147,7 @@ static _ssize_t mmcfs_write_r( struct _reent *r, int fd, const void* ptr, size_t
 #endif // _FS_READONLY
 }
 
-static _ssize_t mmcfs_read_r( struct _reent *r, int fd, void* ptr, size_t len )
+static _ssize_t mmcfs_read_r( struct _reent *r, int fd, void* ptr, size_t len, void *pdata )
 {
   UINT bytesRead;
 
@@ -153,7 +161,7 @@ static _ssize_t mmcfs_read_r( struct _reent *r, int fd, void* ptr, size_t len )
 }
 
 // lseek
-static off_t mmcfs_lseek_r( struct _reent *r, int fd, off_t off, int whence )
+static off_t mmcfs_lseek_r( struct _reent *r, int fd, off_t off, int whence, void *pdata )
 {
   FIL* pFile = mmcfs_fd_table + fd;
   u32 newpos = 0;
@@ -184,23 +192,42 @@ static off_t mmcfs_lseek_r( struct _reent *r, int fd, off_t off, int whence )
 }
 
 // opendir
-static DIR mmc_dir;
-static void* mmcfs_opendir_r( struct _reent *r, const char* dname )
+static void* mmcfs_opendir_r( struct _reent *r, const char* dname, void *pdata )
 {
   void* res = NULL;
-  if( !dname || strlen( dname ) == 0 || ( strlen( dname ) == 1 && !strcmp( dname, "/" ) ) )
-    res = f_opendir( &mmc_dir, "/" ) != FR_OK ? NULL : &mmc_dir; 
+  MMCFS_DIRENT_DATA *pd = ( MMCFS_DIRENT_DATA* )malloc( sizeof( MMCFS_DIRENT_DATA ) );
+
+  if( !pd )
+    return NULL;
+  memset( pd, 0, sizeof( MMCFS_DIRENT_DATA ) );
+  if( ( pd->dir = ( DIR* )malloc( sizeof( DIR ) ) ) == NULL )
+    goto out;
+  if( ( pd->pdm = ( struct dm_dirent* )malloc( sizeof( struct dm_dirent ) ) ) == NULL )
+    goto out;
+  if( !dname || strlen( dname ) == 0 )
+    res = f_opendir( pd->dir, "/" ) != FR_OK ? NULL : pd;
+  else
+    res = f_opendir( pd->dir, dname ) != FR_OK ? NULL : pd;
+out:    
+  if( res == NULL )
+  {
+    if( pd->dir )
+      free( pd->dir );
+    if( pd->pdm )
+      free( pd->pdm );
+    free( pd );
+  }
   return res;
 }
 
 // readdir
-extern struct dm_dirent dm_shared_dirent;
 extern char dm_shared_fname[ DM_MAX_FNAME_LENGTH + 1 ];
-static struct dm_dirent* mmcfs_readdir_r( struct _reent *r, void *d )
+static struct dm_dirent* mmcfs_readdir_r( struct _reent *r, void *d, void *pdata )
 {
-  DIR *pdir = ( DIR* )d;
+  MMCFS_DIRENT_DATA *pd = ( MMCFS_DIRENT_DATA* )d;
+  DIR *pdir = pd->dir;
   FILINFO mmc_file_info;
-  struct dm_dirent* pent = &dm_shared_dirent;
+  struct dm_dirent* pent = pd->pdm;
   char *fn;
 #if _USE_LFN
   static char lfn[_MAX_LFN * (_DF1S ? 2 : 1) + 1];
@@ -213,15 +240,18 @@ static struct dm_dirent* mmcfs_readdir_r( struct _reent *r, void *d )
     if( f_readdir( pdir, &mmc_file_info ) != FR_OK ) // return NULL on read error
       return NULL;
     if( mmc_file_info.fname[ 0 ] == '\0' ) // return NULL when listing is done
-      return NULL;  
-    if( ( mmc_file_info.fattrib & AM_DIR ) == 0 ) // if we have a file, exit loop
-      break;
+      return NULL;
+    break;
   }
 #if _USE_LFN
   fn = *mmc_file_info.lfname ? mmc_file_info.lfname : mmc_file_info.fname;
 #else
   fn = mmc_file_info.fname;
 #endif
+  if( ( mmc_file_info.fattrib & AM_DIR ) != 0 ) // if we have a file, exit loop
+    pent->flags = DM_DIRENT_FLAG_DIR;
+  else
+    pent->flags = 0;
   strncpy( dm_shared_fname, fn, DM_MAX_FNAME_LENGTH );
   pent->fname = dm_shared_fname;
   pent->fsize = mmc_file_info.fsize;
@@ -230,15 +260,24 @@ static struct dm_dirent* mmcfs_readdir_r( struct _reent *r, void *d )
 }
 
 // closedir
-static int mmcfs_closedir_r( struct _reent *r, void *d )
+static int mmcfs_closedir_r( struct _reent *r, void *d, void *pdata )
 {
+  MMCFS_DIRENT_DATA *pd = ( MMCFS_DIRENT_DATA* )d;
+
+  free( pd->dir );
+  free( pd->pdm );
+  free( pd );
   return 0;
 }
 
-// MMC device descriptor structure
-static DM_DEVICE mmcfs_device =
+static int mmcfs_mkdir_r( struct _reent *r, const char *name, mkdir_mode_t mode, void *pdata )
 {
-  "/mmc",
+  return f_mkdir( name );
+}
+
+// MMC device descriptor structure
+static const DM_DEVICE mmcfs_device =
+{
   mmcfs_open_r,         // open
   mmcfs_close_r,        // close
   mmcfs_write_r,        // write
@@ -246,23 +285,24 @@ static DM_DEVICE mmcfs_device =
   mmcfs_lseek_r,        // lseek
   mmcfs_opendir_r,      // opendir
   mmcfs_readdir_r,      // readdir
-  mmcfs_closedir_r      // closedir
+  mmcfs_closedir_r,     // closedir
+  NULL,                 // getaddr
+  mmcfs_mkdir_r         // mkdir
 };
 
-const DM_DEVICE* mmcfs_init()
+int mmcfs_init()
 {
   // Mount the MMC file system using logical disk 0
   if ( f_mount( 0, &mmc_fs ) != FR_OK )
-    return NULL;
-
-  return &mmcfs_device;
+    return DM_ERR_INIT;
+  return dm_register( "/mmc", NULL, &mmcfs_device );
 }
 
 #else // #ifdef BUILD_MMCFS
 
-const DM_DEVICE* mmcfs_init()
+int mmcfs_init()
 {
-  return NULL;
+  return dm_register( NULL, NULL, NULL );
 }
 
 #endif // BUILD_MMCFS

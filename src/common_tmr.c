@@ -14,10 +14,6 @@
 #if defined( BUILD_LUA_INT_HANDLERS ) || defined( BUILD_C_INT_HANDLERS )
 #define BUILD_INT_HANDLERS
 
-#ifndef INT_TMR_MATCH
-#define INT_TMR_MATCH         ELUA_INT_INVALID_INTERRUPT
-#endif
-
 extern const elua_int_descriptor elua_int_table[ INT_ELUA_LAST ];
 
 #endif // #if defined( BUILD_LUA_INT_HANDLERS ) || defined( BUILD_C_INT_HANDLERS )
@@ -46,9 +42,9 @@ extern const elua_int_descriptor elua_int_table[ INT_ELUA_LAST ];
 static volatile u32 vtmr_counters[ VTMR_NUM_TIMERS ];
 static volatile s8 vtmr_reset_idx = -1;
 
-#if defined( BUILD_INT_HANDLERS ) && ( INT_TMR_MATCH != ELUA_INT_INVALID_INTERRUPT )
+#if defined( BUILD_INT_HANDLERS ) && defined( INT_TMR_MATCH )
 #define CMN_TIMER_INT_SUPPORT
-#endif // #if defined( BUILD_INT_HANDLERS ) && ( INT_TMR_MATCH != ELUA_INT_INVALID_INTERRUPT )
+#endif // #if defined( BUILD_INT_HANDLERS ) && defined( INT_TMR_MATCH )
 
 #ifdef CMN_TIMER_INT_SUPPORT
 static volatile u32 vtmr_period_limit[ VTMR_NUM_TIMERS ];  
@@ -272,6 +268,10 @@ timer_data_type platform_timer_op( unsigned id, int op, timer_data_type data )
       return platform_timer_get_diff_us( id, 0, platform_timer_get_max_cnt( id ) );
     else if( op == PLATFORM_TIMER_OP_GET_MIN_DELAY )
       return platform_timer_get_diff_us( id, 0, 1 );
+#ifdef PLATFORM_TMR_COUNTS_DOWN
+    else if( op == PLATFORM_TIMER_OP_START || op == PLATFORM_TIMER_OP_READ )
+      return platform_s_timer_op( id, PLATFORM_TIMER_OP_GET_MAX_CNT, 0 ) - platform_s_timer_op( id, op, 0 );
+#endif
     else
       return platform_s_timer_op( id, op, data );
   }
@@ -336,44 +336,56 @@ int platform_timer_set_match_int( unsigned id, timer_data_type period_us, int ty
 
 int cmn_tmr_int_set_status( elua_int_resnum resnum, int status )
 {
-  elua_int_p_set_status ps;
 #if VTMR_NUM_TIMERS > 00 && defined( CMN_TIMER_INT_SUPPORT )
   if( TIMER_IS_VIRTUAL( resnum ) )
     return vtmr_int_set_status( resnum, status );
 #endif
   if( resnum == PLATFORM_TIMER_SYS_ID )
     return PLATFORM_INT_BAD_RESNUM;
+#ifdef INT_TMR_MATCH    
+  elua_int_p_set_status ps;
   if( ( ps = elua_int_table[ INT_TMR_MATCH - ELUA_INT_FIRST_ID ].int_set_status ) == NULL )
     return PLATFORM_INT_NOT_HANDLED;
   return ps( resnum, status );
+#else
+  return PLATFORM_INT_INVALID;
+#endif
 }
 
 int cmn_tmr_int_get_status( elua_int_resnum resnum )
 {
-  elua_int_p_get_status pg;
 #if VTMR_NUM_TIMERS > 00 && defined( CMN_TIMER_INT_SUPPORT )
   if( TIMER_IS_VIRTUAL( resnum ) )
     return vtmr_int_get_status( resnum );
 #endif
   if( resnum == PLATFORM_TIMER_SYS_ID )
     return PLATFORM_INT_BAD_RESNUM;
+#ifdef INT_TMR_MATCH    
+  elua_int_p_get_status pg;
   if( ( pg = elua_int_table[ INT_TMR_MATCH - ELUA_INT_FIRST_ID ].int_get_status ) == NULL )
     return PLATFORM_INT_NOT_HANDLED;
   return pg( resnum );
+#else
+  return PLATFORM_INT_INVALID;
+#endif
 }
 
 int cmn_tmr_int_get_flag( elua_int_resnum resnum, int clear )
 {
-  elua_int_p_get_flag pf;
 #if VTMR_NUM_TIMERS > 00 && defined( CMN_TIMER_INT_SUPPORT )
   if( TIMER_IS_VIRTUAL( resnum ) )
     return vtmr_int_get_flag( resnum, clear );
 #endif
   if( resnum == PLATFORM_TIMER_SYS_ID )
     return PLATFORM_INT_BAD_RESNUM;
+#ifdef INT_TMR_MATCH    
+  elua_int_p_get_flag pf;
   if( ( pf = elua_int_table[ INT_TMR_MATCH - ELUA_INT_FIRST_ID ].int_get_flag ) == NULL )
     return PLATFORM_INT_NOT_HANDLED;
   return pf( resnum, clear );
+#else
+  return PLATFORM_INT_INVALID;
+#endif
 }
 
 #else // #ifdef BUILD_INT_HANDLERS

@@ -265,7 +265,7 @@ color:#03121c;
 
 pre {
     background: none repeat scroll 0 0 #EDEDEA;
-    border-left: 4px solid #566D82;
+/*   border-left: 4px solid #566D82;*/
     margin-bottom: 1.25em;
     padding: 8px 0 12px 20px;
     overflow: auto;
@@ -282,6 +282,22 @@ code{font-size:14px;}
     border: 1px solid #8EBBD0;
     margin: 20px 0 20px;
     padding: 20px 25px 20px 20px;
+}
+
+.warning {
+    font-weight: bold;
+    color: white;
+    background: red;
+    margin: 1px;
+    padding: 2px;
+}
+
+.note {
+    font-weight: bold;
+    color: white;
+    background: blue;
+    margin: 1px;
+    padding: 2px;
 }
 
 #interna_2 #article .section_conteudo{width:auto;float:left;margin:10px 10px 0px 0;padding:10px;text-align:normal;}
