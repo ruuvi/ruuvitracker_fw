@@ -22,11 +22,11 @@ static void all_usart_irqhandler( int resnum )
 {
   int temp;
 
-  temp = USART_GetFlagStatus( stm32_usart[ resnum ], USART_FLAG_ORE );
+  //temp = USART_GetFlagStatus( stm32_usart[ resnum ], USART_FLAG_ORE );
   cmn_int_handler( INT_UART_RX, resnum );
-  if( temp == SET )
-    for( temp = 0; temp < 10; temp ++ )
-      platform_s_uart_send( resnum, '@' );
+  // if( temp == SET )
+  //   for( temp = 0; temp < 10; temp ++ )
+  //     platform_s_uart_send( resnum, '@' );
 }
 
 void USART1_IRQHandler()
