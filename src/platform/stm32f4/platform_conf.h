@@ -26,7 +26,7 @@
 //#define BUILD_RPC
 //#define BUILD_RFS
 //#define BUILD_CON_TCP
-#define BUILD_LINENOISE
+//#define BUILD_LINENOISE
 #define BUILD_C_INT_HANDLERS
 #define BUILD_LUA_INT_HANDLERS
 //#define ENABLE_ENC
