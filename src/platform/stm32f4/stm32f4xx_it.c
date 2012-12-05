@@ -52,11 +52,11 @@ void NMI_Handler(void)
 {
 }
 
-int fputc(int ch, FILE *f)
-{
-   platform_s_uart_send(CON_UART_ID, ch);
-   return ch;
-}
+// int fputc(int ch, FILE *f)
+// {
+//    platform_s_uart_send(CON_UART_ID, ch);
+//    return ch;
+// }
 
 void hard_fault_handler_c(unsigned int * hardfault_args)
 {

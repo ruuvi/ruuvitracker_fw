@@ -26,7 +26,7 @@
 //#define BUILD_RPC
 //#define BUILD_RFS
 //#define BUILD_CON_TCP
-//#define BUILD_LINENOISE
+#define BUILD_LINENOISE
 #define BUILD_C_INT_HANDLERS
 #define BUILD_LUA_INT_HANDLERS
 //#define ENABLE_ENC
@@ -122,8 +122,8 @@
 #define NUM_CAN               1
 
 // Enable RX buffering on UART
-#define BUF_ENABLE_UART
-#define CON_BUF_SIZE          BUF_SIZE_128
+//#define BUF_ENABLE_UART
+//#define CON_BUF_SIZE          BUF_SIZE_128
 
 // ADC Configuration Params
 #define ADC_BIT_RESOLUTION    12
