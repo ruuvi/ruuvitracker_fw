@@ -1017,13 +1017,22 @@ void stm32_enc_set_counter( unsigned id, unsigned count )
 
 // ****************************************************************************
 // PWMs
-// Using Timer 4 (3 in eLua)
 
+#if defined( ELUA_BOARD_STM32F4ALT )
+// Using Timer 8 (5 in eLua)
+#define PWM_TIMER_ID    5
+#define PWM_TIMER_NAME  TIM8
+#define PWM_TIMER_AF    GPIO_AF_TIM8
+#define PWM_GPIO_PORT   GPIOC
+static const u8 pwm_gpio_pins_source[] = { GPIO_PinSource6, GPIO_PinSource7, GPIO_PinSource8, GPIO_PinSource9 };
+#else
+// Using Timer 4 (3 in eLua)
 #define PWM_TIMER_ID    3
 #define PWM_TIMER_NAME  TIM4
 #define PWM_TIMER_AF    GPIO_AF_TIM4
 #define PWM_GPIO_PORT   GPIOD
 static const u8 pwm_gpio_pins_source[] = { GPIO_PinSource12, GPIO_PinSource13, GPIO_PinSource14, GPIO_PinSource15 };
+#endif
 
 static void pwms_init()
 {
