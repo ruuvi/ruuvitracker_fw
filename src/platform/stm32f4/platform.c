@@ -1552,4 +1552,3 @@ LUALIB_API int luaopen_platform( lua_State *L )
 }
 
 #endif // #ifdef ENABLE_ENC
-

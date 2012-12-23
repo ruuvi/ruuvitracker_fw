@@ -39,13 +39,24 @@
 // *****************************************************************************
 // UART/Timer IDs configuration data (used in main.c)
 
-#define CON_UART_ID           0
+#define CON_UART_ID           1
 #define CON_UART_SPEED        115200
 #define TERM_LINES            25
 #define TERM_COLS             80
 
 // *****************************************************************************
 // Auxiliary libraries that will be compiled for this platform
+
+// Number of resources (0 if not available/not implemented)
+#define NUM_PIO               5
+#define NUM_SPI               3
+#define NUM_UART              6
+#define NUM_TIMER             12
+#define NUM_PHYS_TIMER        12
+#define NUM_PWM               4
+#define NUM_ADC               16
+#define NUM_CAN               1
+#define NUM_I2C               1
 
 //#ifdef FORSTM3210E_EVAL
 //#define AUXLIB_LCD      "stm3210lcd"
@@ -85,6 +96,7 @@
 #define LUA_PLATFORM_LIBS_ROM\
   _ROM( AUXLIB_PIO, luaopen_pio, pio_map )\
   _ROM( AUXLIB_SPI, luaopen_spi, spi_map )\
+  _ROM( AUXLIB_I2C, luaopen_i2c, i2c_map) \
   _ROM( AUXLIB_PD, luaopen_pd, pd_map )\
   _ROM( AUXLIB_UART, luaopen_uart, uart_map )\
   _ROM( AUXLIB_TERM, luaopen_term, term_map )\
@@ -111,15 +123,6 @@
 #define VTMR_NUM_TIMERS       4
 #define VTMR_FREQ_HZ          10
 
-// Number of resources (0 if not available/not implemented)
-#define NUM_PIO               5
-#define NUM_SPI               3
-#define NUM_UART              6
-#define NUM_TIMER             12
-#define NUM_PHYS_TIMER        12
-#define NUM_PWM               4
-#define NUM_ADC               16
-#define NUM_CAN               1
 
 // Enable RX buffering on UART
 //#define BUF_ENABLE_UART

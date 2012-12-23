@@ -9,7 +9,7 @@ fwlib_files = " ".join(glob.glob("src/platform/%s/FWLib/library/src/*.c" % platf
 #print "FWLib: %s " % fwlib_files 
 
 #specific_files = "core_cm3.c system_stm32f2xx.c startup_stm32f2xx.s platform.c stm32f2xx_it.c platform_int.c enc.c"
-specific_files = "system_stm32f4xx.c startup_stm32f4xx.s stm32f4xx_it.c platform.c platform_int.c"
+specific_files = "system_stm32f4xx.c startup_stm32f4xx.s stm32f4xx_it.c platform.c platform_int.c platform_i2c.c"
 
 #ldscript = "stm32f4xx_flash.ld" 
 ldscript = "stm32.ld"
