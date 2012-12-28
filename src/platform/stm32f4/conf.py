@@ -3,13 +3,36 @@ import fnmatch
 import glob
 import os
 
-comp.Append(CPPPATH = ['src/platform/%s/FWLib/library/inc' % platform])
+fwlibdir= 'src/platform/%s/FWLib' % platform
 
-fwlib_files = " ".join(glob.glob("src/platform/%s/FWLib/library/src/*.c" % platform))
+def fetch_lib(dir, url):
+	print "Downloading %s " % url, "to %s" % dir
+	path = os.getcwd()
+	os.chdir(dir)
+	os.system("wget '"+url+"' -O fwlib.zip")
+	os.system("unzip fwlib.zip")
+	f = open(".downloaded","w")
+	f.write("\n")
+	f.close()
+	os.chdir(path)
+
+#Download FWlib if not exist
+try:
+	stat = os.stat(fwlibdir+"/.downloaded")
+except OSError:
+	fetch_lib(fwlibdir, "http://www.st.com/internet/com/SOFTWARE_RESOURCES/SW_COMPONENT/FIRMWARE/stm32f4_dsp_stdperiph_lib.zip")
+
+STDPeriphdir = fwlibdir+"/STM32F4xx_DSP_StdPeriph_Lib_V1.0.1/Libraries/STM32F4xx_StdPeriph_Driver"
+CMSISdir = fwlibdir+"/STM32F4xx_DSP_StdPeriph_Lib_V1.0.1/Libraries/CMSIS"
+
+comp.Append(CPPPATH = [STDPeriphdir+"/inc" , CMSISdir+"/Include", CMSISdir+"/Device/ST/STM32F4xx/Include/" ])
+
+fwlib_files = " ".join(glob.glob(STDPeriphdir+"/src/*.c")) \
+	+" "+ CMSISdir+"/Device/ST/STM32F4xx/Source/Templates/system_stm32f4xx.c" \
+	+" "+ CMSISdir+"/Device/ST/STM32F4xx/Source/Templates/gcc_ride7/startup_stm32f4xx.s"
 #print "FWLib: %s " % fwlib_files 
 
-#specific_files = "core_cm3.c system_stm32f2xx.c startup_stm32f2xx.s platform.c stm32f2xx_it.c platform_int.c enc.c"
-specific_files = "system_stm32f4xx.c startup_stm32f4xx.s stm32f4xx_it.c platform.c platform_int.c platform_i2c.c"
+specific_files = "platform.c platform_int.c platform_i2c.c"
 
 #ldscript = "stm32f4xx_flash.ld" 
 ldscript = "stm32.ld"
@@ -49,4 +72,3 @@ def progfunc_stm32( target, source, env ):
   os.system( "%s -O ihex %s %s.hex" % ( toolset[ 'bin' ], outname, output ) )
   
 tools[ 'stm32f4' ][ 'progfunc' ] = progfunc_stm32
-
