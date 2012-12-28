@@ -1,8 +1,11 @@
 #/bin/sh
 
+#BOARD=STM32F4DSCY
+BOARD=RUUVIA
+
 if [[ "$1" == "clean" ]]; then
-	scons board=STM32F4DSCY -c
+	scons board=$BOARD -c
 else
-scons board=STM32F4DSCY prog
+scons board=$BOARD prog
 
 fi

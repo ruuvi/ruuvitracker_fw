@@ -6,6 +6,8 @@
 *.exe
 *.bin
 *.pyc
+*.bin
+*.map
 inc/romfiles.h
 *.swp
 .sconf_temp/
@@ -19,3 +21,4 @@ inc/git_version.h
 *~
 *.*~
 luac.cross*
+.DS_Store

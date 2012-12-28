@@ -73,6 +73,7 @@ static void cans_init();
 
 int platform_init()
 {
+
   // Setup IRQ's
   NVIC_Configuration();
 
@@ -413,6 +414,13 @@ const u8 stm32_usart_AF[] =       { GPIO_AF_USART1, GPIO_AF_USART2, GPIO_AF_USAR
   static const u8 usart_gpio_rx_pin_source[] = { GPIO_PinSource10, GPIO_PinSource3, GPIO_PinSource11, GPIO_PinSource11, GPIO_PinSource2 };
   static const u16 usart_gpio_tx_pin[] = { GPIO_Pin_9, GPIO_Pin_2, GPIO_Pin_10, GPIO_Pin_10, GPIO_Pin_12 };
   static const u8 usart_gpio_tx_pin_source[] = { GPIO_PinSource9, GPIO_PinSource2, GPIO_PinSource10, GPIO_PinSource10, GPIO_PinSource12 };
+#elif defined( ELUA_BOARD_RUUVIA )
+  static GPIO_TypeDef *const usart_gpio_rx_port[] = { GPIOA, GPIOA, GPIOB, GPIOC, GPIOD };
+  static GPIO_TypeDef *const usart_gpio_tx_port[] = { GPIOA, GPIOA, GPIOB, GPIOC, GPIOD };
+  static const u16 usart_gpio_rx_pin[] = { GPIO_Pin_10, GPIO_Pin_3, GPIO_Pin_11, GPIO_Pin_11, GPIO_Pin_2 };
+  static const u8 usart_gpio_rx_pin_source[] = { GPIO_PinSource10, GPIO_PinSource3, GPIO_PinSource11, GPIO_PinSource11, GPIO_PinSource2 };
+  static const u16 usart_gpio_tx_pin[] = { GPIO_Pin_9, GPIO_Pin_2, GPIO_Pin_10, GPIO_Pin_10, GPIO_Pin_12 };
+  static const u8 usart_gpio_tx_pin_source[] = { GPIO_PinSource9, GPIO_PinSource2, GPIO_PinSource10, GPIO_PinSource10, GPIO_PinSource12 };
 #else
   static GPIO_TypeDef *const usart_gpio_rx_port[] = { GPIOB, GPIOA, GPIOC, GPIOC, GPIOD };
   static GPIO_TypeDef *const usart_gpio_tx_port[] = { GPIOB, GPIOA, GPIOC, GPIOC, GPIOD };
@@ -464,9 +472,9 @@ static void uarts_init()
   RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_UART4, ENABLE);
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_UART5, ENABLE);
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART6, ENABLE);
+//  RCC_APB1PeriphClockCmd(RCC_APB1Periph_UART4, ENABLE);
+//  RCC_APB1PeriphClockCmd(RCC_APB1Periph_UART5, ENABLE);
+//  RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART6, ENABLE);
 }
 
 u32 platform_uart_setup( unsigned id, u32 baud, int databits, int parity, int stopbits )

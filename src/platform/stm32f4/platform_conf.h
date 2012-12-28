@@ -34,12 +34,12 @@
 #define PLATFORM_HAS_SYSTIMER
 
 //#define ENABLE_TRACE       // Enable the ETM TRACE interface (TRACECLK, TRACE D0-3)
-#define ENABLE_JTAG_SWD    // Do NOT remove this unless you really not need JTAG/SWD
+//#define ENABLE_JTAG_SWD    // Do NOT remove this unless you really not need JTAG/SWD
 
 // *****************************************************************************
 // UART/Timer IDs configuration data (used in main.c)
 
-#define CON_UART_ID           1
+#define CON_UART_ID           0
 #define CON_UART_SPEED        115200
 #define TERM_LINES            25
 #define TERM_COLS             80
@@ -48,9 +48,9 @@
 // Auxiliary libraries that will be compiled for this platform
 
 // Number of resources (0 if not available/not implemented)
-#define NUM_PIO               5
+#define NUM_PIO               3
 #define NUM_SPI               3
-#define NUM_UART              6
+#define NUM_UART              3
 #define NUM_TIMER             12
 #define NUM_PHYS_TIMER        12
 #define NUM_PWM               4
