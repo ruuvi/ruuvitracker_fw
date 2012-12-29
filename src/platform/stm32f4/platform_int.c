@@ -18,16 +18,7 @@
 
 extern USART_TypeDef *const stm32_usart[];
 
-static void all_usart_irqhandler( int resnum )
-{
-  int temp;
-
-  //temp = USART_GetFlagStatus( stm32_usart[ resnum ], USART_FLAG_ORE );
-  cmn_int_handler( INT_UART_RX, resnum );
-  // if( temp == SET )
-  //   for( temp = 0; temp < 10; temp ++ )
-  //     platform_s_uart_send( resnum, '@' );
-}
+extern void all_usart_irqhandler( int resnum );
 
 void USART1_IRQHandler()
 {
@@ -409,8 +400,7 @@ void platform_int_init()
       nvic_init_structure.NVIC_IRQChannelSubPriority = 1;
     NVIC_Init( &nvic_init_structure );
   }
-#endif  
-
+#endif
 }
 
 // ****************************************************************************

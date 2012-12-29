@@ -32,7 +32,7 @@ fwlib_files = " ".join(glob.glob(STDPeriphdir+"/src/*.c")) \
 	+" "+ CMSISdir+"/Device/ST/STM32F4xx/Source/Templates/gcc_ride7/startup_stm32f4xx.s"
 #print "FWLib: %s " % fwlib_files 
 
-specific_files = "platform.c platform_int.c platform_i2c.c"
+specific_files = "platform.c platform_int.c uart.c platform_i2c.c"
 
 #ldscript = "stm32f4xx_flash.ld" 
 ldscript = "stm32.ld"
