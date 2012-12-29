@@ -1,3 +1,4 @@
+term.clrscr()
 print("Starting RuuviTracker eLua FW")
 print("Board: " .. pd.board() )
 
@@ -11,3 +12,7 @@ end
 	
 pio.pin.setdir( pio.OUTPUT, led )
 pio.pin.sethigh( led )
+
+require('gsm')
+gsm_setup()
+gsm_start_gprs()
