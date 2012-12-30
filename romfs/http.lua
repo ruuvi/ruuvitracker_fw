@@ -3,7 +3,7 @@ require('gsm')
 
 function http_get(url)
 	local data = ""
-        local user_agent = "RuuviTracker firmware/" .. firmware.version
+	local user_agent = "RuuviTracker firmware/" .. firmware.version
 	--Start HTTP request
 	gsm_cmd([[
 AT+HTTPINIT
