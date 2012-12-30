@@ -1,0 +1,40 @@
+This is a skeleton project for ChibiOS on RuuviTracker REVA board
+
+Project setup
+==============
+
+The default cross-compiler prefix is arm-none-eabi- which matches the
+Mentor Graphics Sourcery G++ (former CodeSourcery) toolchain. This can
+be changed by adjusting the TRGT variable in the Makefile.
+
+Change the Makefile using an existing ChibiOS demo as an example.
+
+Modify the CHIBIOS variable in the makefile to tell the location of
+your local ChibiOS repository. e.g. /home/username/eclipse_workspace/chibios/ver_2.4.0
+or more handy could be to use shorter symbolic link
+
+Different versions of ChibiOS may or may not work, version 2.4.0 was
+used to setup this skeleton project.
+
+ChibiOS sources can be downloaded from the ChibiOS site at
+
+ http://www.chibios.org/
+
+Building
+=========
+
+To build, simply run
+
+ $ make
+
+Default configuration
+=====================
+
+Main loop will initialize chibios core and hal. After that it initializes serialport USART1
+and two threads for blinkin leds. With led1 thread, output of character 'C' is sent to USART1.
+USART1 has following settings:
+BAUDRATE: 115200
+DATABITS: 8
+STOPBITS: 1
+PARITY: none
+FLOWCONTROL: none
