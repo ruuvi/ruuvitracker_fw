@@ -58,6 +58,8 @@ function gsm_setup()
 	
 	--send pin
 	gsm_cmd([[
+AT+IFC=2,2
+ATE0
 AT
 AT+CPIN=0000
 ]])
