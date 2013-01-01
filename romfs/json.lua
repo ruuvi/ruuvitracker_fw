@@ -1,521 +1,855 @@
------------------------------------------------------------------------------
--- JSON4Lua: JSON encoding / decoding support for the Lua language.
--- json Module.
--- Author: Craig Mason-Jones
--- Homepage: http://json.luaforge.net/
--- Version: 0.9.50
--- This module is released under the MIT License (MIT).
--- Please see LICENCE.txt for details.
+-- -*- coding: utf-8 -*-
 --
--- USAGE:
--- This module exposes two functions:
---   encode(o)
---     Returns the table / string / boolean / number / nil / json.null value as a JSON-encoded string.
---   decode(json_string)
---     Returns a Lua object populated with the data encoded in the JSON string json_string.
+-- Copyright 2010-2012 Jeffrey Friedl
+-- http://regex.info/blog/
 --
--- REQUIREMENTS:
---   compat-5.1 if using Lua 5.0
+local VERSION = 20111207.5  -- version history at end of file
+local OBJDEF = { VERSION = VERSION }
+
 --
--- CHANGELOG
---	 0.9.50 Radical performance improvement on decode from Eike Decker. Many thanks!
---	 0.9.40 Changed licence to MIT License (MIT)
---   0.9.20 Introduction of local Lua functions for private functions (removed _ function prefix). 
---          Fixed Lua 5.1 compatibility issues.
---   		Introduced json.null to have null values in associative arrays.
---          encode() performance improvement (more than 50%) through table.concat rather than ..
---          Introduced decode ability to ignore /**/ comments in the JSON string.
---   0.9.10 Fix to array encoding / decoding to correctly manage nil/null values in arrays.
------------------------------------------------------------------------------
+-- Simple JSON encoding and decoding in pure Lua.
+-- http://www.json.org/
+--
+--
+--   JSON = (loadfile "JSON.lua")() -- one-time load of the routines
+--
+--   local lua_value = JSON:decode(raw_json_text)
+--
+--   local raw_json_text    = JSON:encode(lua_table_or_value)
+--   local pretty_json_text = JSON:encode_pretty(lua_table_or_value) -- "pretty printed" version for human readability
+--
+--
+-- DECODING
+--
+--   JSON = (loadfile "JSON.lua")() -- one-time load of the routines
+--
+--   local lua_value = JSON:decode(raw_json_text)
+--
+--   If the JSON text is for an object or an array, e.g.
+--     { "what": "books", "count": 3 }
+--   or
+--     [ "Larry", "Curly", "Moe" ]
+--
+--   the result is a Lua table, e.g.
+--     { what = "books", count = 3 }
+--   or
+--     { "Larry", "Curly", "Moe" }
+--
+--
+--   The encode and decode routines accept an optional second argument, "etc", which is not used
+--   during encoding or decoding, but upon error is passed along to error handlers. It can be of any
+--   type (including nil).
+--
+--   With most errors during decoding, this code calls
+--
+--      JSON:onDecodeError(message, text, location, etc)
+--
+--   with a message about the error, and if known, the JSON text being parsed and the byte count
+--   where the problem was discovered. You can replace the default JSON:onDecodeError() with your
+--   own function.
+--
+--   The default onDecodeError() merely augments the message with data about the text and the
+--   location if known (and if a second 'etc' argument had been provided to decode(), its value is
+--   tacked onto the message as well), and then calls JSON.assert(), which itself defaults to Lua's
+--   built-in assert(), and can also be overridden.
+--
+--   For example, in an Adobe Lightroom plugin, you might use something like
+--
+--          function JSON:onDecodeError(message, text, location, etc)
+--             LrErrors.throwUserError("Internal Error: invalid JSON data")
+--          end
+--
+--   or even just
+--
+--          function JSON.assert(message)
+--             LrErrors.throwUserError("Internal Error: " .. message)
+--          end
+--
+--   If JSON:decode() is passed a nil, this is called instead:
+--
+--      JSON:onDecodeOfNilError(message, nil, nil, etc)
+--
+--   and if JSON:decode() is passed HTML instead of JSON, this is called:
+--
+--      JSON:onDecodeOfHTMLError(message, text, nil, etc)
+--
+--   The use of the fourth 'etc' argument allows stronger coordination between decoding and error
+--   reporting, especially when you provide your own error-handling routines. Continuing with the
+--   the Adobe Lightroom plugin example:
+--
+--          function JSON:onDecodeError(message, text, location, etc)
+--             local note = "Internal Error: invalid JSON data"
+--             if type(etc) = 'table' and etc.photo then
+--                note = note .. " while processing for " .. etc.photo:getFormattedMetadata('fileName')
+--             end
+--             LrErrors.throwUserError(note)
+--          end
+--
+--            :
+--            :
+--
+--          for i, photo in ipairs(photosToProcess) do
+--               :             
+--               :             
+--               local data = JSON:decode(someJsonText, { photo = photo })
+--               :             
+--               :             
+--          end
+--
+--
+--
+--
 
------------------------------------------------------------------------------
--- Imports and dependencies
------------------------------------------------------------------------------
-local math = require('math')
-local string = require("string")
-local table = require("table")
-local tostring = tostring
+-- DECODING AND STRICT TYPES
+--
+--   Because both JSON objects and JSON arrays are converted to Lua tables, it's not normally
+--   possible to tell which a Lua table came from, or guarantee decode-encode round-trip
+--   equivalency.
+--
+--   However, if you enable strictTypes, e.g.
+--
+--      JSON = (loadfile "JSON.lua")() --load the routines
+--      JSON.strictTypes = true
+--
+--   then the Lua table resulting from the decoding of a JSON object or JSON array is marked via Lua
+--   metatable, so that when re-encoded with JSON:encode() it ends up as the appropriate JSON type.
+--
+--   (This is not the default because other routines may not work well with tables that have a
+--   metatable set, for example, Lightroom API calls.)
+--
+--
+-- ENCODING
+--
+--   JSON = (loadfile "JSON.lua")() -- one-time load of the routines
+--
+--   local raw_json_text    = JSON:encode(lua_table_or_value)
+--   local pretty_json_text = JSON:encode_pretty(lua_table_or_value) -- "pretty printed" version for human readability
 
-local base = _G
+--   On error during encoding, this code calls:
+--
+--    JSON:onEncodeError(message, etc)
+--
+--   which you can override in your local JSON object.
+--
+--
+-- SUMMARY OF METHODS YOU CAN OVERRIDE IN YOUR LOCAL LUA JSON OBJECT
+--
+--    assert
+--    onDecodeError
+--    onDecodeOfNilError
+--    onDecodeOfHTMLError
+--    onEncodeError
+--
+--  If you want to create a separate Lua JSON object with its own error handlers,
+--  you can reload JSON.lua or use the :new() method.
+--
+---------------------------------------------------------------------------
 
------------------------------------------------------------------------------
--- Module declaration
------------------------------------------------------------------------------
-module("json")
 
--- Public functions
+local author = "-[ JSON.lua package by Jeffrey Friedl (http://regex.info/blog/lua/json), version " .. tostring(VERSION) .. " ]-"
+local isArray  = { __tostring = function() return "JSON array"  end }    isArray.__index  = isArray
+local isObject = { __tostring = function() return "JSON object" end }    isObject.__index = isObject
 
--- Private functions
-local decode_scanArray
-local decode_scanComment
-local decode_scanConstant
-local decode_scanNumber
-local decode_scanObject
-local decode_scanString
-local decode_scanWhitespace
-local encodeString
-local isArray
-local isEncodable
 
------------------------------------------------------------------------------
--- PUBLIC FUNCTIONS
------------------------------------------------------------------------------
---- Encodes an arbitrary Lua object / variable.
--- @param v The Lua object / variable to be JSON encoded.
--- @return String containing the JSON encoding in internal Lua string format (i.e. not unicode)
-function encode (v)
-  -- Handle nil values
-  if v==nil then
-    return "null"
-  end
-  
-  local vtype = base.type(v)  
+function OBJDEF:newArray(tbl)
+   return setmetatable(tbl or {}, isArray)
+end
 
-  -- Handle strings
-  if vtype=='string' then    
-    return '"' .. encodeString(v) .. '"'	    -- Need to handle encoding in string
-  end
-  
-  -- Handle booleans
-  if vtype=='number' or vtype=='boolean' then
-    return base.tostring(v)
-  end
-  
-  -- Handle tables
-  if vtype=='table' then
-    local rval = {}
-    -- Consider arrays separately
-    local bArray, maxCount = isArray(v)
-    if bArray then
-      for i = 1,maxCount do
-        table.insert(rval, encode(v[i]))
+function OBJDEF:newObject(tbl)
+   return setmetatable(tbl or {}, isObject)
+end
+
+local function unicode_codepoint_as_utf8(codepoint)
+   --
+   -- codepoint is a number
+   --
+   if codepoint <= 127 then
+      return string.char(codepoint)
+
+   elseif codepoint <= 2047 then
+      --
+      -- 110yyyxx 10xxxxxx         <-- useful notation from http://en.wikipedia.org/wiki/Utf8
+      --
+      local highpart = math.floor(codepoint / 0x40)
+      local lowpart  = codepoint - (0x40 * highpart)
+      return string.char(0xC0 + highpart,
+                         0x80 + lowpart)
+
+   elseif codepoint <= 65535 then
+      --
+      -- 1110yyyy 10yyyyxx 10xxxxxx
+      --
+      local highpart  = math.floor(codepoint / 0x1000)
+      local remainder = codepoint - 0x1000 * highpart
+      local midpart   = math.floor(remainder / 0x40)
+      local lowpart   = remainder - 0x40 * midpart
+
+      highpart = 0xE0 + highpart
+      midpart  = 0x80 + midpart
+      lowpart  = 0x80 + lowpart
+
+      --
+      -- Check for an invalid character (thanks Andy R. at Adobe).
+      -- See table 3.7, page 93, in http://www.unicode.org/versions/Unicode5.2.0/ch03.pdf#G28070
+      --
+      if ( highpart == 0xE0 and midpart < 0xA0 ) or
+         ( highpart == 0xED and midpart > 0x9F ) or
+         ( highpart == 0xF0 and midpart < 0x90 ) or
+         ( highpart == 0xF4 and midpart > 0x8F )
+      then
+         return "?"
+      else
+         return string.char(highpart,
+                            midpart,
+                            lowpart)
       end
-    else	-- An object, not an array
-      for i,j in base.pairs(v) do
-        if isEncodable(i) and isEncodable(j) then
-          table.insert(rval, '"' .. encodeString(i) .. '":' .. encode(j))
-        end
+
+   else
+      --
+      -- 11110zzz 10zzyyyy 10yyyyxx 10xxxxxx
+      --
+      local highpart  = math.floor(codepoint / 0x40000)
+      local remainder = codepoint - 0x40000 * highpart
+      local midA      = math.floor(remainder / 0x1000)
+      remainder       = remainder - 0x1000 * midA
+      local midB      = math.floor(remainder / 0x40)
+      local lowpart   = remainder - 0x40 * midB
+
+      return string.char(0xF0 + highpart,
+                         0x80 + midA,
+                         0x80 + midB,
+                         0x80 + lowpart)
+   end
+end
+
+function OBJDEF:onDecodeError(message, text, location, etc)
+   if text then
+      if location then
+         message = string.format("%s at char %d of: %s", message, location, text)
+      else
+         message = string.format("%s: %s", message, text)
       end
-    end
-    if bArray then
-      return '[' .. table.concat(rval,',') ..']'
-    else
-      return '{' .. table.concat(rval,',') .. '}'
-    end
-  end
-  
-  -- Handle null values
-  if vtype=='function' and v==null then
-    return 'null'
-  end
-  
-  base.assert(false,'encode attempt to encode unsupported type ' .. vtype .. ':' .. base.tostring(v))
+   end
+   if etc ~= nil then
+      message = message .. " (" .. OBJDEF:encode(etc) .. ")"
+   end
+
+   if self.assert then
+      self.assert(false, message)
+   else
+      assert(false, message)
+   end
+end
+
+OBJDEF.onDecodeOfNilError  = OBJDEF.onDecodeError
+OBJDEF.onDecodeOfHTMLError = OBJDEF.onDecodeError
+
+function OBJDEF:onEncodeError(message, etc)
+   if etc ~= nil then
+      message = message .. " (" .. OBJDEF:encode(etc) .. ")"
+   end
+
+   if self.assert then
+      self.assert(false, message)
+   else
+      assert(false, message)
+   end
+end
+
+local function grok_number(self, text, start, etc)
+   --
+   -- Grab the integer part
+   --
+   local integer_part = text:match('^-?[1-9]%d*', start)
+                     or text:match("^-?0",        start)
+
+   if not integer_part then
+      self:onDecodeError("expected number", text, start, etc)
+   end
+
+   local i = start + integer_part:len()
+
+   --
+   -- Grab an optional decimal part
+   --
+   local decimal_part = text:match('^%.%d+', i) or ""
+
+   i = i + decimal_part:len()
+
+   --
+   -- Grab an optional exponential part
+   --
+   local exponent_part = text:match('^[eE][-+]?%d+', i) or ""
+
+   i = i + exponent_part:len()
+
+   local full_number_text = integer_part .. decimal_part .. exponent_part
+   local as_number = tonumber(full_number_text)
+
+   if not as_number then
+      self:onDecodeError("bad number", text, start, etc)
+   end
+
+   return as_number, i
 end
 
 
---- Decodes a JSON string and returns the decoded value as a Lua data structure / value.
--- @param s The string to scan.
--- @return Lua objectthat was scanned, as a Lua table / string / number / boolean or nil.
-function decode(s)
-	-- Function is re-defined below after token and other items are created.
-	-- Just defined here for code neatness.
-	return null
+local function grok_string(self, text, start, etc)
+
+   if text:sub(start,start) ~= '"' then
+      self:onDecodeError("expected string's opening quote", text, start, etc)
+   end
+
+   local i = start + 1 -- +1 to bypass the initial quote
+   local text_len = text:len()
+   local VALUE = ""
+   while i <= text_len do
+      local c = text:sub(i,i)
+      if c == '"' then
+         return VALUE, i + 1
+      end
+      if c ~= '\\' then
+         VALUE = VALUE .. c
+         i = i + 1
+      elseif text:match('^\\b', i) then
+         VALUE = VALUE .. "\b"
+         i = i + 2
+      elseif text:match('^\\f', i) then
+         VALUE = VALUE .. "\f"
+         i = i + 2
+      elseif text:match('^\\n', i) then
+         VALUE = VALUE .. "\n"
+         i = i + 2
+      elseif text:match('^\\r', i) then
+         VALUE = VALUE .. "\r"
+         i = i + 2
+      elseif text:match('^\\t', i) then
+         VALUE = VALUE .. "\t"
+         i = i + 2
+      else
+         local hex = text:match('^\\u([0123456789aAbBcCdDeEfF][0123456789aAbBcCdDeEfF][0123456789aAbBcCdDeEfF][0123456789aAbBcCdDeEfF])', i)
+         if hex then
+            i = i + 6 -- bypass what we just read
+
+            -- We have a Unicode codepoint. It could be standalone, or if in the proper range and
+            -- followed by another in a specific range, it'll be a two-code surrogate pair.
+            local codepoint = tonumber(hex, 16)
+            if codepoint >= 0xD800 and codepoint <= 0xDBFF then
+               -- it's a hi surrogate... see whether we have a following low
+               local lo_surrogate = text:match('^\\u([dD][cdefCDEF][0123456789aAbBcCdDeEfF][0123456789aAbBcCdDeEfF])', i)
+               if lo_surrogate then
+                  i = i + 6 -- bypass the low surrogate we just read
+                  codepoint = 0x2400 + (codepoint - 0xD800) * 0x400 + tonumber(lo_surrogate, 16)
+               else
+                  -- not a proper low, so we'll just leave the first codepoint as is and spit it out.
+               end
+            end
+            VALUE = VALUE .. unicode_codepoint_as_utf8(codepoint)
+
+         else
+
+            -- just pass through what's escaped
+            VALUE = VALUE .. text:match('^\\(.)', i)
+            i = i + 2
+         end
+      end
+   end
+
+   self:onDecodeError("unclosed string", text, start, etc)
 end
 
---- The null function allows one to specify a null value in an associative array (which is otherwise
--- discarded if you set the value with 'nil' in Lua. Simply set t = { first=json.null }
-function null()
-  return null -- so json.null() will also return null ;-)
+local function skip_whitespace(text, start)
+
+   local match_start, match_end = text:find("^[ \n\r\t]+", start) -- [http://www.ietf.org/rfc/rfc4627.txt] Section 2
+   if match_end then
+      return match_end + 1
+   else
+      return start
+   end
 end
 
------------------------------------------------------------------------------
--- Internal, PRIVATE functions.
------------------------------------------------------------------------------
+local grok_one -- assigned later
 
---- Encodes a string to be JSON-compatible.
--- This just involves back-quoting inverted commas, back-quotes and newlines, I think ;-)
--- @param s The string to return as a JSON encoded (i.e. backquoted string)
--- @return The string appropriately escaped.
-local qrep = {["\\"]="\\\\", ['"']='\\"',['\n']='\\n',['\t']='\\t'}
-function encodeString(s)
-  return tostring(s):gsub('["\\\n\t]',qrep)
+local function grok_object(self, text, start, etc)
+   if not text:sub(start,start) == '{' then
+      self:onDecodeError("expected '{'", text, start, etc)
+   end
+
+   local i = skip_whitespace(text, start + 1) -- +1 to skip the '{'
+
+   local VALUE = self.strictTypes and self:newObject { } or { }
+
+   if text:sub(i,i) == '}' then
+      return VALUE, i + 1
+   end
+   local text_len = text:len()
+   while i <= text_len do
+      local key, new_i = grok_string(self, text, i, etc)
+
+      i = skip_whitespace(text, new_i)
+
+      if text:sub(i, i) ~= ':' then
+         self:onDecodeError("expected colon", text, i, etc)
+      end
+
+      i = skip_whitespace(text, i + 1)
+
+      local val, new_i = grok_one(self, text, i)
+
+      VALUE[key] = val
+
+      --
+      -- Expect now either '}' to end things, or a ',' to allow us to continue.
+      --
+      i = skip_whitespace(text, new_i)
+
+      local c = text:sub(i,i)
+
+      if c == '}' then
+         return VALUE, i + 1
+      end
+
+      if text:sub(i, i) ~= ',' then
+         self:onDecodeError("expected comma or '}'", text, i, etc)
+      end
+
+      i = skip_whitespace(text, i + 1)
+   end
+
+   self:onDecodeError("unclosed '{'", text, start, etc)
 end
 
--- Determines whether the given Lua type is an array or a table / dictionary.
--- We consider any table an array if it has indexes 1..n for its n items, and no
--- other data in the table.
--- I think this method is currently a little 'flaky', but can't think of a good way around it yet...
--- @param t The table to evaluate as an array
--- @return boolean, number True if the table can be represented as an array, false otherwise. If true,
--- the second returned value is the maximum
--- number of indexed elements in the array. 
-function isArray(t)
-  -- Next we count all the elements, ensuring that any non-indexed elements are not-encodable 
-  -- (with the possible exception of 'n')
-  local maxIndex = 0
-  for k,v in base.pairs(t) do
-    if (base.type(k)=='number' and math.floor(k)==k and 1<=k) then	-- k,v is an indexed pair
-      if (not isEncodable(v)) then return false end	-- All array elements must be encodable
-      maxIndex = math.max(maxIndex,k)
-    else
-      if (k=='n') then
-        if v ~= table.getn(t) then return false end  -- False if n does not hold the number of elements
-      else -- Else of (k=='n')
-        if isEncodable(v) then return false end
-      end  -- End of (k~='n')
-    end -- End of k,v not an indexed pair
-  end  -- End of loop across all pairs
-  return true, maxIndex
+local function grok_array(self, text, start, etc)
+   if not text:sub(start,start) == '[' then
+      self:onDecodeError("expected '['", text, start, etc)
+   end
+
+   local i = skip_whitespace(text, start + 1) -- +1 to skip the '['
+   local VALUE = self.strictTypes and self:newArray { } or { }
+   if text:sub(i,i) == ']' then
+      return VALUE, i + 1
+   end
+
+   local text_len = text:len()
+   while i <= text_len do
+      local val, new_i = grok_one(self, text, i)
+
+      table.insert(VALUE, val)
+
+      i = skip_whitespace(text, new_i)
+
+      --
+      -- Expect now either ']' to end things, or a ',' to allow us to continue.
+      --
+      local c = text:sub(i,i)
+      if c == ']' then
+         return VALUE, i + 1
+      end
+      if text:sub(i, i) ~= ',' then
+         self:onDecodeError("expected comma or '['", text, i, etc)
+      end
+      i = skip_whitespace(text, i + 1)
+   end
+   self:onDecodeError("unclosed '['", text, start, etc)
 end
 
---- Determines whether the given Lua object / table / variable can be JSON encoded. The only
--- types that are JSON encodable are: string, boolean, number, nil, table and json.null.
--- In this implementation, all other types are ignored.
--- @param o The object to examine.
--- @return boolean True if the object should be JSON encoded, false if it should be ignored.
-function isEncodable(o)
-  local t = base.type(o)
-  return (t=='string' or t=='boolean' or t=='number' or t=='nil' or t=='table') or (t=='function' and o==null) 
+
+grok_one = function(self, text, start, etc)
+   -- Skip any whitespace
+   start = skip_whitespace(text, start)
+
+   if start > text:len() then
+      self:onDecodeError("unexpected end of string", text, nil, etc)
+   end
+
+   if text:find('^"', start) then
+      return grok_string(self, text, start, etc)
+
+   elseif text:find('^[-0123456789 ]', start) then
+      return grok_number(self, text, start, etc)
+
+   elseif text:find('^%{', start) then
+      return grok_object(self, text, start, etc)
+
+   elseif text:find('^%[', start) then
+      return grok_array(self, text, start, etc)
+
+   elseif text:find('^true', start) then
+      return true, start + 4
+
+   elseif text:find('^false', start) then
+      return false, start + 5
+
+   elseif text:find('^null', start) then
+      return nil, start + 4
+
+   else
+      self:onDecodeError("can't parse JSON", text, start, etc)
+   end
 end
 
--- Radical performance improvement for decode from Eike Decker!
-do
-	local type = base.type
-	local error = base.error
-	local assert = base.assert
-	local print = base.print
-	local tonumber = base.tonumber
-	-- initialize some values to be used in decoding function
-	
-	-- initializes a table to contain a byte=>table mapping
-	-- the table contains tokens (byte values) as keys and maps them on other
-	-- token tables (mostly, the boolean value 'true' is used to indicate termination
-	-- of a token sequence)
-	-- the token table's purpose is, that it allows scanning a sequence of bytes
-	-- until something interesting has been found (e.g. a token that is not expected)
-	-- name is a descriptor for the table to be printed in error messages
-	local function init_token_table (tt)
-		local struct = {}
-		local value
-		function struct:link(other_tt)
-			value = other_tt
-			return struct
-		end
-		function struct:to(chars)
-			for i=1,#chars do 
-				tt[chars:byte(i)] = value
-			end
-			return struct
-		end
-		return function (name)
-			tt.name = name
-			return struct
-		end
-	end
-	
-	-- keep "named" byte values at hands
-	local 
-		c_esc,
-		c_e,
-		c_l,
-		c_r,
-		c_u,
-		c_f,
-		c_a,
-		c_s,
-		c_slash = ("\\elrufas/"):byte(1,9)
-	
-	-- token tables - tt_doublequote_string = strDoubleQuot, tt_singlequote_string = strSingleQuot
-	local 
-		tt_object_key,
-		tt_object_colon,
-		tt_object_value,
-		tt_doublequote_string,
-		tt_singlequote_string,
-		tt_array_value,
-		tt_array_seperator,
-		tt_numeric,
-		tt_boolean,
-		tt_null,
-		tt_comment_start,
-		tt_comment_middle,
-		tt_ignore --< tt_ignore is special - marked tokens will be tt_ignored
-			= {},{},{},{},{},{},{},{},{},{},{},{},{}
-	
-	-- strings to be used in certain token tables
-	local strchars = "" -- all valid string characters (all except newlines)
-	local allchars = "" -- all characters that are valid in comments
-	--local escapechar = {}
-	for i=0,0xff do 
-		local c = string.char(i)
-		if c~="\n" and c~="\r" then strchars = strchars .. c end
-		allchars = allchars .. c
-		--escapechar[i] = "\\" .. string.char(i)
-	end
-	
---[[	
-	charstounescape = "\"\'\\bfnrt/";
-	unescapechars = "\"'\\\b\f\n\r\t\/";
-	for i=1,#charstounescape do
-		escapechar[ charstounescape:byte(i) ] = unescapechars:sub(i,i)
-	end
-]]--
+function OBJDEF:decode(text, etc)
+   if type(self) ~= 'table' or self.__index ~= OBJDEF then
+      OBJDEF:onDecodeError("JSON:decode must be called in method format", nil, nil, etc)
+   end
 
-	-- obj key reader, expects the end of the object or a quoted string as key
-	init_token_table (tt_object_key) "object (' or \" or } or , expected)" 
-		:link(tt_singlequote_string) :to "'"
-		:link(tt_doublequote_string) :to '"'
-		:link(true)                  :to "}"
-		:link(tt_object_key)         :to ","
-		:link(tt_comment_start)      :to "/"
-		:link(tt_ignore)             :to " \t\r\n"
-	
-	
-	-- after the key, a colon is expected (or comment)
-	init_token_table (tt_object_colon) "object (: expected)" 
-		:link(tt_object_value)       :to ":"  
-		:link(tt_comment_start)      :to "/" 
-		:link(tt_ignore)             :to" \t\r\n"
-		
-	-- as values, anything is possible, numbers, arrays, objects, boolean, null, strings
-	init_token_table (tt_object_value) "object ({ or [ or ' or \" or number or boolean or null expected)"
-		:link(tt_object_key)         :to "{" 
-		:link(tt_array_seperator)    :to "[" 
-		:link(tt_singlequote_string) :to "'" 
-		:link(tt_doublequote_string) :to '"' 
-		:link(tt_numeric)            :to "0123456789.-" 
-		:link(tt_boolean)            :to "tf" 
-		:link(tt_null)               :to "n" 
-		:link(tt_comment_start)      :to "/" 
-		:link(tt_ignore)             :to " \t\r\n"
-		
-	-- token tables for reading strings
-	init_token_table (tt_doublequote_string) "double quoted string"
-		:link(tt_ignore)             :to (strchars)
-		:link(c_esc)                 :to "\\"
-		:link(true)                  :to '"'
-		
-	init_token_table (tt_singlequote_string) "single quoted string"
-		:link(tt_ignore)             :to (strchars)
-		:link(c_esc)                 :to "\\" 
-		:link(true)                  :to "'"
-		
-	-- array reader that expects termination of the array or a comma that indicates the next value
-	init_token_table (tt_array_value) "array (, or ] expected)"
-		:link(tt_array_seperator)    :to "," 
-		:link(true)                  :to "]"
-		:link(tt_comment_start)      :to "/" 
-		:link(tt_ignore)             :to " \t\r\n"
-	
-	-- a value, pretty similar to tt_object_value
-	init_token_table (tt_array_seperator) "array ({ or [ or ' or \" or number or boolean or null expected)"
-		:link(tt_object_key)         :to "{" 
-		:link(tt_array_seperator)    :to "[" 
-		:link(tt_singlequote_string) :to "'" 
-		:link(tt_doublequote_string) :to '"'  
-		:link(tt_comment_start)      :to "/" 
-		:link(tt_numeric)            :to "0123456789.-" 
-		:link(tt_boolean)            :to "tf" 
-		:link(tt_null)               :to "n" 
-		:link(tt_ignore)             :to " \t\r\n"
-	
-	-- valid number tokens
-	init_token_table (tt_numeric) "number"
-		:link(tt_ignore)             :to "0123456789.-Ee"
-		
-	-- once a comment has been started with /, a * is expected
-	init_token_table (tt_comment_start) "comment start (* expected)"
-		:link(tt_comment_middle)     :to "*"
-		
-	-- now everything is allowed, watch out for * though. The next char is then checked manually
-	init_token_table (tt_comment_middle) "comment end"
-		:link(tt_ignore)             :to (allchars)
-		:link(true)                  :to "*"
-		
-	function decode (js_string)
-		local pos = 1 -- position in the string
-		
-		-- read the next byte value
-		local function next_byte () pos = pos + 1 return js_string:byte(pos-1) end
-		
-		-- in case of error, report the location using line numbers
-		local function location () 
-			local n = ("\n"):byte()
-			local line,lpos = 1,0
-			for i=1,pos do 
-				if js_string:byte(i) == n then
-					line,lpos = line + 1,1
-				else
-					lpos = lpos + 1
-				end
-			end
-			return "Line "..line.." character "..lpos
-		end
-		
-		-- debug func
-		--local function status (str)
-		--	print(str.." ("..s:sub(math.max(1,p-10),p+10)..")")
-		--end
-		
-		-- read the next token, according to the passed token table
-		local function next_token (tok)
-			while pos <= #js_string do
-				local b = js_string:byte(pos) 
-				local t = tok[b]
-				if not t then 
-					error("Unexpected character at "..location()..": "..
-						string.char(b).." ("..b..") when reading "..tok.name.."\nContext: \n"..
-						js_string:sub(math.max(1,pos-30),pos+30).."\n"..(" "):rep(pos+math.min(-1,30-pos)).."^")
-				end
-				pos = pos + 1
-				if t~=tt_ignore then return t end
-			end
-			error("unexpected termination of JSON while looking for "..tok.name)
-		end
-		
-		-- read a string, double and single quoted ones
-		local function read_string (tok)
-			local start = pos
-			--local returnString = {}
-			repeat
-				local t = next_token(tok)
-				if t == c_esc then 
-					--table.insert(returnString, js_string:sub(start, pos-2))
-					--table.insert(returnString, escapechar[ js_string:byte(pos) ])
-					pos = pos + 1
-					--start = pos
-				end -- jump over escaped chars, no matter what
-			until t == true
-			return (base.loadstring("return " .. js_string:sub(start-1, pos-1) ) ())
+   if text == nil then
+      self:onDecodeOfNilError(string.format("nil passed to JSON:decode()"), nil, nil, etc)
+   elseif type(text) ~= 'string' then
+      self:onDecodeError(string.format("expected string argument to JSON:decode(), got %s", type(text)), nil, nil, etc)
+   end
 
-			-- We consider the situation where no escaped chars were encountered separately,
-			-- and use the fastest possible return in this case.
-			
-			--if 0 == #returnString then
-			--	return js_string:sub(start,pos-2)
-			--else
-			--	table.insert(returnString, js_string:sub(start,pos-2))
-			--	return table.concat(returnString,"");
-			--end
-			--return js_string:sub(start,pos-2)
-		end
-		
-		local function read_num ()
-			local start = pos
-			while pos <= #js_string do
-				local b = js_string:byte(pos)
-				if not tt_numeric[b] then break end
-				pos = pos + 1
-			end
-			return tonumber(js_string:sub(start-1,pos-1))
-		end
-		
-		-- read_bool and read_null are both making an assumption that I have not tested:
-		-- I would expect that the string extraction is more expensive than actually 
-		-- making manual comparision of the byte values
-		local function read_bool () 
-			pos = pos + 3
-			local a,b,c,d = js_string:byte(pos-3,pos)
-			if a == c_r and b == c_u and c == c_e then return true end
-			pos = pos + 1
-			if a ~= c_a or b ~= c_l or c ~= c_s or d ~= c_e then 
-				error("Invalid boolean: "..js_string:sub(math.max(1,pos-5),pos+5)) 
-			end
-			return false
-		end
-		
-		-- same as read_bool: only last 
-		local function read_null ()
-			pos = pos + 3
-			local u,l1,l2 = js_string:byte(pos-3,pos-1)
-			if u == c_u and l1 == c_l and l2 == c_l then return nil end
-			error("Invalid value (expected null):"..js_string:sub(pos-4,pos-1)..
-				" ("..js_string:byte(pos-1).."="..js_string:sub(pos-1,pos-1).." / "..c_l..")")
-		end
-		
-		local read_object_value,read_object_key,read_array,read_value,read_comment
-	
-		-- read a value depending on what token was returned, might require info what was used (in case of comments)
-		function read_value (t,fromt)
-			if t == tt_object_key         then return read_object_key({}) end
-			if t == tt_array_seperator    then return read_array({}) end
-			if t == tt_singlequote_string or 
-			   t == tt_doublequote_string then return read_string(t) end
-			if t == tt_numeric            then return read_num() end
-			if t == tt_boolean            then return read_bool() end	
-			if t == tt_null               then return read_null() end
-			if t == tt_comment_start      then return read_value(read_comment(fromt)) end
-			error("unexpected termination - "..js_string:sub(math.max(1,pos-10),pos+10))
-		end
-		
-		-- read comments until something noncomment like surfaces, using the token reader which was 
-		-- used when stumbling over this comment
-		function read_comment (fromt)
-			while true do
-				next_token(tt_comment_start)
-				while true do
-					local t = next_token(tt_comment_middle)
-					if next_byte() == c_slash then
-						local t = next_token(fromt)
-						if t~= tt_comment_start then return t end
-						break
-					end
-				end
-			end
-		end
-		
-		-- read arrays, empty array expected as o arg
-		function read_array (o,i)
-			--if not i then status "arr open" end
-			i = i or 1
-			-- loop until ...
-			while true do
-				o[i] = read_value(next_token(tt_array_seperator),tt_array_seperator)
-				local t = next_token(tt_array_value)
-				if t == tt_comment_start then
-					t = read_comment(tt_array_value)
-				end
-				if t == true then  -- ... we found a terminator token
-					--status "arr close"
-					return o 
-				end
-				i = i + 1			
-			end
-		end
-		
-		-- object value reading
-		function read_object_value (o)
-			local t = next_token(tt_object_value)
-			return read_value(t,tt_object_value)
-		end
-		
-		-- object key reading, might also terminate the object
-		function read_object_key (o)
-			while true do
-				local t = next_token(tt_object_key)
-				if t == tt_comment_start then
-					t = read_comment(tt_object_key)
-				end
-				if t == true then return o end
-				if t == tt_object_key then return read_object_key(o) end
-				local k = read_string(t)
-				
-				if next_token(tt_object_colon) == tt_comment_start then
-					t = read_comment(tt_object_colon)
-				end
-				
-				local v = read_object_value(o)
-				o[k] = v
-			end
-		end
-		
-		-- now let's read data from our string and pretend it's an object value
-		local r = read_object_value()
-		if pos<=#js_string then
-			-- not sure about what to do with dangling characters
-			--error("Dangling characters in JSON code ("..location()..")")
-		end
-		
-		return r
-	end
+   if text:match('^%s*$') then
+      return nil
+   end
+
+   if text:match('^%s*<') then
+      -- Can't be JSON... we'll assume it's HTML
+      self:onDecodeOfHTMLError(string.format("html passed to JSON:decode()"), text, nil, etc)
+   end
+
+   --
+   -- Ensure that it's not UTF-32 or UTF-16.
+   -- Those are perfectly valid encodings for JSON (as per RFC 4627 section 3),
+   -- but this package can't handle them.
+   --
+   if text:sub(1,1):byte() == 0 or (text:len() >= 2 and text:sub(2,2):byte() == 0) then
+      self:onDecodeError("JSON package groks only UTF-8, sorry", text, nil, etc)
+   end
+
+   local success, value = pcall(grok_one, self, text, 1, etc)
+   if success then
+      return value
+   else
+      -- should never get here... JSON parse errors should have been caught earlier
+      assert(false, value)
+      return nil
+   end
 end
+
+local function backslash_replacement_function(c)
+   if c == "\n" then
+      return "\\n"
+   elseif c == "\r" then
+      return "\\r"
+   elseif c == "\t" then
+      return "\\t"
+   elseif c == "\b" then
+      return "\\b"
+   elseif c == "\f" then
+      return "\\f"
+   elseif c == '"' then
+      return '\\"'
+   elseif c == '\\' then
+      return '\\\\'
+   else
+      return string.format("\\u%04x", c:byte())
+   end
+end
+
+local chars_to_be_escaped_in_JSON_string
+   = '['
+   ..    '"'    -- class sub-pattern to match a double quote
+   ..    '%\\'  -- class sub-pattern to match a backslash
+   ..    '%z'   -- class sub-pattern to match a null
+   ..    '\001' .. '-' .. '\031' -- class sub-pattern to match control characters
+   .. ']'
+
+local function json_string_literal(value)
+   local newval = value:gsub(chars_to_be_escaped_in_JSON_string, backslash_replacement_function)
+   return '"' .. newval .. '"'
+end
+
+local function object_or_array(self, T, etc)
+   --
+   -- We need to inspect all the keys... if there are any strings, we'll convert to a JSON
+   -- object. If there are only numbers, it's a JSON array.
+   --
+   -- If we'll be converting to a JSON object, we'll want to sort the keys so that the
+   -- end result is deterministic.
+   --
+   local string_keys = { }
+   local seen_number_key = false
+   local maximum_number_key
+
+   for key in pairs(T) do
+      if type(key) == 'number' then
+         seen_number_key = true
+         if not maximum_number_key or maximum_number_key < key then
+            maximum_number_key = key
+         end
+      elseif type(key) == 'string' then
+         table.insert(string_keys, key)
+      else
+         self:onEncodeError("can't encode table with a key of type " .. type(key), etc)
+      end
+   end
+
+   if seen_number_key and #string_keys > 0 then
+      --
+      -- Mixed key types... don't know what to do, so bail
+      --
+      self:onEncodeError("a table with both numeric and string keys could be an object or array; aborting", etc)
+
+   elseif #string_keys == 0  then
+      --
+      -- An array
+      --
+      if seen_number_key then
+         return nil, maximum_number_key -- an array
+      else
+         --
+         -- An empty table...
+         --
+         if tostring(T) == "JSON array" then
+            return nil
+         elseif tostring(T) == "JSON object" then
+            return { }
+         else
+            -- have to guess, so we'll pick array, since empty arrays are likely more common than empty objects
+            return nil
+         end
+      end
+   else
+      --
+      -- An object, so return a list of keys
+      --
+      table.sort(string_keys)
+      return string_keys
+   end
+end
+
+--
+-- Encode
+--
+local encode_value -- must predeclare because it calls itself
+function encode_value(self, value, parents, etc)
+
+
+   if value == nil then
+      return 'null'
+   end
+
+   if type(value) == 'string' then
+      return json_string_literal(value)
+   elseif type(value) == 'number' then
+      if value ~= value then
+         --
+         -- NaN (Not a Number).
+         -- JSON has no NaN, so we have to fudge the best we can. This should really be a package option.
+         --
+         return "null"
+      elseif value >= math.huge then
+         --
+         -- Positive infinity. JSON has no INF, so we have to fudge the best we can. This should
+         -- really be a package option. Note: at least with some implementations, positive infinity
+         -- is both ">= math.huge" and "<= -math.huge", which makes no sense but that's how it is.
+         -- Negative infinity is properly "<= -math.huge". So, we must be sure to check the ">="
+         -- case first.
+         --
+         return "1e+9999"
+      elseif value <= -math.huge then
+         --
+         -- Negative infinity.
+         -- JSON has no INF, so we have to fudge the best we can. This should really be a package option.
+         --
+         return "-1e+9999"
+      else
+         return tostring(value)
+      end
+   elseif type(value) == 'boolean' then
+      return tostring(value)
+
+   elseif type(value) ~= 'table' then
+      self:onEncodeError("can't convert " .. type(value) .. " to JSON", etc)
+
+   else
+      --
+      -- A table to be converted to either a JSON object or array.
+      --
+      local T = value
+
+      if parents[T] then
+         self:onEncodeError("table " .. tostring(T) .. " is a child of itself", etc)
+      else
+         parents[T] = true
+      end
+
+      local result_value
+
+      local object_keys, maximum_number_key = object_or_array(self, T, etc)
+      if maximum_number_key then
+         --
+         -- An array...
+         --
+         local ITEMS = { }
+         for i = 1, maximum_number_key do
+            table.insert(ITEMS, encode_value(self, T[i], parents, etc))
+         end
+
+         result_value = "[" .. table.concat(ITEMS, ",") .. "]"
+      elseif object_keys then
+         --
+         -- An object
+         --
+
+         --
+         -- We'll always sort the keys, so that comparisons can be made on
+         -- the results, etc. The actual order is not particularly
+         -- important (e.g. it doesn't matter what character set we sort
+         -- as); it's only important that it be deterministic... the same
+         -- every time.
+         --
+         local PARTS = { }
+         for _, key in ipairs(object_keys) do
+            local encoded_key = encode_value(self, tostring(key), parents, etc)
+            local encoded_val = encode_value(self, T[key],        parents, etc)
+            table.insert(PARTS, string.format("%s:%s", encoded_key, encoded_val))
+         end
+         result_value = "{" .. table.concat(PARTS, ",") .. "}"
+      else
+         --
+         -- An empty array/object... we'll treat it as an array, though it should really be an option
+         --
+         result_value = "[]"
+      end
+
+      parents[T] = false
+      return result_value
+   end
+end
+
+local encode_pretty_value -- must predeclare because it calls itself
+function encode_pretty_value(self, value, parents, indent, etc)
+
+   if type(value) == 'string' then
+      return json_string_literal(value)
+
+   elseif type(value) == 'number' then
+      return tostring(value)
+
+   elseif type(value) == 'boolean' then
+      return tostring(value)
+
+   elseif type(value) == 'nil' then
+      return 'null'
+
+   elseif type(value) ~= 'table' then
+      self:onEncodeError("can't convert " .. type(value) .. " to JSON", etc)
+
+   else
+      --
+      -- A table to be converted to either a JSON object or array.
+      --
+      local T = value
+
+      if parents[T] then
+         self:onEncodeError("table " .. tostring(T) .. " is a child of itself", etc)
+      end
+      parents[T] = true
+
+      local result_value
+
+      local object_keys = object_or_array(self, T, etc)
+      if not object_keys then
+         --
+         -- An array...
+         --
+         local ITEMS = { }
+         for i = 1, #T do
+            table.insert(ITEMS, encode_pretty_value(self, T[i], parents, indent, etc))
+         end
+
+         result_value = "[ " .. table.concat(ITEMS, ", ") .. " ]"
+
+      else
+
+         --
+         -- An object -- can keys be numbers?
+         --
+
+         local KEYS = { }
+         local max_key_length = 0
+         for _, key in ipairs(object_keys) do
+            local encoded = encode_pretty_value(self, tostring(key), parents, "", etc)
+            max_key_length = math.max(max_key_length, #encoded)
+            table.insert(KEYS, encoded)
+         end
+         local key_indent = indent .. "    "
+         local subtable_indent = indent .. string.rep(" ", max_key_length + 2 + 4)
+         local FORMAT = "%s%" .. tostring(max_key_length) .. "s: %s"
+
+         local COMBINED_PARTS = { }
+         for i, key in ipairs(object_keys) do
+            local encoded_val = encode_pretty_value(self, T[key], parents, subtable_indent, etc)
+            table.insert(COMBINED_PARTS, string.format(FORMAT, key_indent, KEYS[i], encoded_val))
+         end
+         result_value = "{\n" .. table.concat(COMBINED_PARTS, ",\n") .. "\n" .. indent .. "}"
+      end
+
+      parents[T] = false
+      return result_value
+   end
+end
+
+function OBJDEF:encode(value, etc)
+   if type(self) ~= 'table' or self.__index ~= OBJDEF then
+      OBJDEF:onEncodeError("JSON:encode must be called in method format", etc)
+   end
+
+   local parents = {}
+   return encode_value(self, value, parents, etc)
+end
+
+function OBJDEF:encode_pretty(value, etc)
+   local parents = {}
+   local subtable_indent = ""
+   return encode_pretty_value(self, value, parents, subtable_indent, etc)
+end
+
+function OBJDEF.__tostring()
+   return "JSON encode/decode package"
+end
+
+OBJDEF.__index = OBJDEF
+
+function OBJDEF:new(args)
+   local new = { }
+
+   if args then
+      for key, val in pairs(args) do
+         new[key] = val
+      end
+   end
+
+   return setmetatable(new, OBJDEF)
+end
+
+return OBJDEF:new()
+
+--
+-- Version history:
+--
+--   20111207.5    Added support for the 'etc' arguments, for better error reporting.
+--
+--   20110731.4    More feedback from David Kolf on how to make the tests for Nan/Infinity system independent.
+--
+--   20110730.3    Incorporated feedback from David Kolf at http://lua-users.org/wiki/JsonModules:
+--
+--                   * When encoding lua for JSON, Sparse numeric arrays are now handled by
+--                     spitting out full arrays, such that
+--                        JSON:encode({"one", "two", [10] = "ten"})
+--                     returns
+--                        ["one","two",null,null,null,null,null,null,null,"ten"]
+--
+--                     In 20100810.2 and earlier, only up to the first non-null value would have been retained.
+--
+--                   * When encoding lua for JSON, numeric value NaN gets spit out as null, and infinity as "1+e9999".
+--                     Version 20100810.2 and earlier created invalid JSON in both cases.
+--
+--                   * Unicode surrogate pairs are now detected when decoding JSON.
+--
+--   20100810.2    added some checking to ensure that an invalid Unicode character couldn't leak in to the UTF-8 encoding
+--
+--   20100731.1    initial public release
+--

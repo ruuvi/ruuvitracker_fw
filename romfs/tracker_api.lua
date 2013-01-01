@@ -1,7 +1,8 @@
-require('sha1')
-require('json')
--- require('http')
+--require('sha1')
+--require('json')
+require('http')
 
+JSON = (loadfile "/rom/JSON.lua")()
 
 --[[ event data structure
 event = {}
@@ -42,32 +43,33 @@ local function base_string(event)
    end
    return s
 end
-
+--[[
 local function generate_mac(event, shared_secret) 
    local base = base_string(event)
    local mac = hmac_sha1(shared_secret, base)
    return mac
 end
+--]]
 
 local function create_event_json(event, tracker_code, shared_secret) 
    event.version = 1
    -- TODO if possible, set event.time field here or before
    event.tracker_code = tracker_code
-   if shared_secret then
-      local mac = generate_mac(event, shared_secret)
-      event.mac = mac
-   end
-   return json.encode(event)
+--   if shared_secret then
+--      local mac = generate_mac(event, shared_secret)
+--      event.mac = mac
+--   end
+   return JSON:encode(event)
 end
 
---[[--
+
 function send_event(event)
    -- TODO implement actual sending
-   local message = create_event_json(event, server.tracker_code, server.shared_secret)
+   local message = create_event_json(event, server.tracker_code)
    local code, data = http_post(server.url .. 'events', message, 'application/json')
    -- TODO what to do in case of errors?
 end
---]]
+
 
 --[[--
 function ping_server()
