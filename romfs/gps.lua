@@ -16,10 +16,8 @@ function gps_parse_rmc(line)
 			ew_indicator, speed = line:match("^%$GPRMC,([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*)")
 			if status == "A" then print("Status: Valid location")
 			else print ("Not valid location") return end
-			latitude = latitude/100
-			longitude = longitude/100
-			if ns_indicator == 'S' then latitude = -latitude end
-			if ew_indicator == 'W' then longitude = -longitude end
+			latitude = latitude..','..ns_indicator
+			longitude = longitude..','..ew_indicator
 			print("Time: " ..time)
 			print("Status: "..status)
 			print("Lat:" ..latitude)
@@ -27,8 +25,8 @@ function gps_parse_rmc(line)
 			print("Sending event")
 			local event={}
 			event.version="1"
-			event.latitude = string.format("%f",latitude)
-			event.longitude = string.format("%f",longitude)
+			event.latitude = latitude
+			event.longitude = longitude
 			send_event(event)
 end
 
