@@ -16,3 +16,6 @@ pio.pin.sethigh( led )
 require('gsm')
 gsm_setup()
 gsm_start_gprs()
+
+require('gps')
+gps_looper()
