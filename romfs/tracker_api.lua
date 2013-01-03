@@ -2,7 +2,7 @@
 --require('json')
 require('http')
 
-JSON = (loadfile "/rom/JSON.lua")()
+JSON = require('json')
 
 --[[ event data structure
 event = {}
