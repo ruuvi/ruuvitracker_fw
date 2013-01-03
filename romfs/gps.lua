@@ -17,7 +17,10 @@ function gps_parse_rmc(line)
 			if status == "A" then print("Status: Valid location")
 			else print("Not valid location") return end
 
-                        local speed_ms = 0.51444 * speed_knots
+                        local speed_ms = nil
+                        if speed_knots then
+                           speed_ms = 0.51444 * speed_knots
+                        end
 			latitude = latitude..','..ns_indicator
 			longitude = longitude..','..ew_indicator
 			print("Time: " ..time)
@@ -25,7 +28,7 @@ function gps_parse_rmc(line)
 			print("Status: "..status)
 			print("Lat:" ..latitude)
 			print("Lon:" ..longitude)
-                        print("Speed:" .. speed_ms .. "m/s")
+                        print("Speed:" .. speed_knots .. "knots")
                         print("Heading:" .. heading)
 			print("Sending event")
 			local event={}
