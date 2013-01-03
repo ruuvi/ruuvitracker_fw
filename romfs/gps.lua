@@ -24,9 +24,12 @@ function gps_parse_rmc(line)
 			print("Lon:" ..longitude)
 			print("Sending event")
 			local event={}
+			--Get first timestamp as a session_code
+			session_code = session_code or time
 			event.version="1"
 			event.latitude = latitude
 			event.longitude = longitude
+			event.session_code = session_code
 			send_event(event)
 end
 
