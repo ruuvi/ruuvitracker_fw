@@ -35,11 +35,7 @@ local function base_string(event)
    local s = ""
    for _, key in ipairs(sorted_keys) do 
       local value = event[key]
-      if s == '' then
-         s = key .. ':' .. value
-      else 
-         s = s .. '|' .. key .. ':' .. value
-      end
+      s = s .. key .. ':' .. value .. '|'
    end
    return s
 end
