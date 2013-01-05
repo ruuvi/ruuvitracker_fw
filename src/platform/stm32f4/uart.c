@@ -197,7 +197,7 @@ void all_usart_irqhandler( int id )
 	q->top%=BUFF_SIZE;
 	if(q->top==q->bottom) { //BUFFER OVERRUN
 #if defined( ELUA_BOARD_RUUVIA )	
-		GPIO_SetBits(GPIOC, GPIO_Pin_14|GPIO_Pin_15);
+	  //		GPIO_SetBits(GPIOC, GPIO_Pin_15);
 #endif
 	}
 }
