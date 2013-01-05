@@ -1,89 +1,108 @@
-rts = pio.PB_14
-cts = pio.PB_13
-cdc = pio.PB_0
-ring = pio.PB_1
-dtr = pio.PC_5
-power = pio.PC_4
+require('common')  -- load config
 
-gsm_verbose = 0
+module('gsm', package.seeall)  -- Define module 'gsm'
 
-function gsm_poweron()
-	print("GSM Power on..")
-	pio.pin.setdir(pio.OUTPUT, power)
-	pio.pin.setlow(power) 
-	tmr.delay( 0, 500000 )
-	pio.pin.sethigh(power)
-	tmr.delay( 0, 500000 )
-	uart.setup( 2, 9600, 8, uart.PAR_NONE, uart.STOP_1 )
-	uart.set_flow_control( 2, uart.FLOW_RTS + uart.FLOW_CTS )
-	uart.write(2,"AT\r")
-	tmr.delay( 0, 50000 )
+power_pin = pio.PC_4
+
+verbose = 0
+
+local UARTID=2
+
+-- Toggle power pin.
+function poweron()
+   print("GSM Power on..")
+   pio.pin.setdir(pio.OUTPUT, power_pin)
+   pio.pin.setlow(power_pin) 
+   tmr.delay( 0, 1000000 )
+   pio.pin.sethigh(power_pin)
+   tmr.delay( 0, 500000 )
+   uart.setup( UARTID, 9600, 8, uart.PAR_NONE, uart.STOP_1 )
+   uart.set_flow_control( UARTID, uart.FLOW_RTS + uart.FLOW_CTS )
+   uart.write(UARTID,"AT\r")
+   tmr.delay( 0, 50000 )
 end
 
-function gsm_send(str)
-	if gsm_verbose == 1 then print(str) end
-	uart.write(2, str.."\r")
+-- Send string to GSM UART
+-- append extra "\r" to serial port
+function send(str)
+   if verbose == 1 then print(str) end
+   uart.write(UARTID, str.."\r")
 end
 
-function gsm_wait(pattern)
-	local line
-	repeat
-		line = uart.read( 2, '*l')
-		if gsm_verbose == 1 then print(line) end
-	until string.find(line,pattern)
-	return line
+-- Raw read bytes from GSM
+function read_raw(nbytes)
+   local len = tonumber(nbytes)
+   local data = ""
+   repeat
+      local buf = uart.read(UARTID,len)
+      len = len-buf:len()
+      data = data .. buf
+   until len == 0
+   return data
 end
 
-function gsm_cmd(cmd_str)
-	local line
-	for line in cmd_str:gmatch("[^\r\n]+") do
-		gsm_send(line)
-		gsm_wait("^O")
-		tmr.delay( 0, 50000 )
-	end
+
+-- Wait for string pattern to appear from UART
+function wait(pattern)
+   local line
+   repeat
+      line = uart.read( UARTID, '*l')
+      if verbose == 1 then print(line) end
+   until string.find(line,pattern)
+   return line
 end
 
-function gsm_setup()
-	gsm_poweron()
---setup serial to 115200 HW Flow control
-	gsm_send('AT+IPR=115200')
-	tmr.delay( 0, 50000 )
-	gsm_send('AT+IFC=2,2')
-	tmr.delay( 0, 50000 )
-	--dont wait for response, serial speed may be already 115200 and we are sending 9600
+-- Send commands, separated by newline,
+-- and wait for OK responses to each
+function cmd(cmd_str)
+   local line
+   for line in cmd_str:gmatch("[^\r\n]+") do
+      send(line)
+      wait("^OK")
+      tmr.delay( 0, 5000 )
+   end
+end
 
-	uart.setup( 2, 115200, 8, uart.PAR_NONE, uart.STOP_1 )
-	uart.set_flow_control( 2, uart.FLOW_RTS + uart.FLOW_CTS )
-	tmr.delay( 0, 50000 )
+function setup()
+   poweron()
+   -- setup serial to 115200 HW Flow control
+   send('AT+IPR=115200')
+   tmr.delay( 0, 50000 )
+   send('AT+IFC=2,2')
+   tmr.delay( 0, 50000 )
+   -- dont wait for response, serial speed may be already 115200 and we are sending 9600
+   
+   uart.setup( UARTID, 115200, 8, uart.PAR_NONE, uart.STOP_1 )
+   uart.set_flow_control( UARTID, uart.FLOW_RTS + uart.FLOW_CTS )
+   tmr.delay( 0, 50000 )
 	
-	--send pin
-	gsm_cmd([[
+   -- send pin
+   cmd([[
 AT+IFC=2,2
 ATE0
 AT
-AT+CPIN=0000
-]])
-	--wait for network
-	local response
-	local found
-	repeat
-		tmr.delay( 0, 500000 )
-		gsm_send("AT+COPS?")
-		response = gsm_wait("^+COPS")
-		found,_,network = string.find(response,'%+COPS: 0,0,"([^"]*)"')
-	until found
-	print("Registered to network "..network)
-	--Wait for final confirmation
-	gsm_wait("^Call Ready")
-	print("GSM Ready")
+AT+CPIN=]]..options.pin_code)
+   -- wait for network
+   local response
+   local found
+   repeat
+      tmr.delay( 0, 500000 )
+      send("AT+COPS?")
+      response = wait("^+COPS")
+      found,_,network = string.find(response,'%+COPS: 0,0,"([^"]*)"')
+   until found
+   print("Registered to network "..network)
+   --Wait for final confirmation
+   wait("^Call Ready")
+   print("GSM Ready")
 end
 
-function gsm_start_gprs()
-	--GPRS settings
-	gsm_cmd([[
+function start_gprs()
+   -- GPRS settings
+   cmd([[
 AT+SAPBR=3,1,"CONTYPE","GPRS"
 AT+SAPBR=3,1,"APN","internet"
 AT+SAPBR=1,1
 ]])
-	print("GPRS enabled")
+   print("GPRS enabled")
 end

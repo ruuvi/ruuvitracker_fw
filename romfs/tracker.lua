@@ -1,8 +1,8 @@
---require('sha1')
---require('json')
 require('http')
 
-JSON = require('json')
+local JSON = require('json')
+
+module('tracker', package.seeall)
 
 --[[ event data structure
 event = {}
@@ -47,7 +47,8 @@ local function generate_mac(event, shared_secret)
 end
 
 
-local function create_event_json(event, tracker_code, shared_secret) 
+local function create_event_json(event, tracker_code, shared_secret)
+   local event = event  -- Do not modify original
    event.version = "1"
    -- TODO if possible, set event.time field here or before
    event.tracker_code = tracker_code
@@ -61,13 +62,13 @@ end
 
 function send_event(event)
    local message = create_event_json(event, server.tracker_code, server.shared_secret)
-   return http_post(server.url .. 'events', message, 'application/json')
+   return http.post(server.url .. 'events', message, 'application/json')
 end
 
 
 --[[--
 function ping_server()
-   local code, data = http_get(server.url .. 'ping')
+   local code, data = http.get(server.url .. 'ping')
    if code ~= "200" then
       return nil
    end
@@ -78,27 +79,16 @@ function ping_server()
    return nil
 end
    --]]
---[[
+
 -- Unit tests, uncomment to enable
-local function create_test_event() 
-   event = {}
-   event.version = "1"
-   event.tracker_code = "490154203237518"
-   event.time = "2012-01-08T21:20:59.000"
-   event.latitude =  "4916.46,N"
-   event.longitude = "12311.12,W"
-   event["X-alarm"] = ""
-   event["X-foobar"] = "123"
-   event.speed = nil
+function create_test_event() 
+   local event = {
+      heading="90",
+      time="2013-01-05T15:45:02.000Z",
+      speed=7.2227376,
+      latitude="6504.019739,N",
+      session_code="test",
+      longitude="02525.097090,E"
+   }
    return event
 end
-
-
-assert(base_string(create_test_event()) == 'X-alarm:|X-foobar:123|latitude:4916.46,N|longitude:12311.12,W|time:2012-01-08T21:20:59.000|tracker_code:490154203237518|version:1')
-
-assert(generate_mac(create_test_event(), 'VerySecret1') == '070c2873b261ea2d07ec32e532d612a447537cfd')
-
-assert(create_event_json(create_test_event(), "490154203237518", "VerySecret1") == '{"mac":"070c2873b261ea2d07ec32e532d612a447537cfd","tracker_code":"490154203237518","time":"2012-01-08T21:20:59.000","X-alarm":"","longitude":"12311.12,W","latitude":"4916.46,N","X-foobar":"123","version":1}')
-
-assert(create_event_json(create_test_event(), "490154203237518") == '{"tracker_code":"490154203237518","time":"2012-01-08T21:20:59.000","X-alarm":"","longitude":"12311.12,W","latitude":"4916.46,N","X-foobar":"123","version":1}')
-   --]]
