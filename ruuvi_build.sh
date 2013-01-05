@@ -6,6 +6,7 @@ BOARD=RUUVIA
 if [[ "$1" == "clean" ]]; then
 	scons board=$BOARD -c
 else
-scons board=$BOARD prog
+scons board=$BOARD romfs=compile prog
+#scons board=$BOARD prog
 
 fi
