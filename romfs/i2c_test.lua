@@ -1,20 +1,25 @@
-print("Pull up Audio reset (PD4)")
-pio.pin.setdir(pio.OUTPUT, pio.PD_4)
-pio.pin.sethigh(pio.PD_4)
-print("Setup I2C")
-speed = i2c.setup(0, i2c.SLOW)
-print(speed)
 
-print("I2C Start")
-i2c.start(0)
-print("Select I2C device 0x4A (Audio chip)");
-i2c.address( 0, 0x4a, i2c.TRANSMITTER )
-print("Send 0x01")
-i2c.write( 0, 0x01)
-i2c.stop(0)
-print("Read byte")
-i2c.start(0)
-i2c.address( 0, 0x4a, i2c.RECEIVER )
-byte = i2c.read(0,1)
-i2c.stop(0)
-print( string.format("%02X", string.byte(byte)) )
+function i2c_test(id, addr)
+   print("Setup I2C id="..id)
+   speed = i2c.setup(id, i2c.FAST)
+   print("speed="..speed)
+   
+   print("send start")
+   i2c.start(id)
+   print("Select I2C device "..addr);
+   i2c.address(id, addr, i2c.TRANSMITTER )
+   print("Send subaddress 0x20")
+   i2c.write(id, 0x20)
+   i2c.stop(id)
+   print("Read byte")
+   i2c.start(id)
+   i2c.address(id, addr, i2c.RECEIVER )
+   byte = i2c.read(id,1)
+   i2c.stop(id)
+   print( string.format("%02X", string.byte(byte)) )
+end
+
+--Test LSM303DLHC
+--Linear acceleration address is 0011001b = 0x19
+--Magnetic interface address is 11110b (0x1E)
+i2c_test(0, 0x19)
