@@ -1,9 +1,10 @@
 -- logging
 -- Usage:
 -- local logger = Logger:new('gsm')
--- logger.info("Message sent")
--- logger.warn("Battery 5%")
--- logger.error("Failed to obtain GPS fix")
+-- logger:debug("message ...")
+-- logger:info("Message sent")
+-- logger:warn("Battery 5%")
+-- logger:error("Failed to obtain GPS fix")
 --
 -- Configuring logging levels:
 -- Logger.config.ROOT = Logger.level.INFO  -- default level
