@@ -5,7 +5,7 @@ firmware.version = "0.1"
 
 options = {
    pin_code = '0000',
-   tracking_intervall = 0  -- Interval in secods, 0=real time
+   tracking_intervall = 5  -- Interval in secods, 0=real time
 }
 
 server = {
@@ -14,3 +14,9 @@ server = {
    shared_secret = "sepeto"
 }
 
+timers = {
+   mem_timer = 9,
+   gsm_timer = 10,
+   gps_timer = 11,
+   tracker_timer = 8
+}

@@ -3,6 +3,7 @@ require('led')
 require('tracker')
 require('gsm')
 require('gps')
+require('logging')
 
 --Start booting
 red_led:on()
@@ -10,25 +11,48 @@ term.clrscr()
 print("Starting RuuviTracker eLua FW", firmware.version)
 print("Board: " .. pd.board() )
 
-gsm.setup()
-gsm.start_gprs()
-gps.enable()
 
-print("Memory usage: ", collectgarbage('count'), "kB")
-print("All devices enabled")
+local ok
+local msg
 
---boot sequence done, notify user
-red_led:off()
+-- List of handlers to process on main loop
+local handlers = {
+   gsm.handler,
+   gps.handler,
+   tracker.handler
+}
 
-tracker.send_event( {annotation = "boot" } ) -- Send first event, to notify server we are alive
+function print_mem()
+   print("Memory usage: ", collectgarbage('count'), "kB")
+end
 
-print("Starting GPS loop. Press 'q' to stop")	
+Logger.config['gsm'] = Logger.level.INFO
+Logger.config['gps'] = Logger.level.INFO
+
+local mem_timeout = 10e6 --10s
+tmr.setclock( timers.mem_timer, 2e3 ) -- 2kHz is known to work(on ruuviA)
+local counter = tmr.start(timers.mem_timer) 
+print("Starting Main loop. Press 'q' to stop")
 while uart.read(0,1,0)~='q' do
-   gps.process()
-   if gps.is_fixed then
-      green_led:on()
-      tracker.send_event( gps.event )
+   for _,handler in ipairs(handlers) do
+      if coroutine.status(handler) == 'suspended' then
+	 ok,msg = coroutine.resume(handler)
+	 if not ok then print("Error:",msg) end
+      end
+   end
+
+   --Other function, outside of handlers
+   if gps.is_fixed then green_led:on()
+   else green_led:off() end
+   if gsm.is_ready() then
+      red_led:off()
    else
-      green_led:off()
+      red_led:on()
+   end
+   
+   local delta = tmr.gettimediff(timers.mem_timer, counter, tmr.read(timers.mem_timer) )
+   if  delta > mem_timeout then
+      print_mem()
+      counter = tmr.start(timers.mem_timer) -- Reset timer
    end
 end

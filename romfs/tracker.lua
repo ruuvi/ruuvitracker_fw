@@ -1,9 +1,10 @@
 require('http')
+require('logging')
 
 local JSON = require('json')
 
 module('tracker', package.seeall)
-
+local logger = Logger:new('tracker')
 --[[ event data structure
 event = {}
 event.version = nil
@@ -61,7 +62,9 @@ end
 
 
 function send_event(event)
+   logger:info("Sending event")
    local message = create_event_json(event, server.tracker_code, server.shared_secret)
+   logger:debug(message)
    return http.post(server.url .. 'events', message, 'application/json')
 end
 
@@ -80,6 +83,7 @@ function ping_server()
 end
    --]]
 
+--[[
 -- Unit tests, uncomment to enable
 function create_test_event() 
    local event = {
@@ -92,3 +96,33 @@ function create_test_event()
    }
    return event
 end
+--]]
+
+function tracker_handler()
+   local timer = timers.tracker_timer
+   local intervall = options.tracking_intervall * 1e6 -- to microseconds
+   tmr.setclock( timer, 2e3 ) -- 2kHz is known to work(on ruuviA), allow intervalls from 0s to 32s
+   local counter = tmr.start(timer) 
+   
+   --wait for gps to start
+   while not gps.is_enabled() do
+       coroutine.yield()
+   end
+   send_event({annotation = "Boot OK"})
+   --loop
+   while true do
+      local delta = tmr.gettimediff(timer, counter, tmr.read(timer) )
+      if delta > intervall then -- time to send
+	 logger:debug("Time to send")
+	 if gps.is_fixed then
+	    send_event(gps.event)
+	 else
+	    logger:debug("no fix")
+	 end
+	 counter = tmr.start(timer) --clear, even when there is no fix, wait another intervall
+      end
+      coroutine.yield()
+   end
+end
+--create co-routine
+handler = coroutine.create( tracker_handler )
