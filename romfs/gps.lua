@@ -83,10 +83,10 @@ local function parse_gsa(line)
    -- 2 = 2D fix
    -- 3 = 3D fix
    if fix == 1 then
-      if is_fixed then logger.info("Lost fix") end
+      if is_fixed then logger:info("Lost fix") end
       is_fixed=false
    else
-      if not is_fixed then logger.info("Found fix") end
+      if not is_fixed then logger:info("Found fix") end
       is_fixed=true
    end
 end
