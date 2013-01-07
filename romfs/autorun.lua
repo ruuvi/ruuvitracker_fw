@@ -32,8 +32,10 @@ Logger.config['gps'] = Logger.level.INFO
 local mem_timeout = 10e6 --10s
 tmr.setclock( timers.mem_timer, 2e3 ) -- 2kHz is known to work(on ruuviA)
 local counter = tmr.start(timers.mem_timer) 
+
 print("Starting Main loop. Press 'q' to stop")
 while uart.read(0,1,0)~='q' do
+   --Run through all handler (coroutines)
    for _,handler in ipairs(handlers) do
       if coroutine.status(handler) == 'suspended' then
 	 ok,msg = coroutine.resume(handler)
