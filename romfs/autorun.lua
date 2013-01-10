@@ -9,8 +9,7 @@ require('logging')
 red_led:on()
 term.clrscr()
 print("Starting RuuviTracker eLua FW", firmware.version)
-print("Board: " .. pd.board() )
-
+print("Board: " .. pd.board())
 
 local ok
 local msg
@@ -36,10 +35,10 @@ local counter = tmr.start(timers.mem_timer)
 print("Starting main loop. Press 'q' to stop")
 while uart.read(0,1,0) ~= 'q' do
    -- Run through all handler (coroutines)
-   for _,handler in ipairs(handlers) do
+   for _, handler in ipairs(handlers) do
       if coroutine.status(handler) == 'suspended' then
 	 ok, msg = coroutine.resume(handler)
-	 if not ok then print("Error:",msg) end
+	 if not ok then print("Error:", msg) end
       end
    end
 

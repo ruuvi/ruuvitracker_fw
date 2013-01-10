@@ -48,22 +48,22 @@ local function parse_rmc(line)
    latitude = latitude..','..ns_indicator
    longitude = longitude..','..ew_indicator
 
-   logger:info("Time: " ..time)
-   logger:info("Date: " ..date)
-   logger:info("Timestamp: " ..timestamp)
-   logger:info("Status: "..status)
-   logger:info("Lat:" ..latitude)
-   logger:info("Lon:" ..longitude)
-   logger:info("Speed:" .. speed_knots .. "knots")
-   logger:info("Heading:" .. heading)
+   logger:info("Time: " ..    time)
+   logger:info("Date: " ..    date)
+   logger:info("Timestamp: " .. timestamp)
+   logger:info("Status: "..   status)
+   logger:info("Lat: " ..     latitude)
+   logger:info("Lon: " ..     longitude)
+   logger:info("Speed: " ..   speed_knots .. "knots")
+   logger:info("Heading: " .. heading)
 
    -- Fill the event object
-   event.latitude = latitude
-   event.longitude = longitude
+   event.latitude     = latitude
+   event.longitude    = longitude
    event.session_code = session_code
-   event.speed = speed_ms
-   event.heading = heading
-   event.time = timestamp
+   event.speed        = speed_ms
+   event.heading      = heading
+   event.time         = timestamp
 end
 
 local function parse_gga(line)
