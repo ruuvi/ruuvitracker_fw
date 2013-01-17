@@ -74,7 +74,8 @@ local function state_machine()
 	 end
       elseif status == Status.on_network then
 	 send("AT+COPS?")
-	 local found, _, network = string.find(wait("^+COPS"),'%+COPS: 0,0,"([^"]*)"')
+	 -- Sometimes there is \n in response. eg: +COPS: \n0,0,"operator"
+	 local found, _, network = string.find(wait("0,0"),'0,0,"([^"]*)"')
 	 wait("^OK")
 	 if found then logger:info("Registered to network " ..network)
 	 else logger:warn("Could not find network from +COPS")
@@ -207,8 +208,7 @@ end
 function start_gprs()
    -- GPRS settings
    return cmd([[
-AT+SAPBR=3,1,"CONTYPE","GPRS"
-AT+SAPBR=3,1,"APN","internet"
-AT+SAPBR=1,1
-]])
-end
+      AT+SAPBR=3,1,"CONTYPE","GPRS"
+      AT+SAPBR=3,1,"APN","]]..options.apn..[["
+      AT+SAPBR=1,1]])
+   end

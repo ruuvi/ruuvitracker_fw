@@ -5,6 +5,7 @@ firmware.version = "0.1"
 
 options = {
    pin_code = '0000',
+   apn = 'internet.saunalahti',
    tracking_intervall = 5  -- Interval in secods, 0=real time
 }
 
