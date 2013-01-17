@@ -28,11 +28,10 @@ CMSISdir = fwlibdir+"/STM32F4xx_DSP_StdPeriph_Lib_V1.0.1/Libraries/CMSIS"
 comp.Append(CPPPATH = [STDPeriphdir+"/inc" , CMSISdir+"/Include", CMSISdir+"/Device/ST/STM32F4xx/Include/" ])
 
 fwlib_files = " ".join(glob.glob(STDPeriphdir+"/src/*.c")) \
-	+" "+ CMSISdir+"/Device/ST/STM32F4xx/Source/Templates/system_stm32f4xx.c" \
 	+" "+ CMSISdir+"/Device/ST/STM32F4xx/Source/Templates/gcc_ride7/startup_stm32f4xx.s"
 #print "FWLib: %s " % fwlib_files 
 
-specific_files = "platform.c platform_int.c uart.c platform_i2c.c platform_sha1.c sha1.c"
+specific_files = "system_stm32f4xx.c platform.c platform_int.c uart.c platform_i2c.c platform_sha1.c sha1.c"
 
 #ldscript = "stm32f4xx_flash.ld" 
 ldscript = "stm32.ld"
@@ -43,7 +42,7 @@ specific_files += " src/platform/cortex_utils.s src/platform/arm_cortex_interrup
 ldscript = "src/platform/%s/%s" % ( platform, ldscript )
 
 comp.Append(CPPDEFINES = ["FOR" + cnorm( comp[ 'cpu' ] ),"FOR" + cnorm( comp[ 'board' ] ),'gcc'])
-comp.Append(CPPDEFINES = [ 'USE_STDPERIPH_DRIVER', 'STM32F4XX', 'CORTEX_M4'])
+comp.Append(CPPDEFINES = [ 'USE_STDPERIPH_DRIVER', 'STM32F4XX', 'CORTEX_M4', 'HSE_VALUE=12000000'])
 
 # Standard GCC Flags
 comp.Append(CCFLAGS = ['-ffunction-sections','-fdata-sections','-fno-strict-aliasing','-Wall','-g'])
