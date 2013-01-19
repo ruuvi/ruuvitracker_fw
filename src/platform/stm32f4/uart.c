@@ -6,10 +6,14 @@
 
 // Platform specific includes
 #include "stm32f4xx_conf.h"
+#include "usbd_cdc_vcp.h"
+
+
+//Prototypes
+void usart_received(int id, u8 c);
 
 // ****************************************************************************
 // UART
-// TODO: Support timeouts.
 
 // All possible STM32 uarts defs
 USART_TypeDef *const stm32_usart[] =          { USART1, USART2, USART3, UART4, UART5, USART6};
@@ -162,6 +166,9 @@ void platform_s_uart_send( unsigned id, u8 data )
   {
   }
   USART_SendData(stm32_usart[id], data);
+  if (id == 0) {
+    VCP_SendChar(data);
+  }
 }
 
 /*** Receive functions */
@@ -176,6 +183,7 @@ struct rbuff {
 int platform_s_uart_recv( unsigned id, timer_data_type timeout )
 {
   int ret;
+
   struct rbuff *q= &rbuff[id];
   if( timeout != 0 )  {
   	while(q->top == q->bottom)
@@ -188,18 +196,23 @@ int platform_s_uart_recv( unsigned id, timer_data_type timeout )
   return ret;
 }
 
-//TODO: Buffer overrun errors not handled
+/* Push byte to the receiving buffer */
+/* TODO: Buffer overrun errors not handled */
+void usart_received(int id, u8 c)
+{
+  struct rbuff *q= &rbuff[id];
+  q->data[q->top] = c;
+  q->top++;
+  q->top%=BUFF_SIZE;
+  if (q->top==q->bottom) {
+     //BUFFER OVERRUN
+  }
+}
+
+/* Interrupt handler. Called from USART RX interrupt */
 void all_usart_irqhandler( int id )
 {
-	struct rbuff *q= &rbuff[id];
-	q->data[q->top] = USART_ReceiveData(stm32_usart[id]);
-	q->top++;
-	q->top%=BUFF_SIZE;
-	if(q->top==q->bottom) { //BUFFER OVERRUN
-#if defined( ELUA_BOARD_RUUVIA )	
-	  //		GPIO_SetBits(GPIOC, GPIO_Pin_15);
-#endif
-	}
+  usart_received(id, USART_ReceiveData(stm32_usart[id]));
 }
 
 

@@ -60,7 +60,6 @@ static void NVIC_Configuration(void);
 
 static void timers_init();
 static void pwms_init();
-static void uarts_init();
 static void spis_init();
 static void pios_init();
 #ifdef BUILD_ADC
@@ -69,6 +68,8 @@ static void adcs_init();
 #if (NUM_CAN > 0)
 static void cans_init();
 #endif
+extern void usb_init();
+extern void uarts_init();
 
 
 int platform_init()
@@ -114,6 +115,8 @@ int platform_init()
   }
 
   cmn_platform_init();
+  
+  usb_init();
 
   // All done
   return PLATFORM_OK;
@@ -147,19 +150,19 @@ static void NVIC_Configuration(void)
 
   /* Configure the NVIC Preemption Priority Bits */
   /* Priority group 0 disables interrupt nesting completely */
-  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_0);
+  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);
 
   // Lower the priority of the SysTick interrupt to let the
   // UART interrupt preempt it
   nvic_init_structure.NVIC_IRQChannel = SysTick_IRQn;
-  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 0;
-  nvic_init_structure.NVIC_IRQChannelSubPriority = 1;
+  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 1;
+  nvic_init_structure.NVIC_IRQChannelSubPriority = 7;
   nvic_init_structure.NVIC_IRQChannelCmd = ENABLE;
   NVIC_Init(&nvic_init_structure);
 
 #ifdef BUILD_ADC
   nvic_init_structure_adc.NVIC_IRQChannel = DMA2_Stream0_IRQn;
-  nvic_init_structure_adc.NVIC_IRQChannelPreemptionPriority = 0;
+  nvic_init_structure_adc.NVIC_IRQChannelPreemptionPriority = 1;
   nvic_init_structure_adc.NVIC_IRQChannelSubPriority = 2;
   nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE;
   NVIC_Init(&nvic_init_structure_adc);
@@ -852,7 +855,7 @@ static const u8 pwm_gpio_pins_source[] = { GPIO_PinSource12, GPIO_PinSource13, G
 
 static void pwms_init()
 {
-  RCC_APB2PeriphClockCmd( RCC_APB1Periph_TIM4, ENABLE );
+  //RCC_APB2PeriphClockCmd( RCC_APB1Periph_TIM4, ENABLE );
   //
 }
 

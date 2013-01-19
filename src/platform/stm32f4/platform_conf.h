@@ -22,7 +22,7 @@
 //#define BUILD_DHCPC
 //#define BUILD_DNS
 #define BUILD_CON_GENERIC
-#define BUILD_ADC
+//#define BUILD_ADC
 //#define BUILD_RPC
 //#define BUILD_RFS
 //#define BUILD_CON_TCP
@@ -49,13 +49,13 @@
 
 // Number of resources (0 if not available/not implemented)
 #define NUM_PIO               3
-#define NUM_SPI               3
+#define NUM_SPI               1
 #define NUM_UART              3
 #define NUM_TIMER             12
 #define NUM_PHYS_TIMER        12
-#define NUM_PWM               4
-#define NUM_ADC               16
-#define NUM_CAN               1
+#define NUM_PWM               0
+#define NUM_ADC               0
+#define NUM_CAN               0
 #define NUM_I2C               1
 
 //#ifdef FORSTM3210E_EVAL

@@ -20,18 +20,33 @@ def fetch_lib(dir, url):
 try:
 	stat = os.stat(fwlibdir+"/.downloaded")
 except OSError:
-	fetch_lib(fwlibdir, "http://www.st.com/internet/com/SOFTWARE_RESOURCES/SW_COMPONENT/FIRMWARE/stm32f4_dsp_stdperiph_lib.zip")
+	#fetch_lib(fwlibdir, "http://www.st.com/internet/com/SOFTWARE_RESOURCES/SW_COMPONENT/FIRMWARE/stm32f4_dsp_stdperiph_lib.zip")
+	fetch_lib(fwlibdir, "http://www.st.com/internet/com/SOFTWARE_RESOURCES/SW_COMPONENT/FIRMWARE/stm32_f105-07_f2_f4_usb-host-device_lib.zip")
 
-STDPeriphdir = fwlibdir+"/STM32F4xx_DSP_StdPeriph_Lib_V1.0.1/Libraries/STM32F4xx_StdPeriph_Driver"
-CMSISdir = fwlibdir+"/STM32F4xx_DSP_StdPeriph_Lib_V1.0.1/Libraries/CMSIS"
+# STDPeriphdir = fwlibdir+"/STM32F4xx_DSP_StdPeriph_Lib_V1.0.1/Libraries/STM32F4xx_StdPeriph_Driver"
+# CMSISdir = fwlibdir+"/STM32F4xx_DSP_StdPeriph_Lib_V1.0.1/Libraries/CMSIS"
+STDPeriphdir = fwlibdir+"/STM32_USB-Host-Device_Lib_V2.1.0/Libraries/STM32F4xx_StdPeriph_Driver"
+CMSISdir = fwlibdir+"/STM32_USB-Host-Device_Lib_V2.1.0/Libraries/CMSIS"
+USBdev = fwlibdir+"/STM32_USB-Host-Device_Lib_V2.1.0/Libraries/STM32_USB_Device_Library"
+USBotg = fwlibdir+"/STM32_USB-Host-Device_Lib_V2.1.0/Libraries/STM32_USB_OTG_Driver"
 
-comp.Append(CPPPATH = [STDPeriphdir+"/inc" , CMSISdir+"/Include", CMSISdir+"/Device/ST/STM32F4xx/Include/" ])
+comp.Append(CPPPATH = [STDPeriphdir+"/inc" , CMSISdir+"/Include", CMSISdir+"/Device/ST/STM32F4xx/Include/", USBdev+"/Core/inc/", USBotg+"/inc/", USBdev+"/Class/cdc/inc/" ])
 
-fwlib_files = " ".join(glob.glob(STDPeriphdir+"/src/*.c")) \
-	+" "+ CMSISdir+"/Device/ST/STM32F4xx/Source/Templates/gcc_ride7/startup_stm32f4xx.s"
+STD_files = "stm32f4xx_adc.c stm32f4xx_dac.c stm32f4xx_dma.c stm32f4xx_exti.c stm32f4xx_gpio.c stm32f4xx_i2c.c stm32f4xx_rcc.c stm32f4xx_usart.c stm32f4xx_spi.c stm32f4xx_tim.c misc.c"
+USBotg_files = "usb_dcd.c usb_dcd_int.c usb_core.c"
+USBcore_files = "usbd_req.c usbd_core.c usbd_ioreq.c"
+USBclass_files =USBdev+"/Class/cdc/src/usbd_cdc_core.c"
+
+fwlib_files = " ".join( [ STDPeriphdir+"/src/%s" % ( f ) for f in STD_files.split() ] ) \
+	+" "+ CMSISdir+"/Device/ST/STM32F4xx/Source/Templates/gcc_ride7/startup_stm32f4xx.s" \
+	+" "+ " ".join( [ USBdev+"/Core/src/%s" % ( f ) for f in USBcore_files.split() ] ) \
+	+" "+ " ".join( [ USBotg+"/src/%s" % ( f ) for f in USBotg_files.split() ] ) \
+	+" "+ USBclass_files
+
 #print "FWLib: %s " % fwlib_files 
 
-specific_files = "system_stm32f4xx.c platform.c platform_int.c uart.c platform_i2c.c platform_sha1.c sha1.c"
+specific_files = "system_stm32f4xx.c platform.c platform_int.c uart.c platform_i2c.c platform_sha1.c sha1.c" \
+    +" usb_bsp.c usbd_desc.c usbd_usr.c usbd_cdc_vcp.c stm32_usb.c"
 
 #ldscript = "stm32f4xx_flash.ld" 
 ldscript = "stm32.ld"
@@ -42,7 +57,7 @@ specific_files += " src/platform/cortex_utils.s src/platform/arm_cortex_interrup
 ldscript = "src/platform/%s/%s" % ( platform, ldscript )
 
 comp.Append(CPPDEFINES = ["FOR" + cnorm( comp[ 'cpu' ] ),"FOR" + cnorm( comp[ 'board' ] ),'gcc'])
-comp.Append(CPPDEFINES = [ 'USE_STDPERIPH_DRIVER', 'STM32F4XX', 'CORTEX_M4', 'HSE_VALUE=12000000'])
+comp.Append(CPPDEFINES = [ 'USE_STDPERIPH_DRIVER', 'STM32F4XX', 'CORTEX_M4', 'HSE_VALUE=12000000', 'USE_EMBEDDED_PHY', 'USE_USB_OTG_FS'])
 
 # Standard GCC Flags
 comp.Append(CCFLAGS = ['-ffunction-sections','-fdata-sections','-fno-strict-aliasing','-Wall','-g'])
