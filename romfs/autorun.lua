@@ -1,4 +1,4 @@
-require('common')
+require('config')
 require('led')
 require('tracker')
 require('gsm')
@@ -29,8 +29,8 @@ Logger.config['gsm'] = Logger.level.INFO
 Logger.config['gps'] = Logger.level.INFO
 
 local mem_timeout = 10e6 -- 10s
-tmr.setclock(timers.mem_timer, 2e3 ) -- 2kHz is known to work (on ruuviA)
-local counter = tmr.start(timers.mem_timer)
+tmr.setclock(firmware.timers.mem_timer, 2e3 ) -- 2kHz is known to work (on ruuviA)
+local counter = tmr.start(firmware.timers.mem_timer)
 
 print("Starting main loop. Press 'q' to stop")
 while uart.read(0,1,0) ~= 'q' do
@@ -51,9 +51,9 @@ while uart.read(0,1,0) ~= 'q' do
       red_led:on()
    end
    
-   local delta = tmr.gettimediff(timers.mem_timer, counter, tmr.read(timers.mem_timer))
+   local delta = tmr.gettimediff(firmware.timers.mem_timer, counter, tmr.read(firmware.timers.mem_timer))
    if delta > mem_timeout then
       print_mem()
-      counter = tmr.start(timers.mem_timer) -- Reset timer
+      counter = tmr.start(firmware.timers.mem_timer) -- Reset timer
    end
 end

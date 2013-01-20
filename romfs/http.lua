@@ -1,4 +1,4 @@
-require('common')
+require('config')
 require('gsm')
 require('logging')
 

@@ -1,4 +1,4 @@
-require('common')  -- Load config
+require('config')  -- Load config
 require('logging')
 
 module('gsm', package.seeall)  -- Define module 'gsm'
@@ -9,7 +9,7 @@ local logger = Logger:new('gsm')
 
 local UARTID = 2
 local gsm_timeout = 1e6 -- Default timeout 1s
-local timer = timers.gsm_timer
+local timer = firmware.timers.gsm_timer
 local timer_hz = 2000
 
 -- Modem Status
@@ -56,7 +56,7 @@ local function state_machine()
 	 local response = wait("^+CPIN")
 	 wait("^OK")
 	 if response:find("SIM PIN") then -- pin required
-	    cmd("AT+CPIN="..options.pin_code) -- Send pin
+	    cmd("AT+CPIN="..config.gsm.pin_code) -- Send pin
 	    logger:info("pin ok")
 	 else
 	    logger:info("pin not required")
@@ -209,6 +209,6 @@ function start_gprs()
    -- GPRS settings
    return cmd([[
       AT+SAPBR=3,1,"CONTYPE","GPRS"
-      AT+SAPBR=3,1,"APN","]]..options.apn..[["
+      AT+SAPBR=3,1,"APN","]]..config.gsm.apn..[["
       AT+SAPBR=1,1]])
    end

@@ -1,9 +1,11 @@
+require('config')
 require('http')
 require('logging')
 
 local JSON = require('json')
 
 module('tracker', package.seeall)
+
 local logger = Logger:new('tracker')
 --[[ event data structure
 event = {}
@@ -63,9 +65,9 @@ end
 
 function send_event(event)
    logger:info("Sending event")
-   local message = create_event_json(event, server.tracker_code, server.shared_secret)
+   local message = create_event_json(event, config.tracker.tracker_code, config.tracker.shared_secret)
    logger:debug(message)
-   return http.post(server.url .. 'events', message, 'application/json')
+   return http.post(config.tracker.url .. 'events', message, 'application/json')
 end
 
 
@@ -99,8 +101,8 @@ end
 --]]
 
 function tracker_handler()
-   local timer = timers.tracker_timer
-   local intervall = options.tracking_intervall * 1e6 -- to microseconds
+   local timer = firmware.timers.tracker_timer
+   local intervall = config.tracker.tracking_intervall * 1e6 -- to microseconds
    tmr.setclock(timer, 2e3) -- 2kHz is known to work (on ruuviA), allow intervalls from 0s to 32s
    local counter = tmr.start(timer)
    
@@ -112,6 +114,7 @@ function tracker_handler()
    -- Loop
    while true do
       local delta = tmr.gettimediff(timer, counter, tmr.read(timer))
+      -- TODO: get timestamp from GPS and check interval against that. Get rid of HW timer
       if delta > intervall then -- Time to send
 	 logger:debug("Time to send")
 	 if gps.is_fixed then
