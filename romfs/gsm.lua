@@ -212,3 +212,13 @@ function start_gprs()
       AT+SAPBR=3,1,"APN","]]..config.gsm.apn..[["
       AT+SAPBR=1,1]])
    end
+
+-- Send SMS message to a number
+function send_sms(number, text)
+   cmd("AT+CMGF=1")
+   send('AT+CMGS="'..number..'"')
+   wait(">")  -- This is undocumented but required
+   send(text..string.char(26))
+   wait("^OK", 5e6)  -- Wait 5s to complete
+end
+
