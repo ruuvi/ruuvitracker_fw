@@ -19,10 +19,16 @@ local function enable()
    uart.setup(gps_uart, 115200, 8, uart.PAR_NONE, uart.STOP_1)
    logger:info("Waiting for GSM")
    gsm.wait_ready()
-   gsm.cmd('AT+CGPSPWR=1')
-   gsm.cmd('AT+CGPSRST=0')
-   enabled = 1
+   gsm.cmd('AT+CGPSPWR=1') -- Power on GPS
+   gsm.cmd('AT+CGPSRST=1') -- Send 'autonomy' reset
+   enabled = true
    logger:info("GPS started")
+end
+
+local function disable()
+   logger:debug("Disabling GPS")
+   gsm.cmd('AT+CGPSPWR=0')
+   enabled = false
 end
 
 local function parse_rmc(line)
