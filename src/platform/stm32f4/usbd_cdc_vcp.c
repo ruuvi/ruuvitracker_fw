@@ -187,11 +187,10 @@ uint16_t VCP_DataTx(uint8_t* Buf, uint32_t Len)
 
 	for (i = 0; i < Len; i++) {
 		APP_Rx_Buffer[APP_Rx_ptr_in++] = *(Buf + i);
-	}
-
-	/* To avoid buffer overflow */
-	if(APP_Rx_ptr_in == APP_RX_DATA_SIZE) {
-		APP_Rx_ptr_in = 0;
+		/* To avoid buffer overflow */
+		if(APP_Rx_ptr_in == APP_RX_DATA_SIZE) {
+		  APP_Rx_ptr_in = 0;
+		}
 	}
 
 	return USBD_OK;
@@ -279,16 +278,8 @@ uint16_t VCP_DataRx(uint8_t* Buf, uint32_t Len)
 	uint32_t i;
 
 	for (i = 0; i < Len; i++) {
+	  /* Pipe received data tu UART0 buffer */
 	  usart_received(0, Buf[i]);
-		/* if (VCP_HasReceived() < (FROM_HOST_MAX - 1)) { */
-		/* 	From_Host_Buffer[From_Host_Idx_Write] = Buf[i]; */
-		/* 	From_Host_Idx_Write++; */
-		/* 	if (From_Host_Idx_Write >= FROM_HOST_MAX) { */
-		/* 		From_Host_Idx_Write -= FROM_HOST_MAX; */
-		/* 	} */
-		/* } else { */
-		/* 	return USBD_FAIL; // buffer overrun */
-		/* } */
 	}
 
 	return USBD_OK;
