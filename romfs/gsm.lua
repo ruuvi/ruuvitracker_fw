@@ -38,7 +38,7 @@ local function state_machine()
 	 status = Status.start
       elseif status == Status.start then
 	 -- Modem booting
-	 if wait("RDY") == false then
+	 if wait("RDY", 5e6) == false then
 	    switch_gsm_9600_to_115200()
 	    status = Status.error -- Go through error state
 	 else
