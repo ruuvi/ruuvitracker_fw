@@ -72,7 +72,7 @@ comp.Append(ASFLAGS = ['-x','assembler-with-cpp','-c','-Wall','$_CPPDEFFLAGS'])
 comp.Append(LIBS = ['c','gcc','m'])
 
 #TARGET_FLAGS = ['-mthumb', '-mcpu=cortex-m4' ]  # Software Floating point
-TARGET_FLAGS = ['-mthumb', '-mcpu=cortex-m4', '-mfloat-abi=hard', '-mfpu=fpv4-sp-d16'] # Hardware floating point. Requires supporting toolchain
+TARGET_FLAGS = ['-g', '-mthumb', '-mcpu=cortex-m4', '-mfloat-abi=hard', '-mfpu=fpv4-sp-d16'] # Hardware floating point. Requires supporting toolchain
 
 # Configure General Flags for Target
 comp.Prepend(CCFLAGS = [TARGET_FLAGS,'-mlittle-endian'])

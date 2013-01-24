@@ -191,6 +191,12 @@ static void pios_init()
 
     // Default all port pins to input and enable port.
     GPIO_StructInit(&GPIO_InitStructure);
+#if defined(ENABLE_JTAG_SWD)
+    //Except JTAG pins
+    if (port==0) {
+      GPIO_InitStructure.GPIO_Pin = ~(GPIO_Pin_13 | GPIO_Pin_14 | GPIO_Pin_15);
+    }
+#endif
     GPIO_Init(pio_port[port], &GPIO_InitStructure);
   }
 

@@ -34,7 +34,7 @@
 #define PLATFORM_HAS_SYSTIMER
 
 //#define ENABLE_TRACE       // Enable the ETM TRACE interface (TRACECLK, TRACE D0-3)
-//#define ENABLE_JTAG_SWD    // Do NOT remove this unless you really not need JTAG/SWD
+#define ENABLE_JTAG_SWD    // Do NOT remove this unless you really not need JTAG/SWD
 
 // *****************************************************************************
 // UART/Timer IDs configuration data (used in main.c)
