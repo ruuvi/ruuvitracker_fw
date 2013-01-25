@@ -189,7 +189,7 @@ uint16_t VCP_DataTx(uint8_t* Buf, uint32_t Len)
 		APP_Rx_Buffer[APP_Rx_ptr_in++] = *(Buf + i);
 		/* To avoid buffer overflow */
 		if(APP_Rx_ptr_in == APP_RX_DATA_SIZE) {
-		  APP_Rx_ptr_in = 0;
+		  return USBD_FAIL;
 		}
 	}
 
@@ -230,7 +230,7 @@ uint32_t VCP_SendChar(char c)
 	APP_Rx_Buffer[APP_Rx_ptr_in++] = c;
 	/* To avoid buffer overflow */
 	if (APP_Rx_ptr_in == APP_RX_DATA_SIZE) {
-		APP_Rx_ptr_in = 0;
+		return USBD_FAIL;
 	}
 
 	return USBD_OK;
