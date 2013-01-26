@@ -4,11 +4,12 @@ require('logging')
 module('gsm', package.seeall)  -- Define module 'gsm'
 
 power_pin = pio.PC_4
+dtr_pin = pio.PC_5
 
 local logger = Logger:new('gsm')
 
 local UARTID = 2
-local gsm_timeout = 1e6 -- Default timeout 1s
+local gsm_timeout = 2e6 -- Default timeout 2s
 local timer = firmware.timers.gsm_timer
 local timer_hz = 2000
 
@@ -21,9 +22,12 @@ local Status = {
    on_network   = 4,
    start_gprs   = 5,
    ready        = 6,
+   idle         = 7,
    error        = -1
 }
 local status = Status.power_down
+
+sleep_allowed = false
 
 -- GSM handler co-routine
 local function state_machine()
@@ -50,6 +54,8 @@ local function state_machine()
 	    -- Setup HW flow, and echo-off
 	    cmd("AT+IFC=2,2\nATE0")
 	    logger:info("HW flow control set")
+	    enable_sleep()
+	    logger:info("Sleep mode 1 enabled")
 	 end
       elseif status == Status.ask_pin then
 	 send("AT+CPIN?")
@@ -93,6 +99,16 @@ local function state_machine()
 	 status = Status.power_down
       elseif status == Status.ready then
 	 -- Nothing to do
+	 if sleep_allowed then
+	    sleep()
+	    status = Status.idle
+	 end
+	 coroutine.yield()
+      elseif status == Status.idle then
+	 if not sleep_allowed then
+	    end_sleep()
+	    status = Status.ready
+	 end
 	 coroutine.yield()
       else
 	 --Unknown status
@@ -192,6 +208,8 @@ end
 function setup_serial_port()
    uart.setup(UARTID, 115200, 8, uart.PAR_NONE, uart.STOP_1)
    uart.set_flow_control(UARTID, uart.FLOW_RTS + uart.FLOW_CTS)
+   pio.pin.setdir(pio.OUTPUT, dtr_pin)
+   pio.pin.setlow(dtr_pin) -- Sleep mode 1 is controlled with DTR pin (HIGH=sleep, LOW=ready)
 end
 
 function switch_gsm_9600_to_115200()
@@ -222,3 +240,20 @@ function send_sms(number, text)
    wait("^OK", 5e6)  -- Wait 5s to complete
 end
 
+-- Enable Sleep mode 1
+function enable_sleep()
+   cmd("AT+CSCLK=1")
+end
+
+-- Go to sleep mode
+function sleep()
+   logger:info("Entering sleep mode")
+   pio.pin.sethigh(dtr_pin)
+end
+
+-- Stop sleeping
+function end_sleep()
+   logger:info("Waking up from sleep")
+   pio.pin.setlow(dtr_pin)
+   delay(100e3) -- Wait 100ms to wake up
+end

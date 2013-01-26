@@ -14,7 +14,7 @@ is_fixed = false
 local satellites = 0
 event = {}
 
-local function enable()
+function enable()
    logger:debug("enabling")
    uart.setup(gps_uart, 115200, 8, uart.PAR_NONE, uart.STOP_1)
    logger:info("Waiting for GSM")
