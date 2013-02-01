@@ -5,7 +5,7 @@ require('logging')
 module('http', package.seeall)
 
 local logger = Logger:new('http')
-local timeout = 10e6 -- 10s
+local timeout = 30e6 -- 10s
 
 function get(url)
 	local data = ""
