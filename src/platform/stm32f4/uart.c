@@ -47,6 +47,14 @@ static const u8 usart_gpio_cts_pin_source[] = { GPIO_PinSource11, GPIO_PinSource
 static const u16 usart_gpio_rts_pin[] = { GPIO_Pin_12, GPIO_Pin_1, GPIO_Pin_14 };
 static const u8 usart_gpio_rts_pin_source[] = { GPIO_PinSource12, GPIO_PinSource1, GPIO_PinSource14 };
 
+#define BUFF_SIZE	256
+struct rbuff {
+	u8 data[BUFF_SIZE];
+	volatile int top;
+	volatile int bottom;
+} rbuff[NUM_UART];
+
+
 static void usart_init(u32 id, USART_InitTypeDef * initVals)
 {
   /* Configure USART IO */
@@ -74,6 +82,10 @@ static void usart_init(u32 id, USART_InitTypeDef * initVals)
 
   /* Configure USART */
   USART_Init(stm32_usart[id], initVals);
+
+  /* Empty buffer */
+  rbuff[id].top = 0;
+  rbuff[id].bottom = 0;
 
   /* Enable USART */
   USART_Cmd(stm32_usart[id], ENABLE);
@@ -173,13 +185,6 @@ void platform_s_uart_send( unsigned id, u8 data )
 
 /*** Receive functions */
 
-#define BUFF_SIZE	256
-struct rbuff {
-	u8 data[BUFF_SIZE];
-	volatile int top;
-	volatile int bottom;
-} rbuff[NUM_UART];
-
 int platform_s_uart_recv( unsigned id, timer_data_type timeout )
 {
   int ret;
@@ -216,7 +221,6 @@ void all_usart_irqhandler( int id )
 }
 
 
-/*** */
 
 int platform_s_uart_set_flow_control( unsigned id, int type )
 {
