@@ -1,10 +1,8 @@
 /**
   ******************************************************************************
   * @file    usbd_cdc_vcp.c
-  * @author  MCD Application Team, heavily modified by Martin Thomas
-  * @version V1.1.1_mthomas
+  * @author  MCD Application Team, modified by Seppo Takalo
   * @date    -
-  * @brief   Generic media access Layer.
   ******************************************************************************
   * @attention
   *
@@ -186,11 +184,11 @@ uint16_t VCP_DataTx(uint8_t* Buf, uint32_t Len)
 	  return USBD_FAIL;
 
 	for (i = 0; i < Len; i++) {
-		APP_Rx_Buffer[APP_Rx_ptr_in++] = *(Buf + i);
 		/* To avoid buffer overflow */
 		if(APP_Rx_ptr_in == APP_RX_DATA_SIZE) {
 		  return USBD_FAIL;
 		}
+		APP_Rx_Buffer[APP_Rx_ptr_in++] = *(Buf + i);
 	}
 
 	return USBD_OK;
@@ -227,11 +225,13 @@ uint32_t VCP_SendString(char* s)
   */
 uint32_t VCP_SendChar(char c)
 {
-	APP_Rx_Buffer[APP_Rx_ptr_in++] = c;
+        if (!USBD_USR_isavailable())
+	        return USBD_FAIL;
 	/* To avoid buffer overflow */
 	if (APP_Rx_ptr_in == APP_RX_DATA_SIZE) {
 		return USBD_FAIL;
 	}
+	APP_Rx_Buffer[APP_Rx_ptr_in++] = c;
 
 	return USBD_OK;
 }
