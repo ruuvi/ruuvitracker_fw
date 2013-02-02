@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    usbd_cdc_vcp.c
   * @author  MCD Application Team, modified by Seppo Takalo
-  * @date    -
+  * @date    2013-02-01
   ******************************************************************************
   * @attention
   *
@@ -54,6 +54,7 @@ extern uint8_t  APP_Rx_Buffer []; /* Write CDC received data in this buffer.
 extern uint32_t APP_Rx_ptr_in;    /* Increment this pointer or roll it back to
                                      start address when writing received data
                                      in the buffer APP_Rx_Buffer. */
+extern uint32_t APP_Rx_ptr_out;	 /* CDC driver's internal pointer, used to detect overflow */
 
 #define FROM_HOST_MAX 128
 __IO uint8_t From_Host_Buffer[FROM_HOST_MAX]; /* data received from host gets stored in this buffer */
@@ -175,20 +176,15 @@ extern int USBD_USR_isavailable();
   *         this function.
   * @param  Buf: Buffer of data to be sent
   * @param  Len: Number of data to be sent (in bytes)
-  * @retval Result of the operation: USBD_OK if all operations are OK else VCP_FAIL
+  * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
   */
 uint16_t VCP_DataTx(uint8_t* Buf, uint32_t Len)
 {
 	uint32_t i;
-	if (!USBD_USR_isavailable())
-	  return USBD_FAIL;
 
 	for (i = 0; i < Len; i++) {
-		/* To avoid buffer overflow */
-		if(APP_Rx_ptr_in == APP_RX_DATA_SIZE) {
-		  return USBD_FAIL;
-		}
-		APP_Rx_Buffer[APP_Rx_ptr_in++] = *(Buf + i);
+	  if (VCP_SendChar(*(Buf + i)) == USBD_FAIL)
+	    return USBD_FAIL;
 	}
 
 	return USBD_OK;
@@ -225,11 +221,14 @@ uint32_t VCP_SendString(char* s)
   */
 uint32_t VCP_SendChar(char c)
 {
-        if (!USBD_USR_isavailable())
-	        return USBD_FAIL;
 	/* To avoid buffer overflow */
 	if (APP_Rx_ptr_in == APP_RX_DATA_SIZE) {
-		return USBD_FAIL;
+	  APP_Rx_ptr_in = 0; // Roll back
+	}
+	if (APP_Rx_ptr_in < APP_Rx_ptr_out) { // We have rolled back.
+	  if (APP_Rx_ptr_in == (APP_Rx_ptr_out-1)) { //No more room
+	    return USBD_FAIL; //Buffer full
+	  }
 	}
 	APP_Rx_Buffer[APP_Rx_ptr_in++] = c;
 
@@ -269,7 +268,7 @@ uint32_t VCP_HasReceived(void)
   *
   * @param  Buf: Buffer of data to be received
   * @param  Len: Number of data received (in bytes)
-  * @retval Result of the operation: USBD_OK if all operations are OK else VCP_FAIL
+  * @retval Result of the operation: USBD_OK
   */
 extern void usart_received(int id, u8 c);
 uint16_t VCP_DataRx(uint8_t* Buf, uint32_t Len)
@@ -278,7 +277,7 @@ uint16_t VCP_DataRx(uint8_t* Buf, uint32_t Len)
 	uint32_t i;
 
 	for (i = 0; i < Len; i++) {
-	  /* Pipe received data tu UART0 buffer */
+	  /* Pipe received data to UART0 buffer (TODO: do not hardcode this)*/
 	  usart_received(0, Buf[i]);
 	}
 
