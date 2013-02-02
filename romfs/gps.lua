@@ -16,7 +16,6 @@ event = {}
 
 function enable()
    logger:debug("enabling")
-   uart.setup(gps_uart, 115200, 8, uart.PAR_NONE, uart.STOP_1)
    logger:info("Waiting for GSM")
    gsm.wait_ready()
    gsm.cmd('AT+CGPSPWR=1') -- Power on GPS
@@ -25,7 +24,7 @@ function enable()
    logger:info("GPS started")
 end
 
-local function disable()
+function disable()
    logger:debug("Disabling GPS")
    gsm.cmd('AT+CGPSPWR=0')
    enabled = false
@@ -100,12 +99,25 @@ function is_enabled()
    return enabled
 end
 
+sleep_allowed = true
+
 local function parser()
-   if enabled == false then enable() end
+--   if enabled == false then enable() end
+   uart.setup(gps_uart, 115200, 8, uart.PAR_NONE, uart.STOP_1)
    
    is_fixed = false
    event = {}
    while true do
+      if not enabled and not sleep_allowed then
+	 enable()
+      elseif enabled and sleep_allowed then
+	 disable()
+      end
+
+      if not enabled then
+	 coroutine.yield()
+      end
+
       local str = uart.read(gps_uart, '*l', timeout)
       
       if str:find("^%$GPGGA") then -- Start of message sequence

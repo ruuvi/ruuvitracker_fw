@@ -3,8 +3,8 @@ require('logging')
 
 module('gsm', package.seeall)  -- Define module 'gsm'
 
-power_pin = pio.PC_4
-dtr_pin = pio.PC_5
+local power_pin = pio.PC_4
+local dtr_pin = pio.PC_5
 
 local logger = Logger:new('gsm')
 
@@ -23,10 +23,12 @@ local Status = {
    start_gprs   = 5,
    ready        = 6,
    idle         = 7,
+   sleep        = 8,
    error        = -1
 }
 local status = Status.power_down
 
+idle_allowed = false
 sleep_allowed = false
 
 -- GSM handler co-routine
@@ -37,7 +39,7 @@ local function state_machine()
       -- State machine
       if status == Status.power_down then
 	 logger:info("Powering up")
-	 setup_serial_port()
+	 setup_hw()
 	 power_toggle()
 	 status = Status.start
       elseif status == Status.start then
@@ -64,6 +66,8 @@ local function state_machine()
 	 if response:find("SIM PIN") then -- pin required
 	    cmd("AT+CPIN="..config.gsm.pin_code) -- Send pin
 	    logger:info("pin ok")
+	    logger:info("disabling pin query")
+	    cmd('AT+CLCK="SC",0,"'..config.gsm.pin_code..'"') -- Remove pin query
 	 else
 	    logger:info("pin not required")
 	 end
@@ -71,7 +75,7 @@ local function state_machine()
 	 status = Status.find_network
       elseif status == Status.find_network then
 	 logger:info("Waiting for network")
-	 local response = wait("^Call Ready", 30e6) -- Wait 30s for GSM network
+	 local response = wait("^Call Ready", 32e6) -- Wait 32s for GSM network (max delay)
 	 if response == false then
 	    status = Status.error -- Did not find network
 	    logger:error("No network")
@@ -96,25 +100,44 @@ local function state_machine()
 	 logger:warn("Error state, resetting modem")
 	 power_toggle() -- Shut down modem
 	 delay(5e6)     -- Wait 5s for modem to be shut down
+	 setup_hw()     -- Reset Serial port and empty buffers
+	 send('AT')     -- Test if not really shut down
+	 if wait("^OK") ~= false then -- Power "mode" is reversed
+	    logger:debug("GSM Still on. Powering down")
+	    delay(5e6)     -- Wait 5s
+	    power_toggle() -- Need to toggle power again to shut down
+	    delay(5e6)     -- Wait 5s again
+	 else
+	    logger:debug("GSM shut down")
+	 end
 	 status = Status.power_down
       elseif status == Status.ready then
 	 -- Nothing to do
 	 if sleep_allowed then
+	    cmd("AT+CFUN=0") -- Go to minimum functionality mode
+	    sleep()
+	    status = Status.sleep
+	 elseif idle_allowed then
 	    sleep()
 	    status = Status.idle
 	 end
-	 coroutine.yield()
       elseif status == Status.idle then
-	 if not sleep_allowed then
+	 if not idle_allowed then
 	    end_sleep()
 	    status = Status.ready
 	 end
-	 coroutine.yield()
+      elseif status == Status.sleep then -- Minimum functionality mode, Radio=off
+	 if not sleep_allowed then
+	    end_sleep()
+	    cmd("AT+CFUN=1")
+	    status = Status.find_network
+	 end
       else
 	 --Unknown status
 	 logger:error("Unknown status")
 	 status = Status.error
       end
+      coroutine.yield()
    end
 end
 -- Create co-routine from state machine
@@ -122,7 +145,7 @@ handler = coroutine.create(state_machine)
 
 
 -- Wait for GSM ready condition
--- Use from inside of co-routine
+-- Use from inside of a co-routine
 function wait_ready()
    while status ~= Status.ready do
       coroutine.yield()
@@ -205,11 +228,11 @@ function cmd(cmd_str)
    end
 end
 
-function setup_serial_port()
-   uart.setup(UARTID, 115200, 8, uart.PAR_NONE, uart.STOP_1)
-   uart.set_flow_control(UARTID, uart.FLOW_RTS + uart.FLOW_CTS)
+function setup_hw()
    pio.pin.setdir(pio.OUTPUT, dtr_pin)
    pio.pin.setlow(dtr_pin) -- Sleep mode 1 is controlled with DTR pin (HIGH=sleep, LOW=ready)
+   uart.setup(UARTID, 115200, 8, uart.PAR_NONE, uart.STOP_1)
+   uart.set_flow_control(UARTID, uart.FLOW_RTS + uart.FLOW_CTS)
 end
 
 function switch_gsm_9600_to_115200()
@@ -236,7 +259,7 @@ function send_sms(number, text)
    cmd("AT+CMGF=1")
    send('AT+CMGS="'..number..'"')
    wait(">")  -- This is undocumented but required
-   send(text..string.char(26))
+   send(text..string.char(26)) -- Message + CTRL-Z
    wait("^OK", 5e6)  -- Wait 5s to complete
 end
 
@@ -257,3 +280,4 @@ function end_sleep()
    pio.pin.setlow(dtr_pin)
    delay(100e3) -- Wait 100ms to wake up
 end
+
