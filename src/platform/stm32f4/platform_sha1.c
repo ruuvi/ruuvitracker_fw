@@ -1,3 +1,9 @@
+/*
+ *  SHA1 functions for LUA.
+ *
+ * @author: Seppo Takalo
+ */
+
 #include "lua.h"
 #include "lualib.h"
 #include "lauxlib.h"

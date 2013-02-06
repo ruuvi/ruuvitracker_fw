@@ -45,7 +45,7 @@ end
 
 local function generate_mac(event, shared_secret)
    local base = base_string(event)
-   local mac = sha1.hmac(shared_secret, base)
+   local mac = ruuvi.sha1.hmac(shared_secret, base)
    return mac
 end
 

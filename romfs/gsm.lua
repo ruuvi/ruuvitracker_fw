@@ -11,7 +11,7 @@ local logger = Logger:new('gsm')
 local UARTID = 2
 local gsm_timeout = 2e6 -- Default timeout 2s
 local timer = firmware.timers.gsm_timer
-local timer_hz = 2000
+local timer_hz = 1  -- Slowest possible on Ruuvi Rev A
 
 -- Modem Status
 local Status = {
@@ -44,7 +44,7 @@ local function state_machine()
 	 status = Status.start
       elseif status == Status.start then
 	 -- Modem booting
-	 if wait("RDY", 5e6) == false then
+	 if wait("RDY", 10e6) == false then
 	    switch_gsm_9600_to_115200()
 	    status = Status.error -- Go through error state
 	 else
@@ -52,7 +52,7 @@ local function state_machine()
 	    -- Boot ok, next status
 	    status = Status.ask_pin
 	    -- Wait modem to boot
-	    wait("+CFUN: 1", 3e6)
+	    wait("+CFUN: 1", 5e6)
 	    -- Setup HW flow, and echo-off
 	    cmd("AT+IFC=2,2\nATE0")
 	    logger:info("HW flow control set")
@@ -75,7 +75,7 @@ local function state_machine()
 	 status = Status.find_network
       elseif status == Status.find_network then
 	 logger:info("Waiting for network")
-	 local response = wait("^Call Ready", 32e6) -- Wait 32s for GSM network (max delay)
+	 local response = wait("^Call Ready", 50e6) -- Wait 50s for GSM network (max delay)
 	 if response == false then
 	    status = Status.error -- Did not find network
 	    logger:error("No network")

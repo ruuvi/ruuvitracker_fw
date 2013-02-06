@@ -27,25 +27,26 @@
 
 // Clock data
 // IMPORTANT: if you change these, make sure to modify RCC_Configuration() too!
+/************************* PLL Parameters *************************************/
 /* PLL_VCO = (HSE_VALUE or HSI_VALUE / PLL_M) * PLL_N */
-#define PLL_M      8
-#define PLL_N      336
+#define PLL_M      6
+#define PLL_N      192
 
 /* SYSCLK = PLL_VCO / PLL_P */
-#define PLL_P      2
+#define PLL_P      8
 
 /* USB OTG FS, SDIO and RNG Clock =  PLL_VCO / PLLQ */
-#define PLL_Q      7
+#define PLL_Q      8
 
 #define HCLK        ( (HSE_VALUE / PLL_M) * PLL_N / PLL_P)
-#define PCLK1_DIV   4
-#define PCLK2_DIV   2
+#define PCLK1_DIV   2
+#define PCLK2_DIV   1
 
 // SysTick Config Data
 // NOTE: when using virtual timers, SYSTICKHZ and VTMR_FREQ_HZ should have the
 // same value, as they're served by the same timer (the systick)
 // Max SysTick preload value is 16777215, for STM32F103RET6 @ 72 MHz, lowest acceptable rate would be about 5 Hz
-#define SYSTICKHZ               16
+#define SYSTICKHZ               5
 #define SYSTICKMS               (1000 / SYSTICKHZ)
 
 #if ( (HCLK / SYSTICKHZ)  > SysTick_LOAD_RELOAD_Msk)
@@ -435,6 +436,8 @@ const TIM_TypeDef * const timer[] = {
 
 static u32 platform_timer_set_clock( unsigned id, u32 clock );
 
+volatile int systick;
+
 void SysTick_Handler( void )
 {
   // Handle virtual timers
@@ -442,6 +445,12 @@ void SysTick_Handler( void )
 
   // Handle system timer call
   cmn_systimer_periodic();
+
+  //Allow main loop to run by disabling Sleeponexit bit
+  NVIC_SystemLPConfig(NVIC_LP_SLEEPONEXIT, DISABLE);
+
+  //Notify loop
+  systick=1;
 }
 
 static void timers_init()

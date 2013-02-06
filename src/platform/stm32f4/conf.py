@@ -50,7 +50,8 @@ fwlib_files = " ".join( [ STDPeriphdir+"/src/%s" % ( f ) for f in STD_files.spli
 
 # Files to compile from this folder
 specific_files = "system_stm32f4xx.c platform.c platform_int.c uart.c platform_i2c.c platform_sha1.c sha1.c" \
-    +" usb_bsp.c usbd_desc.c usbd_usr.c usbd_cdc_vcp.c stm32_usb.c"
+    +" usb_bsp.c usbd_desc.c usbd_usr.c usbd_cdc_vcp.c stm32_usb.c" \
+    +" lua_ruuvi.c"
 
 ldscript = "stm32.ld"
   
