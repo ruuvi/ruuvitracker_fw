@@ -2,18 +2,30 @@
 import fnmatch
 import glob
 import os
+import urllib
+import zipfile
 
 # Place to keep ST micro's library
 fwlibdir= 'src/platform/%s/FWLib' % platform
 
-# Helper function to download library for us
-# requires wget utility
+
+# Helper functions to download library for us
+# requires urllib and zipfile
+def reporthook(a,b,c): 
+    print "% 3.1f%% of %d bytes\r" % (min(100, float(a * b) / c * 100), c),
+    sys.stdout.flush()
+
 def fetch_lib(dir, url):
-	print "Downloading %s " % url, "to %s" % dir
 	path = os.getcwd()
 	os.chdir(dir)
-	os.system("wget '"+url+"' -O fwlib.zip")
-	os.system("unzip fwlib.zip")
+	print "Downloading %s " % url
+	urllib.urlretrieve(url, "fwlib.zip", reporthook)
+	print "\n"
+	print "Unzipping..."
+	zip = zipfile.ZipFile("fwlib.zip", "r")
+	zip.extractall()
+	zip.close()
+	print "Done"
 	os.remove("fwlib.zip")
 	os.chdir(path)
 
