@@ -14,14 +14,12 @@ def fetch_lib(dir, url):
 	os.chdir(dir)
 	os.system("wget '"+url+"' -O fwlib.zip")
 	os.system("unzip fwlib.zip")
-	f = open(".downloaded","w")
-	f.write("\n")
-	f.close()
+	os.remove("fwlib.zip")
 	os.chdir(path)
 
 # Download FWlib if not exist
 try:
-	stat = os.stat(fwlibdir+"/.downloaded")
+	stat = os.stat(fwlibdir+"/STM32_USB-Host-Device_Lib_V2.1.0")
 except OSError:
 	fetch_lib(fwlibdir, "http://www.st.com/internet/com/SOFTWARE_RESOURCES/SW_COMPONENT/FIRMWARE/stm32_f105-07_f2_f4_usb-host-device_lib.zip")
 
