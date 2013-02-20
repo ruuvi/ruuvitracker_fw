@@ -32,20 +32,27 @@ const u8 stm32_usart_AF[] =       { GPIO_AF_USART1, GPIO_AF_USART2, GPIO_AF_USAR
   static const u8 usart_gpio_rx_pin_source[] = { GPIO_PinSource10, GPIO_PinSource3, GPIO_PinSource11, GPIO_PinSource11, GPIO_PinSource2 };
   static const u16 usart_gpio_tx_pin[] = { GPIO_Pin_9, GPIO_Pin_2, GPIO_Pin_10, GPIO_Pin_10, GPIO_Pin_12 };
   static const u8 usart_gpio_tx_pin_source[] = { GPIO_PinSource9, GPIO_PinSource2, GPIO_PinSource10, GPIO_PinSource10, GPIO_PinSource12 };
+  static GPIO_TypeDef *const usart_gpio_hwflow_port[] = { GPIOA, GPIOA, GPIOB };
+  static const u16 usart_gpio_cts_pin[] = { GPIO_Pin_11, GPIO_Pin_0, GPIO_Pin_13 };
+  static const u8 usart_gpio_cts_pin_source[] = { GPIO_PinSource11, GPIO_PinSource0, GPIO_PinSource13 };
+  static const u16 usart_gpio_rts_pin[] = { GPIO_Pin_12, GPIO_Pin_1, GPIO_Pin_14 };
+  static const u8 usart_gpio_rts_pin_source[] = { GPIO_PinSource12, GPIO_PinSource1, GPIO_PinSource14 };
+#elif defined( ELUA_BOARD_RUUVIB1 )
+  static GPIO_TypeDef *const usart_gpio_rx_port[] = { GPIOB, GPIOD, GPIOD, GPIOC, GPIOD };
+  static GPIO_TypeDef *const usart_gpio_tx_port[] = { GPIOB, GPIOD, GPIOD, GPIOC, GPIOD };
+  static const u16 usart_gpio_rx_pin[] = { GPIO_Pin_7, GPIO_Pin_5, GPIO_Pin_8, GPIO_Pin_11, GPIO_Pin_2 };
+  static const u8 usart_gpio_rx_pin_source[] = { GPIO_PinSource7, GPIO_PinSource5, GPIO_PinSource8, GPIO_PinSource11, GPIO_PinSource2 };
+  static const u16 usart_gpio_tx_pin[] = { GPIO_Pin_6, GPIO_Pin_6, GPIO_Pin_9, GPIO_Pin_10, GPIO_Pin_12 };
+  static const u8 usart_gpio_tx_pin_source[] = { GPIO_PinSource6, GPIO_PinSource6, GPIO_PinSource9, GPIO_PinSource10, GPIO_PinSource12 };
+  static GPIO_TypeDef *const usart_gpio_hwflow_port[] = { GPIOA, GPIOD, GPIOB };
+  static const u16 usart_gpio_cts_pin[] = { GPIO_Pin_11, GPIO_Pin_4, GPIO_Pin_13 };
+  static const u8 usart_gpio_cts_pin_source[] = { GPIO_PinSource11, GPIO_PinSource4, GPIO_PinSource13 };
+  static const u16 usart_gpio_rts_pin[] = { GPIO_Pin_12, GPIO_Pin_3, GPIO_Pin_14 };
+  static const u8 usart_gpio_rts_pin_source[] = { GPIO_PinSource12, GPIO_PinSource3, GPIO_PinSource14 };
 #else
-  static GPIO_TypeDef *const usart_gpio_rx_port[] = { GPIOB, GPIOA, GPIOC, GPIOC, GPIOD };
-  static GPIO_TypeDef *const usart_gpio_tx_port[] = { GPIOB, GPIOA, GPIOC, GPIOC, GPIOD };
-  static const u16 usart_gpio_rx_pin[] = { GPIO_Pin_7, GPIO_Pin_3, GPIO_Pin_11, GPIO_Pin_11, GPIO_Pin_2 };
-  static const u8 usart_gpio_rx_pin_source[] = { GPIO_PinSource7, GPIO_PinSource3, GPIO_PinSource11, GPIO_PinSource11, GPIO_PinSource2 };
-  static const u16 usart_gpio_tx_pin[] = { GPIO_Pin_6, GPIO_Pin_2, GPIO_Pin_10, GPIO_Pin_10, GPIO_Pin_12 };
-  static const u8 usart_gpio_tx_pin_source[] = { GPIO_PinSource6, GPIO_PinSource2, GPIO_PinSource10, GPIO_PinSource10, GPIO_PinSource12 };
+#error "Define UART pins/ports for this board in uart.c"
 #endif
 
-static GPIO_TypeDef *const usart_gpio_hwflow_port[] = { GPIOA, GPIOA, GPIOB };
-static const u16 usart_gpio_cts_pin[] = { GPIO_Pin_11, GPIO_Pin_0, GPIO_Pin_13 };
-static const u8 usart_gpio_cts_pin_source[] = { GPIO_PinSource11, GPIO_PinSource0, GPIO_PinSource13 };
-static const u16 usart_gpio_rts_pin[] = { GPIO_Pin_12, GPIO_Pin_1, GPIO_Pin_14 };
-static const u8 usart_gpio_rts_pin_source[] = { GPIO_PinSource12, GPIO_PinSource1, GPIO_PinSource14 };
 
 #define BUFF_SIZE	256
 struct rbuff {

@@ -59,11 +59,16 @@ fwlib_files = " ".join( [ STDPeriphdir+"/src/%s" % ( f ) for f in STD_files.spli
 	+" "+ USBclass_files
 
 # Files to compile from this folder
-specific_files = "system_stm32f4xx.c platform.c platform_int.c uart.c platform_i2c.c platform_sha1.c sha1.c" \
+specific_files = "platform.c platform_int.c uart.c platform_i2c.c platform_sha1.c sha1.c" \
     +" usb_bsp.c usbd_desc.c usbd_usr.c usbd_cdc_vcp.c stm32_usb.c" \
     +" lua_ruuvi.c"
 
 ldscript = "stm32.ld"
+
+if "RUUVIA" in comp['board']:
+    specific_files += " system_ruuvia.c"
+elif "RUUVIB1" in comp['board']:
+    specific_files += " system_ruuvib1.c"
   
 # Prepend with path
 specific_files = fwlib_files + " " + " ".join( [ "src/platform/%s/%s" % ( platform, f ) for f in specific_files.split() ] )
@@ -72,7 +77,14 @@ ldscript = "src/platform/%s/%s" % ( platform, ldscript )
 
 # Flags for compiler
 comp.Append(CPPDEFINES = ["FOR" + cnorm( comp[ 'cpu' ] ),"FOR" + cnorm( comp[ 'board' ] ),'gcc'])
-comp.Append(CPPDEFINES = [ 'USE_STDPERIPH_DRIVER', 'STM32F4XX', 'CORTEX_M4', 'HSE_VALUE=12000000', 'USE_EMBEDDED_PHY', 'USE_USB_OTG_FS'])
+comp.Append(CPPDEFINES = [ 'USE_STDPERIPH_DRIVER', 'STM32F4XX', 'CORTEX_M4', 'USE_EMBEDDED_PHY', 'USE_USB_OTG_FS' ])
+
+#Clock configurations
+comp.Append(CPPDEFINES = ['HCLK=48000000', 'PCLK1_DIV=2', 'PCLK2_DIV=1'])
+if "RUUVIA" in comp['board']:
+    comp.Append(CPPDEFINES = ['HSE_VALUE=12000000'])
+elif "RUUVIB1" in comp['board']:
+    comp.Append(CPPDEFINES = ['HSE_VALUE=25000000'])
 
 # Standard GCC Flags
 comp.Append(CCFLAGS = ['-ffunction-sections','-fdata-sections','-fno-strict-aliasing','-Wall','-g'])

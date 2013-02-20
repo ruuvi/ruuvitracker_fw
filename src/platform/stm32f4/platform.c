@@ -25,23 +25,6 @@
 // Platform specific includes
 #include "stm32f4xx_conf.h"
 
-// Clock data
-// IMPORTANT: if you change these, make sure to modify RCC_Configuration() too!
-/************************* PLL Parameters *************************************/
-/* PLL_VCO = (HSE_VALUE or HSI_VALUE / PLL_M) * PLL_N */
-#define PLL_M      6
-#define PLL_N      192
-
-/* SYSCLK = PLL_VCO / PLL_P */
-#define PLL_P      8
-
-/* USB OTG FS, SDIO and RNG Clock =  PLL_VCO / PLLQ */
-#define PLL_Q      8
-
-#define HCLK        ( (HSE_VALUE / PLL_M) * PLL_N / PLL_P)
-#define PCLK1_DIV   2
-#define PCLK2_DIV   1
-
 // SysTick Config Data
 // NOTE: when using virtual timers, SYSTICKHZ and VTMR_FREQ_HZ should have the
 // same value, as they're served by the same timer (the systick)

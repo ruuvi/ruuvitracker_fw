@@ -15,6 +15,13 @@ static const u8 i2c_af[] = {GPIO_AF_I2C1, GPIO_AF_I2C2, GPIO_AF_I2C3};
  static const u16 i2c_scl_pin[] = {GPIO_Pin_6, 0, 0};
  static const u8 i2c_sda_pinsource[] = {GPIO_PinSource7, 0, 0};
  static const u8 i2c_scl_pinsource[] = {GPIO_PinSource6, 0, 0};
+#elif defined( ELUA_BOARD_RUUVIB1 )
+ static const u32 i2c_port_rcc[] = {RCC_AHB1Periph_GPIOB, 0, 0};
+ static GPIO_TypeDef *const i2c_port[] = {GPIOB, NULL, NULL};
+ static const u16 i2c_sda_pin[] = {GPIO_Pin_9, 0, 0};
+ static const u16 i2c_scl_pin[] = {GPIO_Pin_8, 0, 0};
+ static const u8 i2c_sda_pinsource[] = {GPIO_PinSource9, 0, 0};
+ static const u8 i2c_scl_pinsource[] = {GPIO_PinSource8, 0, 0};
 #else
 #error "Define I2C pins/ports for this board in platform_i2c.c"
 #endif

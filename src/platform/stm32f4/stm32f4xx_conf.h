@@ -1,18 +1,6 @@
 #ifndef __STM32F4xx_CONF_H
 #define __STM32F4xx_CONF_H
 
-#if defined HSE_VALUE
-#undef HSE_VALUE
-#endif
-
-#ifdef ELUA_BOARD_STM32F4DSCY
-/* Undefine previous HSE value */
-/* Define new (for STM32F4-DISCOVERY Kit) */
-#define HSE_VALUE    (8000000)
-#elif defined(ELUA_BOARD_RUUVIA)
-#define HSE_VALUE	(12000000)
-#endif
-
 /* Include all headers from STM library */
 #include "stm32f4xx_adc.h"
 #include "stm32f4xx_can.h"
