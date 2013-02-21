@@ -20,5 +20,8 @@ if pd.board() == "STM32F4DSCY" then
 elseif pd.board() == "RUUVIA" then
    green_led = Led:new(pio.PC_14)
    red_led   = Led:new(pio.PC_15)
+elseif pd.board() == "RUUVIB1" then
+   green_led = Led:new(pio.PE_14)
+   red_led   = Led:new(pio.PE_15)
 end
 
