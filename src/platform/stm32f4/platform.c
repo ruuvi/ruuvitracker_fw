@@ -58,7 +58,6 @@ extern void uarts_init();
 
 int platform_init()
 {
-
   // Setup IRQ's
   NVIC_Configuration();
 
@@ -256,8 +255,25 @@ pio_type platform_pio_op( unsigned port, pio_type pinmask, int op )
       GPIO_InitStructure.GPIO_Pin   = pinmask;
       GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_OUT;
       GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-
+      
+      /* BUGFIX: RuuviTracker Rev B1 board may BURN GSM module, if PWR_KEY(PE2) is driven to 3.3V */
+      /* Force PE2 to be Open-Drain */
+#if defined( ELUA_BOARD_RUUVIB1 )
+      if ((base == GPIOE) && (pinmask&GPIO_Pin_2)) {
+	GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
+	GPIO_Init(base, &GPIO_InitStructure);
+	if (pinmask!=GPIO_Pin_2) { // Configure other pins to normal output
+	  GPIO_InitStructure.GPIO_Pin = pinmask&~GPIO_Pin_2;
+	  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+	  GPIO_Init(base, &GPIO_InitStructure);
+	}
+      } else {
+	GPIO_Init(base, &GPIO_InitStructure);
+      }
+#else
       GPIO_Init(base, &GPIO_InitStructure);
+#endif
       break;
 
     case PLATFORM_IO_PORT_GET_VALUE:
