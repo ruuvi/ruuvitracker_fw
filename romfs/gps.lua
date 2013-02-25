@@ -5,8 +5,14 @@ require('logging')
 module(..., package.seeall)
 
 local enabled = false
-local gps_uart = 1
+local gps_uart
 local logger = Logger:new('gps')
+
+if pd.board() == "RUUVIA" then
+   gps_uart = 1
+elseif pd.board() == "RUUVIB1" then
+   gps_uart = 2
+end
 
 timeout = 100e3 -- Timeout 100ms for messages to arrive
 
@@ -15,6 +21,7 @@ local satellites = 0
 event = {}
 
 function enable()
+   is_fixed = false
    logger:debug("enabling")
    logger:info("Waiting for GSM")
    gsm.wait_ready()
@@ -28,6 +35,7 @@ function disable()
    logger:debug("Disabling GPS")
    gsm.cmd('AT+CGPSPWR=0')
    enabled = false
+   is_fixed = false
 end
 
 local function parse_rmc(line)
@@ -99,7 +107,7 @@ function is_enabled()
    return enabled
 end
 
-sleep_allowed = true
+sleep_allowed = false
 
 local function parser()
 --   if enabled == false then enable() end
