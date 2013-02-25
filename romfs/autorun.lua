@@ -24,7 +24,7 @@ function test_func()
 	 coroutine.yield()
       end
       print("Test func started")
-      print(http.get("http://st.dev.frontside.fi/"))
+      print(http.get("http://www.google.fi/"))
       run_test = false
    end
 end
@@ -32,8 +32,8 @@ end
 -- List of handlers to process on main loop
 local handlers = {
    gsm.handler,
-   coroutine.create(test_func),
-   gps.handler
+   gps.handler,
+   tracker.handler
 }
 
 function print_mem()
@@ -49,7 +49,7 @@ local counter = tmr.start(firmware.timers.mem_timer)
 
 print("Starting main loop...")
 
-function mainloop()
+local function mainloop()
    -- Run through all handler (coroutines)
    for _, handler in ipairs(handlers) do
       if coroutine.status(handler) == 'suspended' then

@@ -25,8 +25,8 @@ config = {
 firmware = {}
 firmware.version = "0.2"
 firmware.timers = {
-   mem_timer = 9,
-   gsm_timer = 10,
-   gps_timer = 11,
-   tracker_timer = 8
+   mem_timer = 1,
+   gsm_timer = 2,
+   gps_timer = 3,
+   tracker_timer = 4
 }
