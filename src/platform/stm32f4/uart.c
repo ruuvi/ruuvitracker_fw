@@ -45,10 +45,10 @@ const u8 stm32_usart_AF[] =       { GPIO_AF_USART1, GPIO_AF_USART2, GPIO_AF_USAR
   static const u16 usart_gpio_tx_pin[] = { GPIO_Pin_6, GPIO_Pin_6, GPIO_Pin_9, GPIO_Pin_10, GPIO_Pin_12 };
   static const u8 usart_gpio_tx_pin_source[] = { GPIO_PinSource6, GPIO_PinSource6, GPIO_PinSource9, GPIO_PinSource10, GPIO_PinSource12 };
   static GPIO_TypeDef *const usart_gpio_hwflow_port[] = { GPIOA, GPIOD, GPIOB };
-  static const u16 usart_gpio_cts_pin[] = { GPIO_Pin_11, GPIO_Pin_4, GPIO_Pin_13 };
-  static const u8 usart_gpio_cts_pin_source[] = { GPIO_PinSource11, GPIO_PinSource4, GPIO_PinSource13 };
-  static const u16 usart_gpio_rts_pin[] = { GPIO_Pin_12, GPIO_Pin_3, GPIO_Pin_14 };
-  static const u8 usart_gpio_rts_pin_source[] = { GPIO_PinSource12, GPIO_PinSource3, GPIO_PinSource14 };
+  static const u16 usart_gpio_cts_pin[] = { GPIO_Pin_11, GPIO_Pin_3, GPIO_Pin_13 };
+  static const u8 usart_gpio_cts_pin_source[] = { GPIO_PinSource11, GPIO_PinSource3, GPIO_PinSource13 };
+  static const u16 usart_gpio_rts_pin[] = { GPIO_Pin_12, GPIO_Pin_4, GPIO_Pin_14 };
+  static const u8 usart_gpio_rts_pin_source[] = { GPIO_PinSource12, GPIO_PinSource4, GPIO_PinSource14 };
 #else
 #error "Define UART pins/ports for this board in uart.c"
 #endif
