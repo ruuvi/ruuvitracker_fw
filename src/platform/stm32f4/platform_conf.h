@@ -48,7 +48,7 @@
 // Auxiliary libraries that will be compiled for this platform
 
 // Number of resources (0 if not available/not implemented)
-#define NUM_PIO               3
+#define NUM_PIO               5
 #define NUM_SPI               1
 #define NUM_UART              3
 #define NUM_TIMER             12

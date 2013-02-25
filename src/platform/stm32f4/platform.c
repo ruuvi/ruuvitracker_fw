@@ -29,7 +29,7 @@
 // NOTE: when using virtual timers, SYSTICKHZ and VTMR_FREQ_HZ should have the
 // same value, as they're served by the same timer (the systick)
 // Max SysTick preload value is 16777215, for STM32F103RET6 @ 72 MHz, lowest acceptable rate would be about 5 Hz
-#define SYSTICKHZ               5
+#define SYSTICKHZ               1000
 #define SYSTICKMS               (1000 / SYSTICKHZ)
 
 #if ( (HCLK / SYSTICKHZ)  > SysTick_LOAD_RELOAD_Msk)
@@ -487,6 +487,9 @@ static u32 platform_timer_set_clock( unsigned id, u32 clock )
 {
   TIM_TimeBaseInitTypeDef timer_base_struct;
   TIM_TypeDef *ptimer = (TIM_TypeDef*)timer[ id ];
+
+  TIM_DeInit(ptimer);
+
   u32 pre = ( TIM_GET_BASE_CLK( id ) / clock ) - 1;
 
   if( pre > 65535 ) // Limit prescaler to 16-bits
