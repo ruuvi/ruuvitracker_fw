@@ -3,15 +3,36 @@ require('logging')
 
 module('gsm', package.seeall)  -- Define module 'gsm'
 
-local power_pin = pio.PC_4
-local dtr_pin = pio.PC_5
+local power_pin
+local dtr_pin
+local status_pin
+local enable_voltage_pin
+local cts_pin
+
+if pd.board() == "RUUVIA" then
+   power_pin = pio.PC_4
+   dtr_pin = pio.PC_5
+elseif pd.board() == "RUUVIB1" then
+   power_pin = pio.PE_2
+   dtr_pin = pio.PC_14
+   status_pin = pio.PE_12
+   enable_voltage_pin = pio.PC_15
+   cts_pin = pio.PD_4
+end
+
 
 local logger = Logger:new('gsm')
 
-local UARTID = 2
-local gsm_timeout = 2e6 -- Default timeout 2s
+local UARTID
+if pd.board() == "RUUVIA" then
+   UARTID = 2
+elseif pd.board() == "RUUVIB1" then
+   UARTID = 1
+end
+
+local gsm_timeout = 10e6 -- Default timeout 10s
 local timer = firmware.timers.gsm_timer
-local timer_hz = 1  -- Slowest possible on Ruuvi Rev A
+local timer_hz = 1000  -- Slowest possible
 
 -- Modem Status
 local Status = {
@@ -208,7 +229,7 @@ function wait(pattern, timeout)
    local line
    local counter = tmr.start(timer)
    repeat
-      line = uart.read(UARTID, '*l', 1e3) -- Wait 1ms for answer
+      line = uart.read(UARTID, '*l', 10e3) -- Wait 10ms for answer
       if line ~= "" then logger:debug(line) end
       if string.find(line, pattern) then return line end -- Found response
       if line == "" then coroutine.yield() end -- No response yet, waiting
@@ -231,18 +252,27 @@ end
 function setup_hw()
    pio.pin.setdir(pio.OUTPUT, dtr_pin)
    pio.pin.setlow(dtr_pin) -- Sleep mode 1 is controlled with DTR pin (HIGH=sleep, LOW=ready)
+   if pd.board() == "RUUVIB1" then
+      pio.pin.setdir(pio.OUTPUT, enable_voltage_pin)
+      pio.pin.setlow(enable_voltage_pin)
+      pio.pin.setdir(pio.INPUT, status_pin)
+      pio.pin.setdir(pio.OUTPUT, cts_pin)
+      pio.pin.setlow(cts_pin)
+   end
    uart.setup(UARTID, 115200, 8, uart.PAR_NONE, uart.STOP_1)
    uart.set_flow_control(UARTID, uart.FLOW_RTS + uart.FLOW_CTS)
 end
 
 function switch_gsm_9600_to_115200()
    uart.setup(UARTID, 9600, 8, uart.PAR_NONE, uart.STOP_1)
-   delay(50e3) -- Wait 50ms
+   uart.set_flow_control(UARTID, uart.FLOW_NONE)
+   delay(1e6) -- Wait 50ms
    send('AT')  -- This is for autobauding to catch
-   delay(50e3)
+   send('AT')
+   delay(5e6)
    -- Setup serial to 115200 HW flow control
    send('AT+IPR=115200')
-   delay(500e3) -- Wait 0.5s for modem
+   delay(5e6) -- Wait 5s for modem
    -- Don't wait for response, serial speed may already be 115200 and we are sending 9600
 end
 
