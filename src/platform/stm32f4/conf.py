@@ -33,7 +33,7 @@ def fetch_lib(dir, url):
 try:
 	stat = os.stat(fwlibdir+"/STM32_USB-Host-Device_Lib_V2.1.0")
 except OSError:
-	fetch_lib(fwlibdir, "http://www.st.com/internet/com/SOFTWARE_RESOURCES/SW_COMPONENT/FIRMWARE/stm32_f105-07_f2_f4_usb-host-device_lib.zip")
+	fetch_lib(fwlibdir, "http://www.st.com/st-web-ui/static/active/en/st_prod_software_internet/resource/technical/software/firmware/stm32_f105-07_f2_f4_usb-host-device_lib.zip")
 
 # Specify different paths inside of ST's library
 STDPeriphdir = fwlibdir+"/STM32_USB-Host-Device_Lib_V2.1.0/Libraries/STM32F4xx_StdPeriph_Driver"
