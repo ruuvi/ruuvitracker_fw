@@ -2,7 +2,7 @@
  * line editing lib needs to be 20,000 lines of C code.
  *
  * You can find the latest source code at:
- * 
+ *
  *   http://github.com/antirez/linenoise
  *
  * Does a number of crazy assumptions that happen to be true in 99.9999% of
@@ -68,7 +68,7 @@
  *    Effect: moves cursor forward of n chars
  *
  * [eLua] code adapted to eLua by bogdanm
- * 
+ *
  */
 
 #include <stdlib.h>
@@ -93,10 +93,10 @@ static char **histories[ LINENOISE_TOTAL_COMPONENTS ];
 
 static int linenoise_internal_addhistory( int id, const char *line, int force_empty );
 
-void linenoise_cleanup( int id ) 
+void linenoise_cleanup( int id )
 {
   int j;
-  
+
 #ifdef LINENOISE_AUTOSAVE_FNAME
   if( id == LINENOISE_ID_LUA )
   {
@@ -104,23 +104,23 @@ void linenoise_cleanup( int id )
       printf( "History saved to %s.\n", LINENOISE_AUTOSAVE_FNAME );
     else
       printf( "Unable to save history to %s.\n", LINENOISE_AUTOSAVE_FNAME );
-  }    
-#endif   
-  if( histories[ id ] ) 
+  }
+#endif
+  if( histories[ id ] )
   {
     for( j = 0; j < history_lengths[ id ]; j++ )
       free( histories[ id ][ j ] );
     free( histories[ id ] );
     histories[ id ] = NULL;
   }
-  history_lengths[ id ] = 0;   
+  history_lengths[ id ] = 0;
 }
 
 #define MAX_SEQ_LEN           16
 static void refreshLine(const char *prompt, char *buf, size_t len, size_t pos, size_t cols) {
     char seq[MAX_SEQ_LEN];
     size_t plen = strlen(prompt);
-    
+
     while((plen+pos) >= cols) {
         buf++;
         len--;
@@ -131,17 +131,17 @@ static void refreshLine(const char *prompt, char *buf, size_t len, size_t pos, s
     }
 
     /* Cursor to left edge */
-    snprintf(seq,MAX_SEQ_LEN,"\x1b[0G");
+    snprintf(seq,MAX_SEQ_LEN,"\x1b[1K\r");
     term_putstr( seq, strlen( seq ) );
     /* Write the prompt and the current buffer content */
     term_putstr( prompt, strlen( prompt ) );
     term_putstr( buf, len );
     /* Erase to right */
-    snprintf(seq,MAX_SEQ_LEN,"\x1b[0K");
+    snprintf(seq,MAX_SEQ_LEN,"\x1b[K");
     term_putstr( seq, strlen( seq ) );
     /* Move cursor to original position. */
-    snprintf(seq,MAX_SEQ_LEN,"\x1b[0G\x1b[%dC", (int)(pos+plen));
-    term_putstr( seq, strlen( seq ) );
+    /* snprintf(seq,MAX_SEQ_LEN,"\x1b[0G\x1b[%dC", (int)(pos+plen));
+    term_putstr( seq, strlen( seq ) ); */
 }
 
 static int linenoisePrompt(int id, char *buf, size_t buflen, const char *prompt) {
@@ -150,21 +150,21 @@ static int linenoisePrompt(int id, char *buf, size_t buflen, const char *prompt)
     size_t len = 0;
     size_t cols = TERM_COLS;
     int history_index = 0;
-    
+
     buf[0] = '\0';
     buflen--; /* Make sure there is always space for the nulterm */
 
     /* The latest history entry is always our current buffer, that
      * initially is just an empty string. */
     linenoise_internal_addhistory( id, "", LINENOISE_PUSH_EMPTY );
-    
+
     term_putstr( prompt, plen );
     while(1) {
         int c;
 
         c = term_getch( TERM_INPUT_WAIT );
-        
-        switch(c) 
+
+        switch(c)
         {
           case KC_ENTER:
           case KC_CTRL_C:
@@ -175,10 +175,10 @@ static int linenoisePrompt(int id, char *buf, size_t buflen, const char *prompt)
               return LINENOISE_CTRL_C;
             else if( c == KC_CTRL_Z )
               return -1;
-            return len;      
-                        
+            return len;
+
          case KC_BACKSPACE:
-            if (pos > 0 && len > 0) 
+            if (pos > 0 && len > 0)
             {
               memmove(buf+pos-1,buf+pos,len-pos);
               pos--;
@@ -187,7 +187,7 @@ static int linenoisePrompt(int id, char *buf, size_t buflen, const char *prompt)
               refreshLine(prompt,buf,len,pos,cols);
             }
             break;
-             
+
          case KC_CTRL_T:    /* ctrl-t */
             // bogdanm: this seems to be rather useless and also a bit buggy,
             // so it's not enabled
@@ -199,29 +199,29 @@ static int linenoisePrompt(int id, char *buf, size_t buflen, const char *prompt)
                 refreshLine(prompt,buf,len,pos,cols);
             }*/
             break;
-            
+
         case KC_LEFT:
             /* left arrow */
-            if (pos > 0) 
+            if (pos > 0)
             {
               pos--;
               refreshLine(prompt,buf,len,pos,cols);
             }
             break;
-                
+
         case KC_RIGHT:
             /* right arrow */
-            if (pos != len) 
+            if (pos != len)
             {
               pos++;
               refreshLine(prompt,buf,len,pos,cols);
             }
             break;
-                
+
        case KC_UP:
        case KC_DOWN:
             /* up and down arrow: history */
-            if (history_lengths[ id ] > 1) 
+            if (history_lengths[ id ] > 1)
             {
               /* Update the current history entry before to
                * overwrite it with tne next one. */
@@ -229,11 +229,11 @@ static int linenoisePrompt(int id, char *buf, size_t buflen, const char *prompt)
               histories[ id ][history_lengths[ id ]-1-history_index] = strdup(buf);
               /* Show the new entry */
               history_index += (c == KC_UP) ? 1 : -1;
-              if (history_index < 0) 
+              if (history_index < 0)
               {
                 history_index = 0;
                 break;
-              } else if (history_index >= history_lengths[ id ]) 
+              } else if (history_index >= history_lengths[ id ])
               {
                 history_index = history_lengths[ id ]-1;
                 break;
@@ -244,61 +244,61 @@ static int linenoisePrompt(int id, char *buf, size_t buflen, const char *prompt)
               refreshLine(prompt,buf,len,pos,cols);
             }
             break;
-                
-        case KC_DEL:           
+
+        case KC_DEL:
             /* delete */
-            if (len > 0 && pos < len) 
+            if (len > 0 && pos < len)
             {
               memmove(buf+pos,buf+pos+1,len-pos-1);
               len--;
               buf[len] = '\0';
               refreshLine(prompt,buf,len,pos,cols);
-            }    
+            }
             break;
-            
+
         case KC_HOME: /* Ctrl+a, go to the start of the line */
             pos = 0;
             refreshLine(prompt,buf,len,pos,cols);
             break;
-            
+
         case KC_END: /* ctrl+e, go to the end of the line */
             pos = len;
             refreshLine(prompt,buf,len,pos,cols);
             break;
-            
+
         case KC_CTRL_U: /* Ctrl+u, delete the whole line. */
             buf[0] = '\0';
             pos = len = 0;
             refreshLine(prompt,buf,len,pos,cols);
             break;
-            
+
         case KC_CTRL_K: /* Ctrl+k, delete from current to end of line. */
             buf[pos] = '\0';
             len = pos;
             refreshLine(prompt,buf,len,pos,cols);
             break;
-                        
+
         default:
             if( isprint( c ) && len < buflen )
             {
-              if(len == pos) 
+              if(len == pos)
               {
                 buf[pos] = c;
                 pos++;
                 len++;
                 buf[len] = '\0';
-                if (plen+len < cols) 
+                if (plen+len < cols)
                 {
                   /* Avoid a full update of the line in the
                    * trivial case. */
                   term_putch( c );
-                } 
-                else 
+                }
+                else
                 {
                   refreshLine(prompt,buf,len,pos,cols);
                 }
-              } 
-              else 
+              }
+              else
               {
                 memmove(buf+pos+1,buf+pos,len-pos);
                 buf[pos] = c;
@@ -308,7 +308,7 @@ static int linenoisePrompt(int id, char *buf, size_t buflen, const char *prompt)
                 refreshLine(prompt,buf,len,pos,cols);
               }
             }
-            break;            
+            break;
         }
     }
 
@@ -318,7 +318,7 @@ static int linenoisePrompt(int id, char *buf, size_t buflen, const char *prompt)
 int linenoise_getline( int id, char* buffer, int maxinput, const char* prompt )
 {
   int count;
-  
+
   if( history_max_lengths[ id ] == 0 )
   {
     fputs( prompt, stdout );
@@ -331,7 +331,7 @@ int linenoise_getline( int id, char* buffer, int maxinput, const char* prompt )
     if( count != -1 )
       printf( "\n" );
     if( count != LINENOISE_CTRL_C )
-    {  
+    {
       if( count > 0 && buffer[ count ] != '\0' )
         buffer[ count ] = '\0';
       return count;
@@ -339,15 +339,15 @@ int linenoise_getline( int id, char* buffer, int maxinput, const char* prompt )
   }
 }
 
-static int linenoise_internal_addhistory( int id, const char *line, int force_empty ) 
+static int linenoise_internal_addhistory( int id, const char *line, int force_empty )
 {
   char *linecopy;
   const char *p;
   const int history_max_len = history_max_lengths[ id ];
-         
+
   if( history_max_len == 0 )
     return 0;
-  if( histories[ id ] == NULL ) 
+  if( histories[ id ] == NULL )
   {
     if( ( histories[ id ] = malloc( sizeof( char* ) * history_max_len ) ) == NULL )
     {
@@ -365,9 +365,9 @@ static int linenoise_internal_addhistory( int id, const char *line, int force_em
       if( ( linecopy = strndup( line, p - line ) ) == NULL )
       {
         fprintf( stderr, "out of memory in linenoise while trying to add a line to history.\n" );
-        return 0; 
+        return 0;
       }
-      if( history_lengths[ id ] == history_max_len ) 
+      if( history_lengths[ id ] == history_max_len )
       {
         free( histories[ id ][ 0 ] );
         memmove( histories[ id ], histories[ id ] + 1, sizeof( char* ) * ( history_max_len - 1 ) );
@@ -390,15 +390,15 @@ int linenoise_addhistory( int id, const char *line )
   return linenoise_internal_addhistory( id, line, LINENOISE_DONT_PUSH_EMPTY );
 }
 
-/* Save the history in the specified file. On success 0 is returned 
+/* Save the history in the specified file. On success 0 is returned
  * otherwise -1 is returned. */
-int linenoise_savehistory( int id, const char *filename ) 
-{  
+int linenoise_savehistory( int id, const char *filename )
+{
   FILE *fp;
   int j;
-  
+
   if( history_max_lengths[ id ] == 0 )
-    return LINENOISE_HISTORY_NOT_ENABLED;  
+    return LINENOISE_HISTORY_NOT_ENABLED;
   if( histories[ id ] == NULL || history_lengths[ id ] == 0 )
     return LINENOISE_HISTORY_EMPTY;
   if( ( fp = fopen( filename, "wb" ) ) == NULL )
