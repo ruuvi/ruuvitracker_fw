@@ -1,4 +1,4 @@
-#/bin/sh
+#!/bin/bash
 # A simple script used for building eLua for the RuuviTracker project
 # Author: Seppo Takalo
 
