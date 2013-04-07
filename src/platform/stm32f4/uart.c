@@ -7,7 +7,8 @@
 // Platform specific includes
 #include "stm32f4xx_conf.h"
 #include "usbd_cdc_vcp.h"
-
+#include "ringbuff.h"
+#include "gsm.h"
 
 //Prototypes
 void usart_received(int id, u8 c);
@@ -55,12 +56,7 @@ const u8 stm32_usart_AF[] =       { GPIO_AF_USART1, GPIO_AF_USART2, GPIO_AF_USAR
 
 
 #define BUFF_SIZE	256
-struct rbuff {
-	u8 data[BUFF_SIZE];
-	volatile int top;
-	volatile int bottom;
-} rbuff[NUM_UART];
-
+struct rbuff *rbuff[NUM_UART];
 
 static void usart_init(u32 id, USART_InitTypeDef * initVals)
 {
@@ -90,9 +86,8 @@ static void usart_init(u32 id, USART_InitTypeDef * initVals)
   /* Configure USART */
   USART_Init(stm32_usart[id], initVals);
 
-  /* Empty buffer */
-  rbuff[id].top = 0;
-  rbuff[id].bottom = 0;
+  /* create buffer */
+  rbuff[id] = rbuff_new(BUFF_SIZE);
 
   /* Enable USART */
   USART_Cmd(stm32_usart[id], ENABLE);
@@ -108,19 +103,6 @@ void uarts_init()
 //  RCC_APB1PeriphClockCmd(RCC_APB1Periph_UART4, ENABLE);
 //  RCC_APB1PeriphClockCmd(RCC_APB1Periph_UART5, ENABLE);
 //  RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART6, ENABLE);
-
-
-#if defined( ELUA_BOARD_RUUVIA )
-  /* use Red led (PC_15) to display errors */
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
-  GPIO_InitTypeDef  GPIO_InitStructure;
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(GPIOC, &GPIO_InitStructure);
-#endif
 }
 
 u32 platform_uart_setup( unsigned id, u32 baud, int databits, int parity, int stopbits )
@@ -194,36 +176,33 @@ void platform_s_uart_send( unsigned id, u8 data )
 
 int platform_s_uart_recv( unsigned id, timer_data_type timeout )
 {
-  int ret;
-
-  struct rbuff *q= &rbuff[id];
+  struct rbuff *q= rbuff[id];
   if( timeout != 0 )  {
-  	while(q->top == q->bottom)
+    while(rbuff_is_empty(q))
   		;;
   }
-  if(q->top == q->bottom)
+  if(rbuff_is_empty(q))
   	return -1;
-  ret = q->data[q->bottom++];
-  q->bottom%=BUFF_SIZE; //Wrap around
-  return ret;
+  return rbuff_pop(q);
 }
 
 /* Push byte to the receiving buffer */
 /* TODO: Buffer overrun errors not handled */
 void usart_received(int id, u8 c)
 {
-  struct rbuff *q= &rbuff[id];
-  q->data[q->top] = c;
-  q->top++;
-  q->top%=BUFF_SIZE;
-  if (q->top==q->bottom) {
-     //BUFFER OVERRUN
-  }
+  rbuff_push(rbuff[id], c);
 }
 
 /* Interrupt handler. Called from USART RX interrupt */
 void all_usart_irqhandler( int id )
 {
+#ifdef BUILD_GSM
+  if (id == GSM_UART_ID) {
+    gsm_uart_received(USART_ReceiveData(stm32_usart[id]));
+    return;
+  }
+#endif
+
   usart_received(id, USART_ReceiveData(stm32_usart[id]));
 }
 

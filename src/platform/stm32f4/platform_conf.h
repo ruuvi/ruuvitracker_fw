@@ -30,6 +30,7 @@
 #define BUILD_C_INT_HANDLERS
 #define BUILD_LUA_INT_HANDLERS
 //#define ENABLE_ENC
+#define BUILD_GSM
 
 #define PLATFORM_HAS_SYSTIMER
 
@@ -93,6 +94,13 @@
 #define PLATLINE
 #endif
 
+#ifdef BUILD_GSM
+extern int luaopen_gsm( lua_State *L );
+#define GSMLINE _ROM( "gsm", luaopen_gsm, gsm_map )
+#else
+#define GSMLINE
+#endif
+
 /* Ruuvi-Lib */
 extern int luaopen_ruuvi( lua_State *L );
 
@@ -115,7 +123,8 @@ extern int luaopen_ruuvi( lua_State *L );
   LCDLINE\
   _ROM( AUXLIB_ELUA, luaopen_elua, elua_map )\
   _ROM( LUA_MATHLIBNAME, luaopen_math, math_map )\
-  _ROM( "ruuvi", luaopen_ruuvi, ruuvi_map )
+  _ROM( "ruuvi", luaopen_ruuvi, ruuvi_map ) \
+  GSMLINE
   PLATLINE
 
 // *****************************************************************************
@@ -127,6 +136,9 @@ extern int luaopen_ruuvi( lua_State *L );
 #define VTMR_NUM_TIMERS       4
 #define VTMR_FREQ_HZ          10
 
+// GSM+GPS serial ports
+#define GSM_UART_ID           1
+#define GPS_UART_ID           2
 
 // Enable RX buffering on UART
 //#define BUF_ENABLE_UART
