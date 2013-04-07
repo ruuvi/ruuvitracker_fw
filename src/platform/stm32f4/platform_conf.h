@@ -30,7 +30,6 @@
 #define BUILD_C_INT_HANDLERS
 #define BUILD_LUA_INT_HANDLERS
 //#define ENABLE_ENC
-#define BUILD_GSM
 
 #define PLATFORM_HAS_SYSTIMER
 
@@ -103,6 +102,7 @@ extern int luaopen_gsm( lua_State *L );
 
 /* Ruuvi-Lib */
 extern int luaopen_ruuvi( lua_State *L );
+extern int luaopen_gsm( lua_State *L );
 
 #define LUA_PLATFORM_LIBS_ROM\
   _ROM( AUXLIB_PIO, luaopen_pio, pio_map )\
@@ -124,7 +124,7 @@ extern int luaopen_ruuvi( lua_State *L );
   _ROM( AUXLIB_ELUA, luaopen_elua, elua_map )\
   _ROM( LUA_MATHLIBNAME, luaopen_math, math_map )\
   _ROM( "ruuvi", luaopen_ruuvi, ruuvi_map ) \
-  GSMLINE
+  _ROM( "gsm", luaopen_gsm, gsm_map )
   PLATLINE
 
 // *****************************************************************************
