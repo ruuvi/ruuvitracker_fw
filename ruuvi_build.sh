@@ -1,4 +1,4 @@
-#/bin/sh
+#!/bin/bash
 # A simple script used for building eLua for the RuuviTracker project
 # Author: Seppo Takalo
 
@@ -10,7 +10,6 @@ print_usage() {
     echo "      -h :  Print this help"
     echo "      clean: clean all instead of build."
 }
-
 
 #Build cross-compiler first
 if [ ! -f luac.cross.elf ]; then

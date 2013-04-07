@@ -11,7 +11,7 @@ fwlibdir= 'src/platform/%s/FWLib' % platform
 
 # Helper functions to download library for us
 # requires urllib and zipfile
-def reporthook(a,b,c): 
+def reporthook(a,b,c):
     print "% 3.1f%% of %d bytes\r" % (min(100, float(a * b) / c * 100), c),
     sys.stdout.flush()
 
@@ -69,7 +69,7 @@ if "RUUVIA" in comp['board']:
     specific_files += " system_ruuvia.c"
 elif "RUUVIB1" in comp['board']:
     specific_files += " system_ruuvib1.c"
-  
+
 # Prepend with path
 specific_files = fwlib_files + " " + " ".join( [ "src/platform/%s/%s" % ( platform, f ) for f in specific_files.split() ] )
 specific_files += " src/platform/cortex_utils.s src/platform/arm_cortex_interrupts.c"
@@ -112,5 +112,5 @@ def progfunc_stm32( target, source, env ):
   print "Generating binary image..."
   os.system( "%s -O binary %s %s.bin" % ( toolset[ 'bin' ], outname, output) )
   os.system( "%s -O ihex %s %s.hex" % ( toolset[ 'bin' ], outname, output ) )
-  
+
 tools[ 'stm32f4' ][ 'progfunc' ] = progfunc_stm32
