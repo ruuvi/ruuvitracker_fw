@@ -2,6 +2,7 @@
  *  C-interfaces for Ruuvitracker Lua codes.
  *
  * @author: Seppo Takalo
+ *          Goksel Goktas
  */
 
 
