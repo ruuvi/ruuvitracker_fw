@@ -120,8 +120,8 @@ static void shell_recv( int argc, char **argv )
   while( *p == '\x1A' )
     p --;
   p ++;
-  printf( "done, got %u bytes\n", ( unsigned )( p - shell_prog ) );          
-  
+  printf( "done, got %u bytes\n", ( unsigned )( p - shell_prog ) );
+
   // we've received an argument, try saving it to a file
   if( argc == 2 )
   {
@@ -232,7 +232,7 @@ static u32 shell_ls_helper( const char *crtname, int recursive, int *phasdirs )
 }
 
 // 'ls' and 'dir' handler
-// Syntax: ls [dir] [-R] 
+// Syntax: ls [dir] [-R]
 static void shell_ls( int argc, char **argv )
 {
   const DM_INSTANCE_DATA *pinst;
@@ -254,7 +254,7 @@ static void shell_ls( int argc, char **argv )
   // Iterate through all devices, looking for the ones that can do "opendir"
   // or the ones that match 'pname' (if that is specified)
   for( dev = 0; dev < dm_get_num_devices(); dev ++ )
-  {  
+  {
     pinst = dm_get_instance_at( dev );
     if( pinst->pdev->p_opendir_r == NULL || pinst->pdev->p_readdir_r == NULL || pinst->pdev->p_closedir_r == NULL )
       continue;
@@ -265,7 +265,7 @@ static void shell_ls( int argc, char **argv )
     i = shell_ls_helper( crtname, recursive, &hasdirs );
     if( recursive && hasdirs )
       printf( "\nTotal on %s with all subdirectories: %u bytes\n", crtname, ( unsigned )i );
-  }   
+  }
   printf( "\n" );
 }
 
@@ -296,7 +296,7 @@ static void shell_cat( int argc, char **argv )
     else
       printf( "Unable to open '%s'\n", argv[ i ] );
   }
-}    
+}
 
 // 'copy' handler
 #ifdef BUILD_RFS
@@ -427,7 +427,7 @@ void shell_start()
   int argc;
   char *argv[ SHELL_MAX_ARGS ];
 
-  printf( SHELL_WELCOMEMSG, ELUA_STR_VERSION );
+  printf( SHELL_WELCOMEMSG );
   while( 1 )
   {
     while( linenoise_getline( LINENOISE_ID_SHELL, cmd, SHELL_MAXSIZE - 1, SHELL_PROMPT ) == -1 )

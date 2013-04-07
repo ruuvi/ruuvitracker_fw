@@ -49,6 +49,17 @@ static int idleloop( lua_State *L) {
   return 0;
 }
 
+/* SystemMemory: 0x1FFF0000 */
+
+static int reset(lua_State *L) {
+  lua_getglobal(L, "print");
+  lua_pushstring(L, "Invoking software reset...");
+  lua_pcall(L, 1, 0, 0);
+
+  NVIC_SystemReset();
+  return 0;
+}
+
 #define MIN_OPT_LEVEL 2
 #include "lrodefs.h"
 extern const LUA_REG_TYPE sha1_map[];
@@ -57,6 +68,7 @@ const LUA_REG_TYPE ruuvi_map[] =
 {
 #if LUA_OPTIMIZE_MEMORY > 0
   { LSTRKEY("hello") , LFUNCVAL(hello) },
+  { LSTRKEY("reset") , LFUNCVAL(reset) },
   { LSTRKEY("idleloop"), LFUNCVAL(idleloop) },
   { LSTRKEY( "sha1" ), LROVAL( sha1_map ) },
 #endif
