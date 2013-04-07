@@ -11,7 +11,6 @@ print_usage() {
     echo "      clean: clean all instead of build."
 }
 
-
 #Build cross-compiler first
 if [ ! -f luac.cross.elf ]; then
     scons -f cross-lua.py
