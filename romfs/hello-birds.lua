@@ -3,3 +3,8 @@
 -- work.
 
 print("no-operation: hello, birds!\n");
+
+
+-- Another example.
+-- Call hello() -function on src/platform/stm32f4/ruuvi_lua.c
+ruuvi.hello()
