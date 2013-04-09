@@ -452,6 +452,22 @@ void SysTick_Handler( void )
   systick=1;
 }
 
+/**
+ * Delay funtion.
+ * Actual resolution depends on Systick resolution.
+ * @param ms number of milliseconds to sleep.
+ */
+void delay_ms(unsigned int ms)
+{
+  for(;ms>0;ms-=SYSTICKMS) {
+    /* Sleep..for real */
+    systick=0; //Clear systick flag
+    NVIC_SystemLPConfig(NVIC_LP_SLEEPONEXIT, ENABLE); //Enable SleepOnExit mode for interrupt
+    while(!systick)
+      __WFI(); //Go to sleep (WaitForInterrupt)
+  }
+}
+
 static void timers_init()
 {
   unsigned i;

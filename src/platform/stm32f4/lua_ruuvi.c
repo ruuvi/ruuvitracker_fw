@@ -16,6 +16,7 @@
 #include "sha1.h"
 #include <string.h>
 #include "stm32f4xx.h"
+#include <delay.h>
 
 
 /* C-interface for Ruuvitracker codes in Lua */
@@ -61,6 +62,14 @@ static int reset(lua_State *L) {
   return 0;
 }
 
+/* Delay functions for Lua. (Uses Systick instead of tmr) */
+static int l_delay_ms(lua_State *L)
+{
+  unsigned int d = luaL_checkinteger(L, -1);
+  delay_ms(d);
+  return 0;
+}
+
 #define MIN_OPT_LEVEL 2
 #include "lrodefs.h"
 extern const LUA_REG_TYPE sha1_map[];
@@ -71,6 +80,7 @@ const LUA_REG_TYPE ruuvi_map[] =
   { LSTRKEY("hello") , LFUNCVAL(hello) },
   { LSTRKEY("reset") , LFUNCVAL(reset) },
   { LSTRKEY("idleloop"), LFUNCVAL(idleloop) },
+  { LSTRKEY("delay_ms"), LFUNCVAL(l_delay_ms) },
   { LSTRKEY( "sha1" ), LROVAL( sha1_map ) },
 #endif
   { LNILKEY, LNILVAL }
