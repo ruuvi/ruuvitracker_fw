@@ -19,6 +19,7 @@ fi
 case $1 in
     clean)
 	scons board=$BOARD -c
+	rm elua_lua_*.{bin,elf,hex,map} >/dev/null 2>&1
 	;;
     "-h")
 	print_usage
