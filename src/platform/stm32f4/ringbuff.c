@@ -69,6 +69,8 @@ int rbuff_is_empty(struct rbuff *p)
 /* Test if buffer is full. Returns 1 on full, 0 otherwise */
 int rbuff_is_full(struct rbuff *p)
 {
+  if (NULL == p)
+    return 1;
   int x = p->top+1;
   x %= (p->size+1);
   if (x == p->bottom) {
@@ -78,3 +80,19 @@ int rbuff_is_full(struct rbuff *p)
   }
 }
 
+/* Return raw pointer to bottom of buffer */
+char *rbuff_get_raw(struct rbuff *p)
+{
+  if (NULL==p)
+    return NULL;
+  return (char*) &p->data[p->bottom];
+}
+
+/* Remove bytes from bottom of buffer */
+void rbuff_remove(struct rbuff *p, int n)
+{
+  if ( (n<0) || (n>p->size) )
+    return;
+  for(;n>0;n--)
+    rbuff_pop(p);
+}
