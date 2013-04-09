@@ -103,7 +103,6 @@ extern int luaopen_gsm( lua_State *L );
 
 /* Ruuvi-Lib */
 extern int luaopen_ruuvi( lua_State *L );
-extern int luaopen_gsm( lua_State *L );
 
 #define LUA_PLATFORM_LIBS_ROM\
   _ROM( AUXLIB_PIO, luaopen_pio, pio_map )\
