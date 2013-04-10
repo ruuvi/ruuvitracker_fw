@@ -21,6 +21,7 @@
 #include "lua.h"
 #include "lauxlib.h"
 #include "lrotable.h"
+#include "gsm.h"
 
 // Platform specific includes
 #include "stm32f4xx_conf.h"
@@ -84,6 +85,10 @@ int platform_init()
 #if (NUM_CAN > 0)
   // Setup CANs
   cans_init();
+#endif
+
+#ifdef BUILD_GSM
+  gsm_setup_io();
 #endif
 
   // Setup system timer
