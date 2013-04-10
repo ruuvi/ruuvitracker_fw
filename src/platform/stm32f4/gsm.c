@@ -15,10 +15,10 @@
 #include "lrotable.h"
 #include "stm32f4xx.h"
 #include "stm32f4xx_conf.h"
-#include "ringbuff.h"
 #include "gsm.h"
 #include <delay.h>
 #include <string.h>
+#include <stdlib.h>
 
 #ifdef BUILD_GSM
 
@@ -38,7 +38,7 @@
 #define ENABLE_PIN  GPIO_Pin_15
 #define ENABLE_PORT PORT_C
 
-#define BUFF_SIZE	256
+#define BUFF_SIZE	64
 
 #define GSM_CMD_LINE_END "\r\n\r\n"
 
@@ -53,14 +53,15 @@ enum State {
   STATE_ERROR,
 };
 
-
 /* Modem Status */
 struct gsm_modem {
   enum Power_mode power_mode;
   enum State state;
   int sim_inserted;
-  struct rbuff *buf;
+  char buf[BUFF_SIZE];
+  int ibuf;
   volatile int waiting_reply;
+  const char *wait_pattern;
   enum Reply reply;
   int hw_flow_enabled;
 } static gsm = {		/* Initial status */
@@ -139,6 +140,18 @@ int gsm_cmd(const char *cmd)
   return gsm.reply;
 }
 
+/* Wait for specific pattern */
+int gsm_wait(const char *pattern)
+{
+  gsm.wait_pattern = pattern;
+  gsm.waiting_reply = 1;
+
+  while(gsm.waiting_reply)
+    delay_ms(1);
+
+  return gsm.reply;
+}
+
 /* Setup IO ports. Called in platform_setup() from platform.c */
 void gsm_setup_io()
 {
@@ -154,8 +167,6 @@ void gsm_setup_io()
   platform_pio_op(ENABLE_PORT, ENABLE_PIN, PLATFORM_IO_PIN_DIR_OUTPUT);
   platform_pio_op(ENABLE_PORT, ENABLE_PIN, PLATFORM_IO_PIN_CLEAR);
 
-  gsm.buf = rbuff_new(BUFF_SIZE);
-
   // Serial port
   platform_uart_setup( GSM_UART_ID, 115200, 8, PLATFORM_UART_PARITY_NONE, PLATFORM_UART_STOPBITS_1);
   platform_s_uart_set_flow_control( GSM_UART_ID, PLATFORM_UART_FLOW_CTS | PLATFORM_UART_FLOW_RTS);
@@ -168,6 +179,7 @@ static void set_hw_flow()
 
   if (AT_OK == gsm_cmd("AT+IFC=2,2")) {
     gsm.hw_flow_enabled = 1;
+    gsm_cmd("ATE0"); 		/* Disable ECHO */
   }
 }
 
@@ -198,7 +210,17 @@ void gsm_uart_received(u8 c)
   if ('\n' == c) { 		/* All responses end with <CR><LF> sequence (\n=LF)*/
     gsm_line_received();
   } else {
-    rbuff_push(gsm.buf, c);
+    gsm.buf[gsm.ibuf++]=c;
+    if (gsm.ibuf == BUFF_SIZE) /* Overflow */
+      gsm.ibuf = 0;
+    gsm.buf[gsm.ibuf] = 0;
+    if (gsm.wait_pattern) {
+      if (strstr(gsm.buf, gsm.wait_pattern)) {
+	gsm.wait_pattern = 0;
+	gsm.waiting_reply = 0;
+	gsm.reply = AT_OK;
+      }
+    }
   }
 }
 
@@ -225,7 +247,7 @@ void gsm_uart_write(const char *line)
 }
 
 /* Find message matching current line */
-static Message *lookup_urc_message(char *line)
+static Message *lookup_urc_message(const char *line)
 {
   int n;
   for(n=0; urc_messages[n].msg; n++) {
@@ -243,10 +265,9 @@ static Message *lookup_urc_message(char *line)
 void gsm_line_received()
 {
   Message *m;
-  char *s = rbuff_get_raw(gsm.buf);
-  *strchr(s,'\r') = 0; 	/* Replace \r with \0 */
+  *strchr(gsm.buf,'\r') = 0; 	/* Replace \r with \0 */
 
-  m = lookup_urc_message(s);
+  m = lookup_urc_message(gsm.buf);
   if (m) {
     if (m->next_state) {
       gsm.state = m->next_state;
@@ -255,7 +276,8 @@ void gsm_line_received()
       m->func();
     }
   }
-  rbuff_remove(gsm.buf, strlen(s) +1);
+  gsm.ibuf = 0;
+  gsm.buf[gsm.ibuf] = 0;
 }
 
 
@@ -312,22 +334,45 @@ int gsm_send_pin(lua_State *L)
 int gsm_is_gprs_enabled(lua_State *L);
 int gsm_gprs_enable(lua_State *L);
 
+static const char ctrlZ[] = {26, 0};
 int gsm_send_sms(lua_State *L)
 {
   const char *number;
   const char *text;
+  int ret;
   
-  number = luaL_checklstring(L, -1, NULL);
+  number = luaL_checklstring(L, -2, NULL);
   text = luaL_checklstring(L, -1, NULL);
   if (!number || !text)
     return 0;
 
-  gsm_cmd("AT+CMGF=1");		/* Set to text mode */
-  //TODO: not ready...
-  return 0;
+  if (AT_OK != gsm_cmd("AT+CMGF=1")) {		/* Set to text mode */
+    lua_pushinteger(L, AT_ERROR);
+    return 1;
+  }
+
+  gsm_uart_write("AT+CMGS=\"");
+  gsm_uart_write(number);
+
+  gsm_uart_write("\"\r");
+  gsm_wait(">");	 /* Send SMS cmd and wait for '>' to appear */
+  gsm_uart_write(text);
+  ret = gsm_cmd(ctrlZ);		/* CTRL-Z ends message */
+  lua_pushinteger(L, ret);
+  return 1;
 }
 
-
+int gsm_lua_wait(lua_State *L)
+{
+  int ret;
+  const char *text;
+  text = luaL_checklstring(L, -1, NULL);
+  if (!text)
+    return 0;
+  ret = gsm_cmd(text);
+  lua_pushinteger(L, ret);
+  return 1;
+}
 
 int gsm_state(lua_State *L)
 {
@@ -376,6 +421,7 @@ const LUA_REG_TYPE gsm_map[] =
   F(send_pin, gsm_send_pin),
   F(send_sms, gsm_send_sms),
   F(cmd, gsm_send_cmd),
+  F(wait, gsm_lua_wait),
 
   /* CONSTANTS */
 #define MAP(a) { LSTRKEY(#a), LNUMVAL(a) }

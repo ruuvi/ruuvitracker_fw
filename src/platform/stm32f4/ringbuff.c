@@ -80,12 +80,37 @@ int rbuff_is_full(struct rbuff *p)
   }
 }
 
-/* Return raw pointer to bottom of buffer */
+int rbuff_len(struct rbuff *p)
+{
+  int len;
+  if (NULL == p)
+    return 0;
+  
+  if( p->bottom <= p->top ) {
+    len = p->top - p->bottom;
+  } else {
+    len = p->size - p->bottom;
+    len += p->top;
+  }
+  return len;
+}
+
+/* Return pointer to linearly allocated buffer */
+/* Removes bytes from original buffer */
+/* Returned buffer must be freed after use */
 char *rbuff_get_raw(struct rbuff *p)
 {
+  int i;
+  char *b;
   if (NULL==p)
     return NULL;
-  return (char*) &p->data[p->bottom];
+  b = malloc(rbuff_len(p));
+  if (b) {
+    for(i=0;!rbuff_is_empty(p);i++) {
+      b[i] = rbuff_pop(p);
+    }
+  }
+  return b;
 }
 
 /* Remove bytes from bottom of buffer */
