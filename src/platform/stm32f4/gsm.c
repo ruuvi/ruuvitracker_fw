@@ -40,8 +40,9 @@
 
 #define BUFF_SIZE	256
 
-enum Power_mode { POWER_OFF=0, POWER_ON };
-enum Reply { AT_OK=0, AT_FAIL, AT_ERROR };
+#define GSM_CMD_LINE_END "\r\n\r\n"
+
+
 enum State {
   STATE_UNKNOWN = 0,
   STATE_OFF = 1,
@@ -59,8 +60,9 @@ struct gsm_modem {
   enum State state;
   int sim_inserted;
   struct rbuff *buf;
-  int waiting_reply;
+  volatile int waiting_reply;
   enum Reply reply;
+  int hw_flow_enabled;
 } static gsm = {		/* Initial status */
   .power_mode=POWER_OFF,
   .state = STATE_OFF,
@@ -71,6 +73,7 @@ struct gsm_modem {
 static void handle_ok();
 static void handle_fail();
 static void handle_error();
+static void set_hw_flow();
 
 typedef struct Message Message;
 struct Message {
@@ -126,10 +129,9 @@ static void handle_error()
 int gsm_cmd(const char *cmd)
 {
   gsm.waiting_reply = 1;
-  gsm_uart_write(cmd);
 
-  if (NULL == strchr(cmd, '\r'))
-    gsm_uart_write("\r");
+  gsm_uart_write(cmd);
+  gsm_uart_write(GSM_CMD_LINE_END);
 
   while(gsm.waiting_reply)
     delay_ms(1);
@@ -159,10 +161,20 @@ void gsm_setup_io()
   platform_s_uart_set_flow_control( GSM_UART_ID, PLATFORM_UART_FLOW_CTS | PLATFORM_UART_FLOW_RTS);
 }
 
+static void set_hw_flow()
+{
+  while(gsm.state < STATE_BOOTING)
+    delay_ms(1);
+
+  if (AT_OK == gsm_cmd("AT+IFC=2,2")) {
+    gsm.hw_flow_enabled = 1;
+  }
+}
+
 void gsm_enable_voltage()
 {
   platform_pio_op(ENABLE_PORT, ENABLE_PIN, PLATFORM_IO_PIN_CLEAR);
-  delay_ms(500);		/* Give 500ms for voltage to settle */
+  delay_ms(100);		/* Give 100ms for voltage to settle */
 }
 
 void gsm_disable_voltage()
@@ -190,9 +202,23 @@ void gsm_uart_received(u8 c)
   }
 }
 
+/* Send *really* slow. Add inter character delays */
+static void slow_send(const char *line) {
+  while(*line) {
+      platform_s_uart_send(GSM_UART_ID, *line);
+    delay_ms(10);		/* inter-char delay */
+     if ('\r' == *line)
+       delay_ms(100);		/* Inter line delay */
+     line++;
+  }
+}
+
 void gsm_uart_write(const char *line)
 {
-  while(line) {
+  if (!gsm.hw_flow_enabled)
+    return slow_send(line);
+
+  while(*line) {
     platform_s_uart_send(GSM_UART_ID, *line);
     line++;
   }
@@ -269,7 +295,7 @@ int gsm_send_pin(lua_State *L)
   const char *pin = luaL_checklstring(L, -1, NULL);
   if (!pin)
     return 0;
-  snprintf(cmd,20,"AT+CPIN=%s\r", pin);
+  snprintf(cmd,20,"AT+CPIN=%s", pin);
 
   /* Wait for modem to boot */
   while( gsm.state < STATE_ASK_PIN )
@@ -318,6 +344,7 @@ int gsm_set_power_state(lua_State *L)
   case POWER_ON:
     gsm_enable_voltage();
     gsm_toggle_power_pin();
+    set_hw_flow();
     break;
   case POWER_OFF:
     gsm_toggle_power_pin();
