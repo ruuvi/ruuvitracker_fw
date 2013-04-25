@@ -56,6 +56,12 @@ unsigned char rbuff_pop(struct rbuff *p)
 
 }
 
+/* Get first byte from buffer without removing it */
+unsigned char rbuff_peek(struct rbuff *p)
+{
+  return p->data[p->bottom];
+}
+
 /* Test if buffer is empty. Returns 1 on empty, 0 otherwise. */
 int rbuff_is_empty(struct rbuff *p)
 {
