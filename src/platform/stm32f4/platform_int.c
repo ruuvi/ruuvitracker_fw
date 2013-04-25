@@ -471,7 +471,7 @@ void platform_int_init()
   NVIC_InitTypeDef nvic_init_structure;
   unsigned i;
   
-  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_0);
+  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);
   // Enable all USART interrupts in the NVIC
   nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 0;
   nvic_init_structure.NVIC_IRQChannelSubPriority = 2;

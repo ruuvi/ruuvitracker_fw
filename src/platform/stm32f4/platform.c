@@ -137,21 +137,20 @@ static void NVIC_Configuration(void)
 #endif
 
   /* Configure the NVIC Preemption Priority Bits */
-  /* Priority group 0 disables interrupt nesting completely */
-  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_0);
+  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);
 
   // Lower the priority of the SysTick interrupt to let the
   // UART interrupt preempt it
   nvic_init_structure.NVIC_IRQChannel = SysTick_IRQn;
-  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 0;
-  nvic_init_structure.NVIC_IRQChannelSubPriority = 15;
+  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 1;
+  nvic_init_structure.NVIC_IRQChannelSubPriority = 7;
   nvic_init_structure.NVIC_IRQChannelCmd = ENABLE;
   NVIC_Init(&nvic_init_structure);
 
 #ifdef BUILD_ADC
   nvic_init_structure_adc.NVIC_IRQChannel = DMA2_Stream0_IRQn;
   nvic_init_structure_adc.NVIC_IRQChannelPreemptionPriority = 0;
-  nvic_init_structure_adc.NVIC_IRQChannelSubPriority = 14;
+  nvic_init_structure_adc.NVIC_IRQChannelSubPriority = 1;
   nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE;
   NVIC_Init(&nvic_init_structure_adc);
 #endif
