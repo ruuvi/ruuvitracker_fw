@@ -21,6 +21,11 @@ typedef struct
   elua_int_resnum resnum;
 } elua_int_element;
 
+struct chandler_head {
+  void (*handler)();
+  struct chandler_head *next;
+};
+
 // Interrupt functions and descriptor
 typedef int ( *elua_int_p_set_status )( elua_int_resnum resnum, int state ); 
 typedef int ( *elua_int_p_get_status )( elua_int_resnum resnum );
@@ -51,6 +56,8 @@ void elua_int_cleanup();
 void elua_int_disable_all();
 elua_int_c_handler elua_int_set_c_handler( elua_int_id inttype, elua_int_c_handler phandler );
 elua_int_c_handler elua_int_get_c_handler( elua_int_id inttype );
+int elua_add_c_hook(void (*handler)());
+void elua_run_c_hooks();
 
 #endif
 

@@ -30,7 +30,6 @@ int gsm_state(lua_State *L);
 
 /* Internals */
 int luaopen_gsm( lua_State *L );
-void gsm_uart_received(u8 c);
 void gsm_line_received();
 void gsm_setup_io();
 void gsm_toggle_power_pin();

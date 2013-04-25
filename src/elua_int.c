@@ -8,6 +8,7 @@
 #include "ldebug.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 // ****************************************************************************
 // Lua handlers
@@ -18,6 +19,10 @@
 static volatile u8 elua_int_read_idx, elua_int_write_idx;
 // The interrupt queue
 static elua_int_element elua_int_queue[ 1 << PLATFORM_INT_QUEUE_LOG_SIZE ];
+
+// C handlers queue
+struct chandler_head *elua_c_handlers_queue = NULL;
+
 // Interrupt enabled/disabled flags
 static u32 elua_int_flags[ LUA_INT_MAX_SOURCES / 32 ];
 
@@ -58,6 +63,42 @@ static void elua_int_hook( lua_State *L, lua_Debug *ar )
   platform_cpu_set_global_interrupts( old_status );
 }
 
+int elua_add_c_hook(void (*handler)())
+{
+  int old_status;
+  struct chandler_head *chandler = calloc(1,sizeof(*chandler));
+
+  if (!chandler)
+    return PLATFORM_ERR;
+
+  chandler->handler = handler;
+  old_status = platform_cpu_set_global_interrupts( PLATFORM_CPU_DISABLE );
+  chandler->next = elua_c_handlers_queue;
+  elua_c_handlers_queue = chandler;
+  platform_cpu_set_global_interrupts( old_status );
+
+  /* if (lua_getstate()) */
+  /*   lua_sethook( lua_getstate(), elua_int_hook, LUA_MASKCOUNT, 2 ); */
+
+  // All OK
+  return PLATFORM_OK;
+}
+
+//Run c-handler hooks
+void elua_run_c_hooks()
+{
+  static struct chandler_head *q;
+  while (elua_c_handlers_queue) {
+    platform_cpu_set_global_interrupts( PLATFORM_CPU_DISABLE );
+    /* Get nex handler from head */
+    q = elua_c_handlers_queue;
+    elua_c_handlers_queue = q->next;
+    platform_cpu_set_global_interrupts( PLATFORM_CPU_ENABLE );
+    q->handler();
+    free(q);
+  }
+}
+
 // Queue an interrupt and set the Lua hook
 // Returns PLATFORM_OK or PLATFORM_ERR
 int elua_int_add( elua_int_id inttype, elua_int_resnum resnum )
@@ -83,7 +124,7 @@ int elua_int_add( elua_int_id inttype, elua_int_resnum resnum )
   elua_int_write_idx = ( elua_int_write_idx + 1 ) & INT_IDX_MASK;
 
   // Set the Lua hook (it's OK to set it even if it's already set)
-  lua_sethook( lua_getstate(), elua_int_hook, LUA_MASKCOUNT, 2 ); 
+  lua_sethook( lua_getstate(), elua_int_hook, LUA_MASKCOUNT, 2 );
 
   // All OK
   return PLATFORM_OK;

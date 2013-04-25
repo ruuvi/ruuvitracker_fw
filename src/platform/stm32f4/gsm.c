@@ -58,8 +58,6 @@ struct gsm_modem {
   enum Power_mode power_mode;
   enum State state;
   int sim_inserted;
-  char buf[BUFF_SIZE];
-  int ibuf;
   volatile int waiting_reply;
   const char *wait_pattern;
   enum Reply reply;
@@ -200,29 +198,6 @@ void gsm_toggle_power_pin()
   delay_ms(2000);
   platform_pio_op(POWER_PORT, POWER_PIN, PLATFORM_IO_PIN_SET);
 }
-/**
- * GSM Uart handler.
- * Receives bytes from serial port interrupt handler.
- * Calls gsm_line_received() after each full line buffered.
- */
-void gsm_uart_received(u8 c)
-{
-  if ('\n' == c) { 		/* All responses end with <CR><LF> sequence (\n=LF)*/
-    gsm_line_received();
-  } else {
-    gsm.buf[gsm.ibuf++]=c;
-    if (gsm.ibuf == BUFF_SIZE) /* Overflow */
-      gsm.ibuf = 0;
-    gsm.buf[gsm.ibuf] = 0;
-    if (gsm.wait_pattern) {
-      if (strstr(gsm.buf, gsm.wait_pattern)) {
-	gsm.wait_pattern = 0;
-	gsm.waiting_reply = 0;
-	gsm.reply = AT_OK;
-      }
-    }
-  }
-}
 
 /* Send *really* slow. Add inter character delays */
 static void slow_send(const char *line) {
@@ -265,9 +240,30 @@ static Message *lookup_urc_message(const char *line)
 void gsm_line_received()
 {
   Message *m;
-  *strchr(gsm.buf,'\r') = 0; 	/* Replace \r with \0 */
+  char buf[BUFF_SIZE];
+  int c,i=0;
 
-  m = lookup_urc_message(gsm.buf);
+  while('\n' != (c=platform_s_uart_recv(GSM_UART_ID,0))) {
+    if (-1 == c)
+      break;
+    if ('\r' == c)
+      continue;
+    buf[i++] = (char)c;
+    if(i==BUFF_SIZE)
+      break;
+  }
+  buf[i] = 0;
+  printf("GSM: %s\n", buf);
+
+  if (gsm.wait_pattern) {
+    if (strstr(buf, gsm.wait_pattern)) {
+      gsm.wait_pattern = 0;
+      gsm.waiting_reply = 0;
+      gsm.reply = AT_OK;
+    }
+  }
+
+  m = lookup_urc_message(buf);
   if (m) {
     if (m->next_state) {
       gsm.state = m->next_state;
@@ -276,8 +272,6 @@ void gsm_line_received()
       m->func();
     }
   }
-  gsm.ibuf = 0;
-  gsm.buf[gsm.ibuf] = 0;
 }
 
 

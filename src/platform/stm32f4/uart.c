@@ -179,7 +179,7 @@ int platform_s_uart_recv( unsigned id, timer_data_type timeout )
   struct rbuff *q= rbuff[id];
   if( timeout != 0 )  {
     while(rbuff_is_empty(q))
-  		;;
+      delay_ms(1);
   }
   if(rbuff_is_empty(q))
   	return -1;
@@ -196,14 +196,15 @@ void usart_received(int id, u8 c)
 /* Interrupt handler. Called from USART RX interrupt */
 void all_usart_irqhandler( int id )
 {
+  u8 c = USART_ReceiveData(stm32_usart[id]);
+  usart_received(id, c);
+
 #ifdef BUILD_GSM
-  if (id == GSM_UART_ID) {
-    gsm_uart_received(USART_ReceiveData(stm32_usart[id]));
-    return;
+  if ( (id == GSM_UART_ID) && (c == '\n')) {
+    elua_add_c_hook(gsm_line_received);
   }
 #endif
 
-  usart_received(id, USART_ReceiveData(stm32_usart[id]));
 }
 
 

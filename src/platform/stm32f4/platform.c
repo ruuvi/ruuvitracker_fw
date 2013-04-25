@@ -455,6 +455,8 @@ void SysTick_Handler( void )
 
   //Notify loop
   systick=1;
+
+  elua_run_c_hooks();
 }
 
 /**
