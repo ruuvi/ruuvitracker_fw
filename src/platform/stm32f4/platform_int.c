@@ -496,6 +496,7 @@ void platform_int_init()
     nvic_init_structure.NVIC_IRQChannel = timer_irq_table[ i ];
       nvic_init_structure.NVIC_IRQChannelSubPriority = 3;
     NVIC_Init( &nvic_init_structure );
+    int_tmr_match_set_status(i, PLATFORM_CPU_DISABLE);
   }
 #endif
 }
@@ -583,7 +584,6 @@ void OTG_HS_EP1_OUT_IRQHandler(void)
 }
 #endif
 
-
 // ****************************************************************************
 // Interrupt table
 // Must have a 1-to-1 correspondence with the interrupt enum in platform_conf.h!
@@ -593,5 +593,5 @@ const elua_int_descriptor elua_int_table[ INT_ELUA_LAST ] =
   { int_gpio_posedge_set_status, int_gpio_posedge_get_status, int_gpio_posedge_get_flag },
   { int_gpio_negedge_set_status, int_gpio_negedge_get_status, int_gpio_negedge_get_flag },
   { int_tmr_match_set_status, int_tmr_match_get_status, int_tmr_match_get_flag },
-  { int_uart_rx_set_status, int_uart_rx_get_status, int_uart_rx_get_flag }  
+  { int_uart_rx_set_status, int_uart_rx_get_status, int_uart_rx_get_flag },
 };
