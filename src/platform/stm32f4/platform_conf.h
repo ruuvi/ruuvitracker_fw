@@ -31,6 +31,7 @@
 #define BUILD_LUA_INT_HANDLERS
 //#define ENABLE_ENC
 #define BUILD_GSM
+#define BUILD_GPS
 
 #define PLATFORM_HAS_SYSTIMER
 
@@ -101,6 +102,13 @@ extern int luaopen_gsm( lua_State *L );
 #define GSMLINE
 #endif
 
+#ifdef BUILD_GPS
+extern int luaopen_gps( lua_State *L );
+#define GPSLINE _ROM( "gps", luaopen_gps, gps_map )
+#else
+#define GPSLINE
+#endif
+
 /* Ruuvi-Lib */
 extern int luaopen_ruuvi( lua_State *L );
 
@@ -124,7 +132,8 @@ extern int luaopen_ruuvi( lua_State *L );
   _ROM( AUXLIB_ELUA, luaopen_elua, elua_map )\
   _ROM( LUA_MATHLIBNAME, luaopen_math, math_map )\
   _ROM( "ruuvi", luaopen_ruuvi, ruuvi_map ) \
-  GSMLINE
+  GSMLINE \
+  GPSLINE \
   PLATLINE
 
 // *****************************************************************************

@@ -9,6 +9,7 @@
 #include "usbd_cdc_vcp.h"
 #include "ringbuff.h"
 #include "gsm.h"
+#include "gps.h"
 
 //Prototypes
 void usart_received(int id, u8 c);
@@ -204,7 +205,11 @@ void all_usart_irqhandler( int id )
     elua_add_c_hook(gsm_line_received);
   }
 #endif
-
+#ifdef BUILD_GPS
+  if ( (id == GPS_UART_ID) && (c == '\n')) {
+    elua_add_c_hook(gps_line_received);
+  }
+#endif
 }
 
 
