@@ -9,17 +9,16 @@
 print("Powering up GSM\n")
 gsm.set_power_state(gsm.POWER_ON)
 print("GSM powered\n")
--- Modem now boots automatically to network, if PIN query is disabled.
 
 -- Second example. Check if pin is disabled
---print("Checking if PIN is required...\n")
---if gsm.is_pin_required() then
-    --print("Sending PIN")
-    --gsm.send_pin( "0000" ) -- Change your pin code here
---end
+print("Checking if PIN is required...\n")
+if gsm.is_pin_required() then
+    print("Sending PIN")
+    gsm.send_pin( "0000" ) -- Change your pin code here
+end
 
 
-print("Wait for modem to be Ready (On the network)\n")
+print("Waiting for GSM to be registered to the network)\n")
 repeat ruuvi.delay_ms(100) until gsm.is_ready()
 print("GSM ready and registed to network\n")
 
