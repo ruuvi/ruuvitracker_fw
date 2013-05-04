@@ -111,9 +111,6 @@ void gps_setup_io()
  */
 void gps_line_received()
 {
-
-// TODO: platform_s_uart_recv(GSM_UART_ID,1) <- why the '1'?
-
   char buf[BUFF_SIZE];
   int c, i = 0;
 
