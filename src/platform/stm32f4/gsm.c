@@ -59,7 +59,7 @@ struct gsm_modem {
   enum State state;
   int sim_inserted;
   volatile int waiting_reply;
-  const char *wait_pattern;
+  volatile int waiting_pattern;
   enum Reply reply;
   int hw_flow_enabled;
 } static gsm = {		/* Initial status */
@@ -141,11 +141,21 @@ int gsm_cmd(const char *cmd)
 /* Wait for specific pattern */
 int gsm_wait(const char *pattern)
 {
-  gsm.wait_pattern = pattern;
-  gsm.waiting_reply = 1;
+  const char *p = pattern;
+  char c;
 
-  while(gsm.waiting_reply)
-    delay_ms(1);
+  gsm.waiting_pattern = 1;
+
+  while(*p) {
+    c = platform_s_uart_recv(GSM_UART_ID, 1);
+    if (c == *p) { //Match
+      p++;
+    } else { //No match, go back to start
+      p = pattern;
+    }
+  }
+
+  gsm.waiting_pattern = 0;
 
   return gsm.reply;
 }
@@ -243,6 +253,10 @@ void gsm_line_received()
   char buf[BUFF_SIZE];
   int c,i=0;
 
+  /* Dont mess with patterns */
+  if (gsm.waiting_pattern)
+    return;
+
   while('\n' != (c=platform_s_uart_recv(GSM_UART_ID,0))) {
     if (-1 == c)
       break;
@@ -254,14 +268,6 @@ void gsm_line_received()
   }
   buf[i] = 0;
   printf("GSM: %s\n", buf);
-
-  if (gsm.wait_pattern) {
-    if (strstr(buf, gsm.wait_pattern)) {
-      gsm.wait_pattern = 0;
-      gsm.waiting_reply = 0;
-      gsm.reply = AT_OK;
-    }
-  }
 
   m = lookup_urc_message(buf);
   if (m) {
@@ -363,7 +369,7 @@ int gsm_lua_wait(lua_State *L)
   text = luaL_checklstring(L, -1, NULL);
   if (!text)
     return 0;
-  ret = gsm_cmd(text);
+  ret = gsm_wait(text);
   lua_pushinteger(L, ret);
   return 1;
 }
