@@ -21,7 +21,7 @@ static volatile u8 elua_int_read_idx, elua_int_write_idx;
 static elua_int_element elua_int_queue[ 1 << PLATFORM_INT_QUEUE_LOG_SIZE ];
 
 // C handlers queue
-struct chandler_head *elua_c_handlers_queue = NULL;
+static volatile struct chandler_head *elua_c_handlers_queue = NULL;
 
 // Interrupt enabled/disabled flags
 static u32 elua_int_flags[ LUA_INT_MAX_SOURCES / 32 ];
@@ -77,9 +77,6 @@ int elua_add_c_hook(void (*handler)())
   elua_c_handlers_queue = chandler;
   platform_cpu_set_global_interrupts( old_status );
 
-  /* if (lua_getstate()) */
-  /*   lua_sethook( lua_getstate(), elua_int_hook, LUA_MASKCOUNT, 2 ); */
-
   // All OK
   return PLATFORM_OK;
 }
@@ -90,7 +87,7 @@ void elua_run_c_hooks()
   static struct chandler_head *q;
   while (elua_c_handlers_queue) {
     platform_cpu_set_global_interrupts( PLATFORM_CPU_DISABLE );
-    /* Get nex handler from head */
+    /* Get next handler from head */
     q = elua_c_handlers_queue;
     elua_c_handlers_queue = q->next;
     platform_cpu_set_global_interrupts( PLATFORM_CPU_ENABLE );

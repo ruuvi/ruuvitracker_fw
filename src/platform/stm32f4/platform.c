@@ -139,10 +139,8 @@ static void NVIC_Configuration(void)
   /* Configure the NVIC Preemption Priority Bits */
   NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);
 
-  // Lower the priority of the SysTick interrupt to let the
-  // UART interrupt preempt it
   nvic_init_structure.NVIC_IRQChannel = SysTick_IRQn;
-  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 1;
+  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 0;
   nvic_init_structure.NVIC_IRQChannelSubPriority = 7;
   nvic_init_structure.NVIC_IRQChannelCmd = ENABLE;
   NVIC_Init(&nvic_init_structure);
@@ -433,13 +431,12 @@ const TIM_TypeDef * const timer[] = {
   TIM13,  // ID: 10
   TIM14   // ID: 11
 };
-#define TIM_GET_PRESCALE( id ) ( (((id) == 0) || ((id) == 5)|| ((id) == 6)|| ((id) == 7)|| ((id) == 8)) ? ( PCLK2_DIV ) : ( PCLK1_DIV ) )
-#define TIM_GET_BASE_CLK( id ) ( HCLK / ( TIM_GET_PRESCALE( id ) / 2 ) )
+#define TIM_GET_BASE_CLK( id ) ( HCLK  )
 #define TIM_STARTUP_CLOCK       50000
 
 static u32 platform_timer_set_clock( unsigned id, u32 clock );
 
-volatile int systick;
+volatile unsigned int systick=0;
 
 void SysTick_Handler( void )
 {
@@ -452,10 +449,7 @@ void SysTick_Handler( void )
   //Allow main loop to run by disabling Sleeponexit bit
   NVIC_SystemLPConfig(NVIC_LP_SLEEPONEXIT, DISABLE);
 
-  //Notify loop
-  systick=1;
-
-  elua_run_c_hooks();
+  systick++;
 }
 
 /**
@@ -465,12 +459,15 @@ void SysTick_Handler( void )
  */
 void delay_ms(unsigned int ms)
 {
-  for(;ms>0;ms-=SYSTICKMS) {
-    /* Sleep..for real */
-    systick=0; //Clear systick flag
+  ms *= SYSTICKMS;
+  ms += systick;
+  while (ms < systick) {                              /* In case of overflow */
     NVIC_SystemLPConfig(NVIC_LP_SLEEPONEXIT, ENABLE); //Enable SleepOnExit mode for interrupt
-    while(!systick)
-      __WFI(); //Go to sleep (WaitForInterrupt)
+    __WFI(); //Go to sleep (WaitForInterrupt)
+  }
+  while (ms > systick) {
+    NVIC_SystemLPConfig(NVIC_LP_SLEEPONEXIT, ENABLE); //Enable SleepOnExit mode for interrupt
+    __WFI(); //Go to sleep (WaitForInterrupt)
   }
 }
 

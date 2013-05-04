@@ -287,6 +287,12 @@ void TIM8_CC_IRQHandler(void)
   tmr_int_handler( 7 );
 }
 
+void TIM8_TRG_COM_TIM14_IRQHandler(void)
+{
+  TIM_ClearITPendingBit(TIM14, TIM_IT_Update);
+  elua_run_c_hooks();
+}
+
 // ****************************************************************************
 // GPIO helper functions
 
@@ -496,9 +502,14 @@ void platform_int_init()
     nvic_init_structure.NVIC_IRQChannel = timer_irq_table[ i ];
       nvic_init_structure.NVIC_IRQChannelSubPriority = 3;
     NVIC_Init( &nvic_init_structure );
-    int_tmr_match_set_status(i, PLATFORM_CPU_DISABLE);
   }
 #endif
+  /* Initialize TIMER 14 for the handler loop */
+  TIM_ITConfig(TIM14, TIM_IT_Update, ENABLE);
+  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 1;
+  nvic_init_structure.NVIC_IRQChannelSubPriority = 7;
+  nvic_init_structure.NVIC_IRQChannel = TIM8_TRG_COM_TIM14_IRQn;
+  NVIC_Init(&nvic_init_structure);
 }
 
 

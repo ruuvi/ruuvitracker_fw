@@ -35,6 +35,7 @@ extern volatile int systick;
 /* Parameter: function to run on loop */
 /* this function never returns */
 static int idleloop( lua_State *L) {
+  unsigned int tick;
   if (!lua_isfunction(L, -1)) {
     printf("Not a function\n");
     return 0;
@@ -43,9 +44,9 @@ static int idleloop( lua_State *L) {
     lua_pushvalue(L,-1); //Get copy function to stack
     lua_pcall(L, 0, 0, 0); //Call the function
 
-    systick=0; //Clear systick flag
     NVIC_SystemLPConfig(NVIC_LP_SLEEPONEXIT, ENABLE); //Enable SleepOnExit mode for interrupt
-    while(!systick)
+    tick = systick;
+    while(tick == systick)
       __WFI(); //Go to sleep (WaitForInterrupt)
   }
   return 0;
