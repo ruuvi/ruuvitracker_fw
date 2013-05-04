@@ -3,6 +3,7 @@
 #include "platform_conf.h"
 #include "elua_int.h"
 #include "common.h"
+#include "delay.h"
 
 // Platform specific includes
 #include "stm32f4xx_conf.h"
