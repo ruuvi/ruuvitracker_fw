@@ -103,7 +103,6 @@ void gps_setup_io()
 {
   // Setup serial port, GPS_UART_ID == 2 @ RUUVIB1
   platform_uart_setup( GPS_UART_ID, 115200, 8, PLATFORM_UART_PARITY_NONE, PLATFORM_UART_STOPBITS_1);
-  platform_s_uart_set_flow_control( GPS_UART_ID, PLATFORM_UART_FLOW_CTS | PLATFORM_UART_FLOW_RTS);
 }
 
 /**
@@ -124,7 +123,8 @@ void gps_line_received()
       break;
   }
   buf[i] = 0;
-  printf("GPS: %s\n", buf);
+  if (i > 0)
+    printf("GPS: %s\n", buf);
 }
 
 
