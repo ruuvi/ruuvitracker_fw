@@ -40,7 +40,7 @@
 
 #define BUFF_SIZE	64
 
-#define GSM_CMD_LINE_END "\r\n\r\n"
+#define GSM_CMD_LINE_END "\r\n"
 
 
 enum State {
@@ -52,16 +52,25 @@ enum State {
   STATE_READY,
   STATE_ERROR,
 };
+enum CFUN {
+  CFUN_0 = 0,
+  CFUN_1 = 1,
+};
+enum GSM_FLAGS {
+  HW_FLOW_ENABLED = 0x01,
+  SIM_INSERTED    = 0x02,
+  GPS_READY       = 0x04,
+};
 
 /* Modem Status */
 struct gsm_modem {
   enum Power_mode power_mode;
   enum State state;
-  int sim_inserted;
   volatile int waiting_reply;
   volatile int waiting_pattern;
   enum Reply reply;
-  int hw_flow_enabled;
+  int flags;
+  enum CFUN cfun;
 } static gsm = {		/* Initial status */
   .power_mode=POWER_OFF,
   .state = STATE_OFF,
@@ -73,6 +82,9 @@ static void handle_ok();
 static void handle_fail();
 static void handle_error();
 static void set_hw_flow();
+static void cfun_1();
+static void gpsready();
+static void sim_inserted();
 
 typedef struct Message Message;
 struct Message {
@@ -86,12 +98,12 @@ static Message urc_messages[] = {
   /* Unsolicited Result Codes (URC messages) */
   { "RDY",                  .next_state=STATE_BOOTING },
   { "+CPIN: NOT INSERTED",  .next_state=STATE_ERROR },
-  { "+CPIN: READY",         .next_state=STATE_WAIT_NETWORK },
-  { "+CPIN: SIM PIN",       .next_state=STATE_ASK_PIN },
-  { "+CFUN: 1" },
+  { "+CPIN: READY",         .next_state=STATE_WAIT_NETWORK, .func = sim_inserted },
+  { "+CPIN: SIM PIN",       .next_state=STATE_ASK_PIN, .func = sim_inserted },
+  { "+CFUN: 1",             .func = cfun_1 },
   { "Call Ready",           .next_state=STATE_READY },
   { "RING" },
-  { "GPS Ready" },
+  { "GPS Ready",            .func = gpsready },
   { "NORMAL POWER DOWN",     .next_state=STATE_OFF },
   /* Return codes */
   { "OK",   .func = handle_ok },
@@ -100,7 +112,20 @@ static Message urc_messages[] = {
   { NULL } /* Table must end with NULL */
 };
 
+static void sim_inserted()
+{
+  gsm.flags |= SIM_INSERTED;
+}
 
+static void gpsready()
+{
+  gsm.flags |= GPS_READY;
+}
+
+static void cfun_1()
+{
+  gsm.cfun = CFUN_1;
+}
 static void handle_ok()
 {
   gsm.reply = AT_OK;
@@ -186,7 +211,7 @@ static void set_hw_flow()
     delay_ms(1);
 
   if (AT_OK == gsm_cmd("AT+IFC=2,2")) {
-    gsm.hw_flow_enabled = 1;
+    gsm.flags |= HW_FLOW_ENABLED;
     gsm_cmd("ATE0"); 		/* Disable ECHO */
   }
 }
@@ -222,7 +247,7 @@ static void slow_send(const char *line) {
 
 void gsm_uart_write(const char *line)
 {
-  if (!gsm.hw_flow_enabled)
+  if (!gsm.flags&HW_FLOW_ENABLED)
     return slow_send(line);
 
   while(*line) {
@@ -404,6 +429,13 @@ int gsm_is_ready(lua_State *L)
   return 1;
 }
 
+int gsm_flag_is_set(lua_State *L)
+{
+  int flag = luaL_checkinteger(L, -1);
+  lua_pushboolean(L, (gsm.flags&flag) != 0);
+  return 1;
+}
+
 /* Export Lua GSM library */
 
 #define MIN_OPT_LEVEL 2
@@ -416,6 +448,7 @@ const LUA_REG_TYPE gsm_map[] =
 #define F(name,func) { LSTRKEY(#name), LFUNCVAL(func) }
   { LSTRKEY("set_power_state") , LFUNCVAL(gsm_set_power_state) },
   F(is_ready, gsm_is_ready),
+  F(flag_is_set, gsm_flag_is_set),
   F(state, gsm_state),
   F(is_pin_required, gsm_is_pin_required),
   F(send_pin, gsm_send_pin),
@@ -433,6 +466,8 @@ const LUA_REG_TYPE gsm_map[] =
   MAP( STATE_WAIT_NETWORK ),
   MAP( STATE_READY ),
   MAP( STATE_ERROR ),
+  MAP( GPS_READY ),
+  MAP( SIM_INSERTED ),
   { LSTRKEY("OK"), LNUMVAL(AT_OK) },
   { LSTRKEY("FAIL"), LNUMVAL(AT_FAIL) },
   { LSTRKEY("ERROR"), LNUMVAL(AT_ERROR) },
