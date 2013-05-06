@@ -60,6 +60,7 @@ enum GSM_FLAGS {
   HW_FLOW_ENABLED = 0x01,
   SIM_INSERTED    = 0x02,
   GPS_READY       = 0x04,
+  GPRS_READY      = 0x08,
 };
 
 /* Modem Status */
@@ -85,6 +86,7 @@ static void set_hw_flow();
 static void cfun_1();
 static void gpsready();
 static void sim_inserted();
+static void gprs_off();
 
 typedef struct Message Message;
 struct Message {
@@ -104,13 +106,19 @@ static Message urc_messages[] = {
   { "Call Ready",           .next_state=STATE_READY },
   { "RING" },
   { "GPS Ready",            .func = gpsready },
-  { "NORMAL POWER DOWN",     .next_state=STATE_OFF },
+  { "NORMAL POWER DOWN",    .next_state=STATE_OFF },
+  { "+SAPBR 1: DEACT",      .func = gprs_off },
   /* Return codes */
   { "OK",   .func = handle_ok },
   { "FAIL", .func = handle_fail },
   { "ERROR",.func = handle_error },
   { NULL } /* Table must end with NULL */
 };
+
+static void gprs_off()
+{
+  gsm.flags &= ~GPRS_READY;
+}
 
 static void sim_inserted()
 {
@@ -164,20 +172,29 @@ int gsm_cmd(const char *cmd)
 }
 
 /* Wait for specific pattern */
-int gsm_wait(const char *pattern)
+int gsm_wait(const char *pattern, int timeout, char *line)
 {
   const char *p = pattern;
   char c;
+  int i;
 
   gsm.waiting_pattern = 1;
 
   while(*p) {
-    c = platform_s_uart_recv(GSM_UART_ID, 1);
+    c = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT);
     if (c == *p) { //Match
       p++;
     } else { //No match, go back to start
       p = pattern;
     }
+  }
+
+  if (line) {
+       strcpy(line, pattern);
+       i = strlen(line);
+       while ('\n' != (c = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT))) {
+	    line[i++] = c;
+       }
   }
 
   gsm.waiting_pattern = 0;
@@ -356,8 +373,25 @@ int gsm_send_pin(lua_State *L)
   }
   return 1;
 }
-int gsm_is_gprs_enabled(lua_State *L);
-int gsm_gprs_enable(lua_State *L);
+
+int gsm_gprs_enable(lua_State *L)
+{
+  const char *apn = luaL_checkstring(L, 1);
+  char ap_cmd[64];
+
+  if (gsm.flags&GPRS_READY)     /* If already enabled */
+    return 0;
+
+  snprintf(ap_cmd, 64, "AT+SAPBR=3,1,\"APN\",\"%s\"", apn);
+
+  while (gsm.state < STATE_READY)
+    delay_ms(1000);
+
+  gsm_cmd("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");
+  gsm_cmd(ap_cmd);
+  gsm_cmd("AT+SAPBR=1,1");
+  return 0;
+}
 
 static const char ctrlZ[] = {26, 0};
 int gsm_send_sms(lua_State *L)
@@ -380,23 +414,98 @@ int gsm_send_sms(lua_State *L)
   gsm_uart_write(number);
 
   gsm_uart_write("\"\r");
-  gsm_wait(">");	 /* Send SMS cmd and wait for '>' to appear */
+  gsm_wait(">", 0, NULL);	 /* Send SMS cmd and wait for '>' to appear */
   gsm_uart_write(text);
   ret = gsm_cmd(ctrlZ);		/* CTRL-Z ends message */
   lua_pushinteger(L, ret);
   return 1;
 }
 
+static void gsm_http_init(const char *url)
+{
+  char url_cmd[256];
+  snprintf(url_cmd, 256, "AT+HTTPPARA=\"URL\",\"%s\"", url);
+  gsm_cmd("AT+HTTPINIT");
+  gsm_cmd("AT+HTTPPARA=\"CID\",\"1\"");
+  gsm_cmd(url_cmd);
+  gsm_cmd("AT+HTTPPARA=\"UA\",\"RuuviTracker/SIM908\"");
+  gsm_cmd("AT+HTTPPARA=\"REDIR\",\"1\"");
+}
+
+int gsm_http_get(lua_State *L)
+{
+  int i,status,len;
+  char ret[64];
+  const char *url = luaL_checkstring(L, 1);
+  const char *p,*pattern = "+HTTPREAD";
+  char *buf=0;
+  char c;
+
+  gsm_http_init(url);
+
+  gsm_cmd("AT+HTTPACTION=0");
+  gsm_wait("+HTTPACTION", 1000, ret); //TODO: timeouts
+  printf("Connected\n");
+  if (2 != sscanf(ret, "+HTTPACTION:0,%d,%d", &status, &len)) {
+    printf("Failed to parse response\n");
+    goto HTTP_END;
+  }
+
+  if (200 != status) {
+    printf("Status not 200 OK. (Status=%d)\n", status);
+    goto HTTP_END;
+  }
+
+  if (NULL == (buf = malloc(len))) {
+    printf("Out of memory\n");
+    goto HTTP_END;
+  }
+  
+  //Now read all bytes. block others from reading.
+  gsm.waiting_pattern = 1;
+  gsm_uart_write("AT+HTTPREAD" GSM_CMD_LINE_END); //Wait for header
+  p = pattern;
+  while(*p) {
+    c = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT);
+    if (c == *p) { //Match
+      p++;
+    } else { //No match, go back to start
+      p = pattern;
+    }
+  }
+  while ('\n' != platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT))
+    ;;                          /* Wait end of line */
+  /* Rest of bytes are data */
+  for(i=0;i<len;i++) {
+    buf[i] = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT);
+  }
+  buf[i]=0;
+  gsm.waiting_pattern = 0;      /* Release block */
+  
+HTTP_END:
+  gsm_cmd("AT+HTTPTERM");
+
+  if (buf) {
+    lua_pushstring(L, buf);
+    return 1;
+  }
+  return 0;
+}
+  
+
 int gsm_lua_wait(lua_State *L)
 {
-  int ret;
+  int ret,timeout=0;
+  char line[256];
   const char *text;
-  text = luaL_checklstring(L, -1, NULL);
-  if (!text)
-    return 0;
-  ret = gsm_wait(text);
+  text = luaL_checklstring(L, 1, NULL);
+  if (2 <= lua_gettop(L)) {
+       timeout = luaL_checkinteger(L, 2);
+  }
+  ret = gsm_wait(text, timeout, line);
   lua_pushinteger(L, ret);
-  return 1;
+  lua_pushstring(L, line);
+  return 2;
 }
 
 int gsm_state(lua_State *L)
@@ -455,6 +564,8 @@ const LUA_REG_TYPE gsm_map[] =
   F(send_sms, gsm_send_sms),
   F(cmd, gsm_send_cmd),
   F(wait, gsm_lua_wait),
+  F(gprs_enable, gsm_gprs_enable),
+  F(http_get, gsm_http_get),
 
   /* CONSTANTS */
 #define MAP(a) { LSTRKEY(#a), LNUMVAL(a) }
@@ -468,6 +579,7 @@ const LUA_REG_TYPE gsm_map[] =
   MAP( STATE_ERROR ),
   MAP( GPS_READY ),
   MAP( SIM_INSERTED ),
+  MAP( GPRS_READY ),
   { LSTRKEY("OK"), LNUMVAL(AT_OK) },
   { LSTRKEY("FAIL"), LNUMVAL(AT_FAIL) },
   { LSTRKEY("ERROR"), LNUMVAL(AT_ERROR) },
