@@ -472,6 +472,8 @@ static const u8 timer_irq_table[] = { TIM1_CC_IRQn, TIM2_IRQn, TIM3_IRQn, TIM4_I
 static const u8 timer_irq_table[] = { TIM1_CC_IRQn, TIM2_IRQn, TIM3_IRQn, TIM4_IRQn, TIM5_IRQn };
 #endif
 
+extern u32 platform_timer_set_clock( unsigned id, u32 clock );
+
 void platform_int_init()
 {
   NVIC_InitTypeDef nvic_init_structure;
@@ -505,6 +507,7 @@ void platform_int_init()
   }
 #endif
   /* Initialize TIMER 14 for the handler loop */
+  platform_timer_set_clock( 11, 500000 ); //TIM14 = id 11
   TIM_ITConfig(TIM14, TIM_IT_Update, ENABLE);
   nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 1;
   nvic_init_structure.NVIC_IRQChannelSubPriority = 7;

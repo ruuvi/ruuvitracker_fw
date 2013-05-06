@@ -434,7 +434,7 @@ const TIM_TypeDef * const timer[] = {
 #define TIM_GET_BASE_CLK( id ) ( HCLK  )
 #define TIM_STARTUP_CLOCK       50000
 
-static u32 platform_timer_set_clock( unsigned id, u32 clock );
+u32 platform_timer_set_clock( unsigned id, u32 clock );
 
 volatile unsigned int systick=0;
 
@@ -502,7 +502,7 @@ static u32 platform_timer_get_clock( unsigned id )
   return TIM_GET_BASE_CLK( id ) / ( TIM_GetPrescaler( ptimer ) + 1 );
 }
 
-static u32 platform_timer_set_clock( unsigned id, u32 clock )
+u32 platform_timer_set_clock( unsigned id, u32 clock )
 {
   TIM_TimeBaseInitTypeDef timer_base_struct;
   TIM_TypeDef *ptimer = (TIM_TypeDef*)timer[ id ];
