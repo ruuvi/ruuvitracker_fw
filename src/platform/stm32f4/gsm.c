@@ -409,15 +409,20 @@ int gsm_state(lua_State *L)
 int gsm_set_power_state(lua_State *L)
 {
   enum Power_mode next = luaL_checkinteger(L, -1);
+  int status_pin = platform_pio_op(STATUS_PORT, STATUS_PIN, PLATFORM_IO_PIN_GET);
 
   switch(next) {
   case POWER_ON:
-    gsm_enable_voltage();
-    gsm_toggle_power_pin();
-    set_hw_flow();
+    if (0 == status_pin) {
+      gsm_enable_voltage();
+      gsm_toggle_power_pin();
+      set_hw_flow();
+    }
     break;
   case POWER_OFF:
-    gsm_toggle_power_pin();
+    if (1 == status_pin) {
+      gsm_toggle_power_pin();
+    }
     break;
   }
   return 0;
