@@ -42,6 +42,7 @@
 
 #define GSM_CMD_LINE_END "\r\n"
 
+#define TIMEOUT  1000           /* Default timeout 1000ms */
 
 enum State {
   STATE_UNKNOWN = 0,
@@ -87,6 +88,7 @@ static void cfun_1();
 static void gpsready();
 static void sim_inserted();
 static void gprs_off();
+static void incoming_call();
 
 typedef struct Message Message;
 struct Message {
@@ -104,7 +106,6 @@ static Message urc_messages[] = {
   { "+CPIN: SIM PIN",       .next_state=STATE_ASK_PIN, .func = sim_inserted },
   { "+CFUN: 1",             .func = cfun_1 },
   { "Call Ready",           .next_state=STATE_READY },
-  { "RING" },
   { "GPS Ready",            .func = gpsready },
   { "NORMAL POWER DOWN",    .next_state=STATE_OFF },
   { "+SAPBR 1: DEACT",      .func = gprs_off },
@@ -113,8 +114,33 @@ static Message urc_messages[] = {
   { "FAIL", .func = handle_fail },
   { "ERROR",.func = handle_error },
   { "+CME ERROR", .func = handle_error },
+  /* During Call */
+  { "NO CARRIER",   .func = handle_fail }, /* This is general end-of-call */
+  { "NO DIALTONE",  .func = handle_fail },
+  { "BUSY",         .func = handle_fail },
+  { "NO ANSWER",    .func = handle_fail },
+  { "RING",         .func = incoming_call },
   { NULL } /* Table must end with NULL */
 };
+
+static void incoming_call()
+{
+  char line[256];
+  char number[64];
+  printf("Incoming call\n");
+  /* Query incoming number */
+  gsm_uart_write("AT+CLCC" GSM_CMD_LINE_END);
+  /* Example reply: +CLCC: 1,1,4,0,0,"+35850381xxxx",145,"" */
+  gsm_wait("+CLCC", TIMEOUT, line);
+  printf("%s\n", line);
+  if (AT_OK != gsm.reply)
+    return;
+  if (1 == sscanf(line, "+CLCC: %*d,%*d,4,0,%*d,\"%s", number)) {
+    *strchr(number,'"') = 0; //Set number to end to  " mark
+    printf("GSM: Incoming call from %s\n", number);
+  }
+  gsm_wait("OK", 0, NULL);
+}
 
 static void gprs_off()
 {
@@ -180,9 +206,10 @@ int gsm_wait(const char *pattern, int timeout, char *line)
   int i;
 
   gsm.waiting_pattern = 1;
-
+//TODO: Implement timeouts
   while(*p) {
     c = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT);
+    printf("%c",c);
     if (c == *p) { //Match
       p++;
     } else { //No match, go back to start
@@ -418,7 +445,7 @@ int gsm_send_sms(lua_State *L)
   gsm_uart_write(number);
 
   gsm_uart_write("\"\r");
-  gsm_wait(">", 0, NULL);	 /* Send SMS cmd and wait for '>' to appear */
+  gsm_wait(">", TIMEOUT, NULL);	 /* Send SMS cmd and wait for '>' to appear */
   gsm_uart_write(text);
   ret = gsm_cmd(ctrlZ);		/* CTRL-Z ends message */
   lua_pushinteger(L, ret);
@@ -452,7 +479,7 @@ static void gsm_http_send_data(const char *data)
   char cmd[256];
   snprintf(cmd, 256, "AT+HTTPDATA=%d,1000" GSM_CMD_LINE_END, strlen(data));
   gsm_uart_write(cmd);
-  gsm_wait("DOWNLOAD", 0, NULL);
+  gsm_wait("DOWNLOAD", TIMEOUT, NULL);
   gsm_uart_write(data);
   gsm_cmd(GSM_CMD_LINE_END);  /* Send empty command to wait for OK */
   if (AT_OK != gsm.reply)
@@ -492,7 +519,7 @@ int gsm_http_handle(lua_State *L, method_t method,
   else
     gsm_cmd("AT+HTTPACTION=1");
 
-  gsm_wait("+HTTPACTION", 1000, ret); //TODO: timeouts
+  gsm_wait("+HTTPACTION", TIMEOUT, ret); //TODO: timeouts
 
   if (2 != sscanf(ret, "+HTTPACTION:%*d,%d,%d", &status, &len)) { /* +HTTPACTION:<method>,<result>,<lenght of data> */
     printf("Failed to parse response\n");
@@ -553,7 +580,7 @@ int gsm_http_post(lua_State *L)
 
 int gsm_lua_wait(lua_State *L)
 {
-  int ret,timeout=0;
+  int ret,timeout=TIMEOUT;
   char line[256];
   const char *text;
   text = luaL_checklstring(L, 1, NULL);
