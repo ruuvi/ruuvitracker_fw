@@ -112,6 +112,7 @@ static Message urc_messages[] = {
   { "OK",   .func = handle_ok },
   { "FAIL", .func = handle_fail },
   { "ERROR",.func = handle_error },
+  { "+CME ERROR", .func = handle_error },
   { NULL } /* Table must end with NULL */
 };
 
@@ -390,7 +391,10 @@ int gsm_gprs_enable(lua_State *L)
   gsm_cmd("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");
   gsm_cmd(ap_cmd);
   gsm_cmd("AT+SAPBR=1,1");
-  return 0;
+
+  if (AT_OK == gsm.reply)
+    gsm.flags |= GPRS_READY;
+  return gsm.reply;
 }
 
 static const char ctrlZ[] = {26, 0};
@@ -421,6 +425,8 @@ int gsm_send_sms(lua_State *L)
   return 1;
 }
 
+typedef enum method_t { GET, POST } method_t; /* HTTP methods */
+
 static void gsm_http_init(const char *url)
 {
   char url_cmd[256];
@@ -432,29 +438,70 @@ static void gsm_http_init(const char *url)
   gsm_cmd("AT+HTTPPARA=\"REDIR\",\"1\"");
 }
 
-int gsm_http_get(lua_State *L)
+static void gsm_http_send_content_type(const char *content_type)
+{
+  char cmd[256];
+  snprintf(cmd,256,"AT+HTTPPARA=\"CONTENT\",\"%s\"", content_type);
+  if (AT_OK != gsm_cmd(cmd)) {
+    printf("GSM: Failed to set content type\n");
+  }
+}
+
+static void gsm_http_send_data(const char *data)
+{
+  char cmd[256];
+  snprintf(cmd, 256, "AT+HTTPDATA=%d,1000" GSM_CMD_LINE_END, strlen(data));
+  gsm_uart_write(cmd);
+  gsm_wait("DOWNLOAD", 0, NULL);
+  gsm_uart_write(data);
+  gsm_cmd(GSM_CMD_LINE_END);  /* Send empty command to wait for OK */
+  if (AT_OK != gsm.reply)
+    printf("GSM: Failed to load query data\n");
+}
+
+int gsm_http_handle(lua_State *L, method_t method,
+                    const char *data, const char *content_type)
 {
   int i,status,len;
   char ret[64];
   const char *url = luaL_checkstring(L, 1);
-  const char *p,*pattern = "+HTTPREAD";
+  const char *p,*httpread_pattern = "+HTTPREAD";
   char *buf=0;
   char c;
 
   gsm_http_init(url);
+  if (AT_OK != gsm.reply) {
+    printf("GSM: Failed to initialize HTTP\n");
+    goto HTTP_END;
+  }
 
-  gsm_cmd("AT+HTTPACTION=0");
+  if (content_type) {
+    gsm_http_send_content_type(content_type);
+    if (AT_OK != gsm.reply)
+      goto HTTP_END;
+  }
+
+  if (data) {
+    gsm_http_send_data(data);
+    if (AT_OK != gsm.reply)
+      goto HTTP_END;
+  }
+
+  if (GET == method)
+    gsm_cmd("AT+HTTPACTION=0");
+  else
+    gsm_cmd("AT+HTTPACTION=1");
+
   gsm_wait("+HTTPACTION", 1000, ret); //TODO: timeouts
-  printf("Connected\n");
-  if (2 != sscanf(ret, "+HTTPACTION:0,%d,%d", &status, &len)) {
+
+  if (2 != sscanf(ret, "+HTTPACTION:%*d,%d,%d", &status, &len)) { /* +HTTPACTION:<method>,<result>,<lenght of data> */
     printf("Failed to parse response\n");
     goto HTTP_END;
   }
 
-  if (200 != status) {
-    printf("Status not 200 OK. (Status=%d)\n", status);
+  /* Read response, if there is any */
+  if (len < 0)
     goto HTTP_END;
-  }
 
   if (NULL == (buf = malloc(len))) {
     printf("Out of memory\n");
@@ -464,13 +511,13 @@ int gsm_http_get(lua_State *L)
   //Now read all bytes. block others from reading.
   gsm.waiting_pattern = 1;
   gsm_uart_write("AT+HTTPREAD" GSM_CMD_LINE_END); //Wait for header
-  p = pattern;
-  while(*p) {
+  p = httpread_pattern;
+  while(*p) {           /* Wait for "+HTTPREAD:<data_len>" */
     c = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT);
     if (c == *p) { //Match
       p++;
     } else { //No match, go back to start
-      p = pattern;
+      p = httpread_pattern;
     }
   }
   while ('\n' != platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT))
@@ -481,7 +528,7 @@ int gsm_http_get(lua_State *L)
   }
   buf[i]=0;
   gsm.waiting_pattern = 0;      /* Release block */
-  
+
 HTTP_END:
   gsm_cmd("AT+HTTPTERM");
 
@@ -491,7 +538,18 @@ HTTP_END:
   }
   return 0;
 }
-  
+
+int gsm_http_get(lua_State *L)
+{
+  return gsm_http_handle(L, GET, NULL, NULL);
+}
+
+int gsm_http_post(lua_State *L)
+{
+  const char *data = luaL_checkstring(L, 2); /* 1 is url, it is handled in http_handle function */
+  const char *content_type = luaL_checkstring(L, 3);
+  return gsm_http_handle(L, POST, data, content_type);
+}
 
 int gsm_lua_wait(lua_State *L)
 {
@@ -566,6 +624,7 @@ const LUA_REG_TYPE gsm_map[] =
   F(wait, gsm_lua_wait),
   F(gprs_enable, gsm_gprs_enable),
   F(http_get, gsm_http_get),
+  F(http_post, gsm_http_post),
 
   /* CONSTANTS */
 #define MAP(a) { LSTRKEY(#a), LNUMVAL(a) }
