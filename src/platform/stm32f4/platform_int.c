@@ -5,6 +5,7 @@
 #include "platform_conf.h"
 #include "elua_int.h"
 #include "common.h"
+#include <stdio.h>
 
 // Platform-specific headers
 #include "stm32f4xx.h"
@@ -161,6 +162,11 @@ static int exint_gpio_to_src( pio_type piodata )
 static void all_exti_irqhandler( int line )
 {
   u16 v, port, pin;
+
+  /* Reset device on User_button */
+  if (10 == line) {
+    NVIC_SystemReset();
+  }
   
   v = exti_line_to_gpio( line );
   port = PLATFORM_IO_GET_PORT( v );
@@ -472,6 +478,8 @@ static const u8 timer_irq_table[] = { TIM1_CC_IRQn, TIM2_IRQn, TIM3_IRQn, TIM4_I
 static const u8 timer_irq_table[] = { TIM1_CC_IRQn, TIM2_IRQn, TIM3_IRQn, TIM4_IRQn, TIM5_IRQn };
 #endif
 
+extern u32 platform_timer_set_clock( unsigned id, u32 clock );
+
 void platform_int_init()
 {
   NVIC_InitTypeDef nvic_init_structure;
@@ -504,12 +512,28 @@ void platform_int_init()
     NVIC_Init( &nvic_init_structure );
   }
 #endif
+
   /* Initialize TIMER 14 for the handler loop */
+  platform_timer_set_clock( 11, 500000 ); //TIM14 = id 11
   TIM_ITConfig(TIM14, TIM_IT_Update, ENABLE);
   nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 1;
   nvic_init_structure.NVIC_IRQChannelSubPriority = 7;
   nvic_init_structure.NVIC_IRQChannel = TIM8_TRG_COM_TIM14_IRQn;
   NVIC_Init(&nvic_init_structure);
+
+  /* Initialize EXTI10, PB10, User button */
+  EXTI_InitTypeDef exti;
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
+  EXTI_DeInit();
+  SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOB, EXTI_PinSource10);
+  EXTI_StructInit(&exti);
+  exti.EXTI_Line    = EXTI_Line10;
+  exti.EXTI_Trigger = EXTI_Trigger_Rising;
+  exti.EXTI_Mode    = EXTI_Mode_Interrupt;
+  exti.EXTI_LineCmd = ENABLE;
+  EXTI_Init(&exti);
+  EXTI_ClearFlag(EXTI_Line10);
+  EXTI_ClearITPendingBit(EXTI_Line10);
 }
 
 

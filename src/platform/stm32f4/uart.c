@@ -9,6 +9,7 @@
 #include "usbd_cdc_vcp.h"
 #include "ringbuff.h"
 #include "gsm.h"
+#include <delay.h>
 
 //Prototypes
 void usart_received(int id, u8 c);
