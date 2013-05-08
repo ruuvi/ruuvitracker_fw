@@ -56,7 +56,7 @@ $GPZDA,093222.000,14,04,2013,,*5F
 #define MIN_OPT_LEVEL 2
 #include "lrodefs.h"
 
-#define BUFF_SIZE	256
+#define BUFF_SIZE	512
 
 enum State {
   STATE_UNKNOWN = 0,

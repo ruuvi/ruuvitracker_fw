@@ -18,10 +18,10 @@ repeat ruuvi.delay_ms(100) until gsm.is_ready()
 print("GSM ready and registed to network\n")
 
 print("Sending GPS power-on command, waiting for response...\n")
-print(gsm.cmd("AT+CGPSPWR=1"))
+gsm.cmd("AT+CGPSPWR=1")
 
 print("Sending GPS cold reset command, waiting for response...\n")
-print(gsm.cmd("AT+CGPSRST=1"))
+gsm.cmd("AT+CGPSRST=1")
 
 print("Setup GPS UART port\n")
 uart.setup(2, 115200, 8, uart.PAR_NONE, uart.STOP_1)
