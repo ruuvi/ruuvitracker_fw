@@ -97,7 +97,7 @@
 
 #ifdef BUILD_GSM
 extern int luaopen_gsm( lua_State *L );
-#define GSMLINE _ROM( "gsm", luaopen_gsm, gsm_map )
+#define GSMLINE _ROM( "gsm", luaopen_gsm, gsm_map ) _ROM("http", luaopen_gsm, http_map)
 #else
 #define GSMLINE
 #endif

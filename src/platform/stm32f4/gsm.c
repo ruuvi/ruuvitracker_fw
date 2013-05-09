@@ -89,7 +89,6 @@ static void set_hw_flow();
 static void parse_cfun(char *line);
 static void gpsready(char *line);
 static void sim_inserted(char *line);
-static void gprs_off(char *line);
 static void incoming_call(char *line);
 static void call_ended(char *line);
 static void parse_caller(char *line);
@@ -114,7 +113,6 @@ static Message urc_messages[] = {
   { "Call Ready",           .next_state=STATE_READY },
   { "GPS Ready",            .func = gpsready },
   { "NORMAL POWER DOWN",    .next_state=STATE_OFF },
-  { "+SAPBR 1: DEACT",      .func = gprs_off },
   { "+COPS:",               .func = parse_network },
   { "+CLCC:",               .func = parse_caller },
   { "+SAPBR:",              .func = parse_sapbr },
@@ -169,6 +167,8 @@ static void parse_network(char *line)
 
 #define STATUS_CONNECTING 0
 #define STATUS_CONNECTED 1
+static const char sapbr_deact[] = "+SAPBR 1: DEACT";
+
 static void parse_sapbr(char *line)
 {
   int status;
@@ -187,12 +187,9 @@ static void parse_sapbr(char *line)
     default:
       gsm.flags &= ~GPRS_READY;
     }
+  } else if (0 == strncmp(line, sapbr_deact, strlen(sapbr_deact))) {
+    gsm.flags &= ~GPRS_READY;
   }
-}
-
-static void gprs_off(char *line)
-{
-  gsm.flags &= ~GPRS_READY;
 }
 
 static void sim_inserted(char *line)
@@ -624,11 +621,20 @@ int gsm_http_handle(lua_State *L, method_t method,
 HTTP_END:
   gsm_cmd("AT+HTTPTERM");
 
+  /* Create response structure */
+  lua_newtable(L);
+  lua_pushstring(L, "status");
+  lua_pushinteger(L, status);
+  lua_settable(L, -3);
   if (buf) {
+    lua_pushstring(L, "content");
     lua_pushstring(L, buf);
-    return 1;
+    lua_settable(L, -3);
   }
-  return 0;
+  lua_pushstring(L, "is_success" );
+  lua_pushboolean(L, ((200 <= status) && (status < 300))); /* If HTTP response was 2xx */
+  lua_settable(L, -3);
+  return 1;
 }
 
 int gsm_http_get(lua_State *L)
@@ -732,8 +738,6 @@ const LUA_REG_TYPE gsm_map[] =
   F(cmd, gsm_send_cmd),
   F(wait, gsm_lua_wait),
   F(gprs_enable, gsm_gprs_enable),
-  F(http_get, gsm_http_get),
-  F(http_post, gsm_http_post),
 
   /* CONSTANTS */
 #define MAP(a) { LSTRKEY(#a), LNUMVAL(a) }
@@ -753,6 +757,14 @@ const LUA_REG_TYPE gsm_map[] =
   { LSTRKEY("FAIL"), LNUMVAL(AT_FAIL) },
   { LSTRKEY("ERROR"), LNUMVAL(AT_ERROR) },
 #endif
+  { LNILKEY, LNILVAL }
+};
+
+/* Add HTTP related functions to another table */
+const LUA_REG_TYPE http_map[] =
+{
+  F(get, gsm_http_get),
+  F(post, gsm_http_post),
   { LNILKEY, LNILVAL }
 };
 
