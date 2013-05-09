@@ -89,7 +89,6 @@ static void set_hw_flow();
 static void parse_cfun(char *line);
 static void gpsready(char *line);
 static void sim_inserted(char *line);
-static void gprs_off(char *line);
 static void incoming_call(char *line);
 static void call_ended(char *line);
 static void parse_caller(char *line);
@@ -114,7 +113,6 @@ static Message urc_messages[] = {
   { "Call Ready",           .next_state=STATE_READY },
   { "GPS Ready",            .func = gpsready },
   { "NORMAL POWER DOWN",    .next_state=STATE_OFF },
-  { "+SAPBR 1: DEACT",      .func = gprs_off },
   { "+COPS:",               .func = parse_network },
   { "+CLCC:",               .func = parse_caller },
   { "+SAPBR:",              .func = parse_sapbr },
@@ -169,6 +167,8 @@ static void parse_network(char *line)
 
 #define STATUS_CONNECTING 0
 #define STATUS_CONNECTED 1
+static const char sapbr_deact[] = "+SAPBR 1: DEACT";
+
 static void parse_sapbr(char *line)
 {
   int status;
@@ -187,12 +187,9 @@ static void parse_sapbr(char *line)
     default:
       gsm.flags &= ~GPRS_READY;
     }
+  } else if (0 == strncmp(line, sapbr_deact, strlen(sapbr_deact))) {
+    gsm.flags &= ~GPRS_READY;
   }
-}
-
-static void gprs_off(char *line)
-{
-  gsm.flags &= ~GPRS_READY;
 }
 
 static void sim_inserted(char *line)
