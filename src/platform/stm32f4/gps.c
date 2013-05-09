@@ -44,12 +44,12 @@ int gps_set_power_state(lua_State *L)
 {
   // TODO: handle error states
   enum GPS_power_mode next = luaL_checkinteger(L, -1);
-
+  
   switch(next) {
     case GPS_POWER_ON:
       if(gps.state == STATE_OFF) {
         gsm_cmd("AT+CGPSPWR=1");    /* Power-on */
-        gsm_cmd("AT+CGPSOUT=255");  /* Select which GP lines GPS should print */
+        gsm_cmd("AT+CGPSOUT=255");  /* Select which GP sentences GPS should print */
         gsm_cmd("AT+CGPSRST=1");    /* Do a GPS warm reset */
       }
       break;
@@ -82,7 +82,7 @@ void gps_setup_io()
 {
   // Setup serial port, GPS_UART_ID == 2 @ RUUVIB1
   // TODO: setup other boards
-  platform_uart_setup( GPS_UART_ID, 115200, 8, PLATFORM_UART_PARITY_NONE, PLATFORM_UART_STOPBITS_1);
+  platform_uart_setup(GPS_UART_ID, 115200, 8, PLATFORM_UART_PARITY_NONE, PLATFORM_UART_STOPBITS_1);
 }
 
 /**
@@ -93,7 +93,7 @@ void gps_line_received()
   char buf[GPS_BUFF_SIZE];
   int c, i = 0;
 
-  while('\n' != (c=platform_s_uart_recv(GPS_UART_ID, PLATFORM_TIMER_INF_TIMEOUT))) {
+  while('\n' != (c=platform_s_uart_recv(GPS_UART_ID, 0))) { /* 0 = return immediately */
     if(-1 == c)
       break;
     if('\r' == c)
@@ -104,7 +104,6 @@ void gps_line_received()
   }
   buf[i] = 0;
   if(i > 0) {
-    //printf("GPS: %s\n", buf);
     if(strstr(buf, "$GPRMC")) {
       parse_gprmc(buf);
     } else if(strstr(buf, "$GPGGA")) {  // Global Positioning System Fix Data
@@ -225,7 +224,7 @@ int parse_gpgsa(const char *line) {
 }
 
 int parse_gprmc(const char *line) {
-    char time[11], status[2], ns[2], ew[2], date[7];
+    char time[15], status[2], ns[2], ew[2], date[7];
     double lat, lon, speed_ms, heading;
     
     const char *error;
@@ -315,18 +314,6 @@ double degree2nmeadeg(double val) {
     val = int_part * 100 + fra_part * 60;
     return val;
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 const LUA_REG_TYPE gps_map[] =
