@@ -62,6 +62,8 @@ enum GSM_FLAGS {
   SIM_INSERTED    = 0x02,
   GPS_READY       = 0x04,
   GPRS_READY      = 0x08,
+  CALL            = 0x10,
+  INCOMING_CALL   = 0x20,
 };
 
 /* Modem Status */
@@ -80,15 +82,18 @@ struct gsm_modem {
 
 
 /* Handler functions for AT replies*/
-static void handle_ok();
-static void handle_fail();
-static void handle_error();
+static void handle_ok(char *line);
+static void handle_fail(char *line);
+static void handle_error(char *line);
 static void set_hw_flow();
-static void cfun_1();
-static void gpsready();
-static void sim_inserted();
-static void gprs_off();
-static void incoming_call();
+static void parse_cfun(char *line);
+static void gpsready(char *line);
+static void sim_inserted(char *line);
+static void gprs_off(char *line);
+static void incoming_call(char *line);
+static void call_ended(char *line);
+static void parse_caller(char *line);
+static void parse_network(char *line);
 
 typedef struct Message Message;
 struct Message {
@@ -104,76 +109,99 @@ static Message urc_messages[] = {
   { "+CPIN: NOT INSERTED",  .next_state=STATE_ERROR },
   { "+CPIN: READY",         .next_state=STATE_WAIT_NETWORK, .func = sim_inserted },
   { "+CPIN: SIM PIN",       .next_state=STATE_ASK_PIN, .func = sim_inserted },
-  { "+CFUN: 1",             .func = cfun_1 },
+  { "+CFUN:",               .func = parse_cfun },
   { "Call Ready",           .next_state=STATE_READY },
   { "GPS Ready",            .func = gpsready },
   { "NORMAL POWER DOWN",    .next_state=STATE_OFF },
   { "+SAPBR 1: DEACT",      .func = gprs_off },
+  { "+COPS:",               .func = parse_network },
+  { "+CLCC:",               .func = parse_caller },
   /* Return codes */
   { "OK",   .func = handle_ok },
   { "FAIL", .func = handle_fail },
   { "ERROR",.func = handle_error },
   { "+CME ERROR", .func = handle_error },
   /* During Call */
-  { "NO CARRIER",   .func = handle_fail }, /* This is general end-of-call */
-  { "NO DIALTONE",  .func = handle_fail },
+  { "NO CARRIER",   .func = call_ended }, /* This is general end-of-call */
+  { "NO DIALTONE",  .func = call_ended },
   { "BUSY",         .func = handle_fail },
   { "NO ANSWER",    .func = handle_fail },
   { "RING",         .func = incoming_call },
   { NULL } /* Table must end with NULL */
 };
 
-static void incoming_call()
+static void incoming_call(char *line)
 {
-  char line[256];
-  char number[64];
-  printf("Incoming call\n");
-  /* Query incoming number */
+  gsm.flags |= INCOMING_CALL;
   gsm_uart_write("AT+CLCC" GSM_CMD_LINE_END);
+}
+
+static void call_ended(char *line)
+{
+  gsm.flags &= ~CALL;
+  gsm.flags &= ~INCOMING_CALL;
+}
+
+static void parse_caller(char *line)
+{
+  char number[64];
+
   /* Example reply: +CLCC: 1,1,4,0,0,"+35850381xxxx",145,"" */
-  gsm_wait("+CLCC", TIMEOUT, line);
-  printf("%s\n", line);
-  if (AT_OK != gsm.reply)
-    return;
   if (1 == sscanf(line, "+CLCC: %*d,%*d,4,0,%*d,\"%s", number)) {
     *strchr(number,'"') = 0; //Set number to end to  " mark
     printf("GSM: Incoming call from %s\n", number);
   }
-  gsm_wait("OK", 0, NULL);
 }
 
-static void gprs_off()
+static void parse_network(char *line)
+{
+  char network[64];
+  /* Example: +COPS: 0,0,"Saunalahti" */
+  if (1 == sscanf(line, "+COPS: 0,0,\"%s", network)) {
+    *strchr(network,'"') = 0;
+    printf("GSM: Registered to network %s\n", network);
+    gsm.state = STATE_READY;
+  }
+}
+
+static void gprs_off(char *line)
 {
   gsm.flags &= ~GPRS_READY;
 }
 
-static void sim_inserted()
+static void sim_inserted(char *line)
 {
   gsm.flags |= SIM_INSERTED;
 }
 
-static void gpsready()
+static void gpsready(char *line)
 {
   gsm.flags |= GPS_READY;
 }
 
-static void cfun_1()
+static void parse_cfun(char *line)
 {
-  gsm.cfun = CFUN_1;
+  if (strchr(line,'0')) {
+    gsm.cfun = CFUN_0;
+  } else if (strchr(line,'1')) {
+    gsm.cfun = CFUN_1;
+  } else {
+    printf("GSM: Unknown CFUN state\n");
+  }
 }
-static void handle_ok()
+static void handle_ok(char *line)
 {
   gsm.reply = AT_OK;
   gsm.waiting_reply = 0;
 }
 
-static void handle_fail()
+static void handle_fail(char *line)
 {
   gsm.reply = AT_FAIL;
   gsm.waiting_reply = 0;
 }
 
-static void handle_error()
+static void handle_error(char *line)
 {
   gsm.reply = AT_ERROR;
   gsm.waiting_reply = 0;
@@ -202,14 +230,15 @@ int gsm_cmd(const char *cmd)
 int gsm_wait(const char *pattern, int timeout, char *line)
 {
   const char *p = pattern;
-  char c;
+  int c;
   int i;
 
   gsm.waiting_pattern = 1;
-//TODO: Implement timeouts
+
   while(*p) {
-    c = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT);
-    printf("%c",c);
+    c = platform_s_uart_recv(GSM_UART_ID, timeout);
+    if (-1 == c)
+      return AT_FAIL;
     if (c == *p) { //Match
       p++;
     } else { //No match, go back to start
@@ -227,7 +256,7 @@ int gsm_wait(const char *pattern, int timeout, char *line)
 
   gsm.waiting_pattern = 0;
 
-  return gsm.reply;
+  return AT_OK;
 }
 
 /* Setup IO ports. Called in platform_setup() from platform.c */
@@ -345,7 +374,7 @@ void gsm_line_received()
       gsm.state = m->next_state;
     }
     if (m->func) {
-      m->func();
+      m->func(buf);
     }
   }
 }
@@ -611,6 +640,12 @@ int gsm_set_power_state(lua_State *L)
       gsm_enable_voltage();
       gsm_toggle_power_pin();
       set_hw_flow();
+    } else {                    /* Check if unknown state */
+      if (gsm.state == STATE_OFF) {
+        gsm_cmd("AT+CPIN?");    /* Check PIN, Functionality and Network status */
+        gsm_cmd("AT+CFUN?");    /* Responses of these will feed the state machine */
+        gsm_cmd("AT+COPS?");
+      }
     }
     break;
   case POWER_OFF:
@@ -671,6 +706,7 @@ const LUA_REG_TYPE gsm_map[] =
   MAP( GPS_READY ),
   MAP( SIM_INSERTED ),
   MAP( GPRS_READY ),
+  MAP( INCOMING_CALL ),
   { LSTRKEY("OK"), LNUMVAL(AT_OK) },
   { LSTRKEY("FAIL"), LNUMVAL(AT_FAIL) },
   { LSTRKEY("ERROR"), LNUMVAL(AT_ERROR) },
