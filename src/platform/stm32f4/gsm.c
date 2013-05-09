@@ -621,11 +621,20 @@ int gsm_http_handle(lua_State *L, method_t method,
 HTTP_END:
   gsm_cmd("AT+HTTPTERM");
 
+  /* Create response structure */
+  lua_newtable(L);
+  lua_pushstring(L, "status");
+  lua_pushinteger(L, status);
+  lua_settable(L, -3);
   if (buf) {
+    lua_pushstring(L, "content");
     lua_pushstring(L, buf);
-    return 1;
+    lua_settable(L, -3);
   }
-  return 0;
+  lua_pushstring(L, "is_success" );
+  lua_pushboolean(L, ((200 <= status) && (status < 300))); /* If HTTP response was 2xx */
+  lua_settable(L, -3);
+  return 1;
 }
 
 int gsm_http_get(lua_State *L)
@@ -729,8 +738,6 @@ const LUA_REG_TYPE gsm_map[] =
   F(cmd, gsm_send_cmd),
   F(wait, gsm_lua_wait),
   F(gprs_enable, gsm_gprs_enable),
-  F(http_get, gsm_http_get),
-  F(http_post, gsm_http_post),
 
   /* CONSTANTS */
 #define MAP(a) { LSTRKEY(#a), LNUMVAL(a) }
@@ -750,6 +757,14 @@ const LUA_REG_TYPE gsm_map[] =
   { LSTRKEY("FAIL"), LNUMVAL(AT_FAIL) },
   { LSTRKEY("ERROR"), LNUMVAL(AT_ERROR) },
 #endif
+  { LNILKEY, LNILVAL }
+};
+
+/* Add HTTP related functions to another table */
+const LUA_REG_TYPE http_map[] =
+{
+  F(get, gsm_http_get),
+  F(post, gsm_http_post),
   { LNILKEY, LNILVAL }
 };
 

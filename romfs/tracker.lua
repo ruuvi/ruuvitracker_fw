@@ -66,17 +66,17 @@ function send_event(event)
    logger:info("Sending event")
    local message = create_event_json(event, config.tracker.tracker_code, config.tracker.shared_secret)
    logger:debug(message)
-   return gsm.http_post(config.tracker.url .. 'events', message, 'application/json')
+   http.post(config.tracker.url .. 'events', message, 'application/json')
 end
 
 
 --[[--
 function ping_server()
-   local code, data = http.get(server.url .. 'ping')
-   if code ~= "200" then
+   local response = http.get(server.url .. 'ping')
+   if not response.is_success then
       return nil
    end
-   local success, response = pcall(function() return json.decode(data) end)
+   local success, response = pcall(function() return json.decode(response.content) end)
    if success then
       return response
    end
