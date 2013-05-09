@@ -3,35 +3,27 @@
 --
 -- Author: Tomi Hautakoski
 
+
+-- First example. Power up GSM device
 print("Powering up GSM\n")
 gsm.set_power_state(gsm.POWER_ON)
-print("GSM powered\n")
 
-print("Checking if PIN is required...\n")
-if gsm.is_pin_required() then
-    print("Sending PIN")
-    gsm.send_pin( "0000" ) -- Change your pin code here
-end
+-- Wait for the GPS ready flag
+repeat ruuvi.delay_ms(1000) until gsm.flag_is_set(gsm.GPS_READY)
 
-print("Wait for modem to be Ready (On the network)\n")
-repeat ruuvi.delay_ms(100) until gsm.is_ready()
-print("GSM ready and registed to network\n")
+-- Power up GPS device
+gps.set_power_state(gps.GPS_POWER_ON)
 
-print("Sending GPS power-on command, waiting for response...\n")
-gsm.cmd("AT+CGPSPWR=1")
+-- Wait for a GPS fix
+print("Setup done, waiting for GPS fix")
+repeat ruuvi.delay_ms(1000) until gps.has_fix()
 
-print("Sending GPS cold reset command, waiting for response...\n")
-gsm.cmd("AT+CGPSRST=1")
+print("Got a GPS fix! Getting current location...")
 
-print("Setup GPS UART port\n")
-uart.setup(2, 115200, 8, uart.PAR_NONE, uart.STOP_1)
-timeout = 50e3 -- Timeout 100ms for messages to arrive
-
-print("Setup done, waiting for GPS data from UART 2...\n")
-while true do
-    local str = uart.read(2, '*l', timeout)
-    if str ~= "" then
-	print(str)
-    end
+-- While we have a fix, get the current location
+while gps.has_fix() do
+    print("\nLUA: ")
+    print(gps.get_location())
+    ruuvi.delay_ms(1000)
 end
 

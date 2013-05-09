@@ -2,42 +2,13 @@
  *  Simcom 908 GPS Driver for Ruuvitracker.
  *
  * @author: Tomi Hautakoski
-
-AT+CGPSPWR=1 -> Power up GPS engine (and 2V8 antenna power)
-AT+CGPSRST=0 -> Cold start (after this NMEA data starts to flow from USART2
-AT+CGPSRST=1 -> Warm start (after this NMEA data starts to flow from USART2
-AT+CGPSPWR=0 -> Power down GPS engine (and 2V8 antenna power)
-
-// Memorizing GPS configurations' commands into Code Memory
-char strGPS_PowerUp		[] PROGMEM = "AT+CGPSPWR=1\r\n";
-char strGPS_Mode1		[] PROGMEM = "AT+CGPSRST=1\r\n";
-char strGPS_BaudRate	[] PROGMEM = "AT+CGPSIPR=9600\r\n";
-char strGPS_OutPut		[] PROGMEM = "AT+CGPSOUT=32\r\n";
-char strGPS_PowerDown	[] PROGMEM = "AT+CGPSPWR=0\r\n";
-
-$GPGGA,000325.002,,,,,0,0,,,M,,M,,*4E
-$GPGLL,,,,,000325.002,V,N*7C
-$GPGSA,A,1,,,,,,,,,,,,,,,*1E
-$GPGSV,3,1,09,03,,,36,04,,,33,05,,,28,08,,,33*77
-$GPGSV,3,2,09,16,,,19,20,,,36,21,,,32,26,,,34*78
-$GPGSV,3,3,09,29,,,29*70
-$GPRMC,000325.002,V,,,,,,,,,,N*4B
-$GPVTG,,T,,M,,N,,K,N*2C
-
-$GPGGA,093222.000,6500.722951,N,02530.995761,E,1,9,0.94,20.487,M,21.546,M,,*65
-$GPGLL,6500.722951,N,02530.995761,E,093222.000,A,A*59
-$GPGSA,A,3,13,10,23,07,16,02,04,29,08,,,,1.80,0.94,1.54*01
-$GPGSV,3,1,12,13,70,121,29,10,61,250,42,23,44,104,29,07,40,194,41*76
-$GPGSV,3,2,12,16,35,074,22,02,33,271,44,05,21,304,,04,20,230,39*73
-$GPGSV,3,3,12,29,17,345,43,08,14,204,35,20,00,146,,33,,,33*4E
-$GPRMC,093222.000,A,6500.722951,N,02530.995761,E,0.000,0.0,140413,,,A*6D
-$GPVTG,0.0,T,,M,0.000,N,0.000,K,A*0D
-$GPZDA,093222.000,14,04,2013,,*5F
 */
 
 #include <string.h>
 #include <stdlib.h>
 #include <delay.h>
+#include <stdio.h>
+#include <math.h>
 #include "platform.h"
 #include "platform_conf.h"
 #include "common.h"
@@ -48,7 +19,9 @@ $GPZDA,093222.000,14,04,2013,,*5F
 #include "lrotable.h"
 #include "stm32f4xx.h"
 #include "stm32f4xx_conf.h"
+#include "gsm.h"
 #include "gps.h"
+#include "slre.h"
 
 #ifdef BUILD_GPS
 
@@ -56,42 +29,48 @@ $GPZDA,093222.000,14,04,2013,,*5F
 #define MIN_OPT_LEVEL 2
 #include "lrodefs.h"
 
-#define BUFF_SIZE	512
-
-enum State {
-  STATE_UNKNOWN = 0,
-  STATE_OFF = 1,
-  STATE_ON = 2,
-  STATE_HAS_FIX = 3,
-  STATE_ERROR = 4,
-};
-
-/* GPS device status */
-struct gps_device {
-  enum State state;
-} static gps = {	/* Initial status */
-  .state = STATE_OFF
-};
 
 
 
 int gps_has_fix(lua_State *L)
 {
-	lua_pushboolean(L, gps.state == STATE_HAS_FIX);
+  lua_pushboolean(L, (gps.state == STATE_HAS_3D_FIX) || 
+                      (gps.state == STATE_HAS_2D_FIX));
+  
 	return 1;
 }
 
-void gps_set_power_state(lua_State *L)
+int gps_set_power_state(lua_State *L)
 {
-	// TODO: move stuff from pc-project to here
+  // TODO: handle error states
+  enum GPS_power_mode next = luaL_checkinteger(L, -1);
+
+  switch(next) {
+    case GPS_POWER_ON:
+      if(gps.state == STATE_OFF) {
+        gsm_cmd("AT+CGPSPWR=1");    /* Power-on */
+        gsm_cmd("AT+CGPSOUT=255");  /* Select which GP lines GPS should print */
+        gsm_cmd("AT+CGPSRST=1");    /* Do a GPS warm reset */
+      }
+      break;
+    case GPS_POWER_OFF:
+      if(gps.state == STATE_ON) {
+        // TODO: handle other states
+        gsm_cmd("AT+CGPSPWR=0");    /* Power-off */
+      }
+      break;
+    default:
+      printf("GPS: Error, unknown power state!\n");
+      break;
+    }
+  return 0;
 }
 
 int gps_get_location(lua_State *L)
 {
-	// TODO: move stuff from pc-project to here
- 	//lua_pushlstring(L, RMCLatitude, sizeof(RMCLatitude));
-  
-  return 1;
+ 	lua_pushnumber(L, gps_data.lat);
+ 	lua_pushnumber(L, gps_data.lon);
+  return 2;
 }
 
 
@@ -102,6 +81,7 @@ int gps_get_location(lua_State *L)
 void gps_setup_io()
 {
   // Setup serial port, GPS_UART_ID == 2 @ RUUVIB1
+  // TODO: setup other boards
   platform_uart_setup( GPS_UART_ID, 115200, 8, PLATFORM_UART_PARITY_NONE, PLATFORM_UART_STOPBITS_1);
 }
 
@@ -110,22 +90,241 @@ void gps_setup_io()
  */
 void gps_line_received()
 {
-  char buf[BUFF_SIZE];
+  char buf[GPS_BUFF_SIZE];
   int c, i = 0;
 
-  while('\n' != (c=platform_s_uart_recv(GPS_UART_ID, 0))) {
-    if (-1 == c)
+  while('\n' != (c=platform_s_uart_recv(GPS_UART_ID, PLATFORM_TIMER_INF_TIMEOUT))) {
+    if(-1 == c)
       break;
-    if ('\r' == c)
+    if('\r' == c)
       continue;
     buf[i++] = (char)c;
-    if(i==BUFF_SIZE)
+    if(i == GPS_BUFF_SIZE)
       break;
   }
   buf[i] = 0;
-  if (i > 0)
-    printf("GPS: %s\n", buf);
+  if(i > 0) {
+    //printf("GPS: %s\n", buf);
+    if(strstr(buf, "$GPRMC")) {
+      parse_gprmc(buf);
+    } else if(strstr(buf, "$GPGGA")) {  // Global Positioning System Fix Data
+      parse_gpgga(buf);
+    } else if(strstr(buf, "$GPGSA")) {  // GPS DOP and active satellites 
+      parse_gpgsa(buf);
+    } else if(strstr(buf, "$GPGSV")) {  // Satellites in view
+      //parse_gpgsv(buf); // TODO
+    } else if(strstr(buf, "$GPGLL")) {  // Geographic Position, Latitude / Longitude and time.
+      //parse_gpgll(buf); // TODO
+    } else if(strstr(buf, "$GPVTG")) {  // Track Made Good and Ground Speed
+      //parse_gpvtg(buf); // TODO
+    } else if(strstr(buf, "$GPZDA")) {  // Date & Time
+      //parse_gpzda(buf); // Not needed ATM, GPRMC has the same data&time data
+    } else {
+      printf("GPS: input line doesn't match any supported GP sentences!\n");
+    }
+  }
 }
+
+int parse_gpgga(const char *line) {
+    int n_sat = 0;
+    const char *error;
+    
+    error = slre_match(0, "^\\$GPGGA,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,([^,]*),[^,]*,[^,]*,[^,]*",
+            line, strlen(line),
+            SLRE_INT, sizeof(n_sat), &n_sat);
+    if(error != NULL) {
+        printf("GPS: Error parsing string: %s\n", error);
+        return -1;
+    } else {
+        gps_data.n_satellites = n_sat;
+        printf("GPS: Number of satellites in view: %d\n", gps_data.n_satellites);
+        return 0;
+    }
+}
+
+int parse_gpzda(const char *line) {
+    char time[15];
+    int day, month, year;
+    const char *error;
+
+    memset(time, 0, sizeof(time));
+    error = slre_match(0, "^\\$GPZDA,([^,]*),([^,]*),([^,]*),([^,]*),[^,]*,[^,]*",
+                line, strlen(line),
+                SLRE_STRING, sizeof(time), time,
+                SLRE_INT, sizeof(day), &day,
+                SLRE_INT, sizeof(month), &month,
+                SLRE_INT, sizeof(year), &year);
+    if(error != NULL) {
+        printf("GPS: Error parsing string: %s\n", error);
+        return -1;
+    } else {
+        parse_nmea_time_str(time, &gps_data.dt);
+        gps_data.dt.day = day;
+        gps_data.dt.month = month;
+        gps_data.dt.year = year;
+        printf("GPS: hh: %d\n", gps_data.dt.hh);
+        printf("GPS: mm: %d\n", gps_data.dt.mm);
+        printf("GPS: sec: %d\n", gps_data.dt.sec);
+        printf("GPS: msec: %d\n", gps_data.dt.msec);
+        printf("GPS: day: %d\n", gps_data.dt.day);
+        printf("GPS: month: %d\n", gps_data.dt.month);
+        printf("GPS: year: %d\n", gps_data.dt.year);
+        return 0;
+    }
+}
+
+int parse_gpgsa(const char *line) {
+    int gps_fix_type;
+    double pdop, hdop, vdop;
+    const char *error;
+    
+    error = slre_match(0, "^\\$GPGSA,[^,]*,([^,]*),[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,([^,]*),([^,]*),([^,]*)",
+                line, strlen(line),
+                SLRE_INT, sizeof(gps_fix_type), &gps_fix_type,
+                SLRE_FLOAT, sizeof(pdop), &pdop,
+                SLRE_FLOAT, sizeof(hdop), &hdop,
+                SLRE_FLOAT, sizeof(vdop), &vdop);
+    
+    if(error != NULL) {
+        //printf("GPS: Error parsing string: %s\n", error);
+        return -1;
+    } else {
+        switch(gps_fix_type) {
+        case GPS_FIX_TYPE_NONE:
+            gps_data.fix_type = GPS_FIX_TYPE_NONE;
+            gps.state = STATE_ON;
+            printf("GPS: No GPS fix\n");
+            gps_data.lat = 0.0;
+            gps_data.lon = 0.0;
+            return -1;
+            break;
+        case GPS_FIX_TYPE_2D:
+            gps_data.fix_type = GPS_FIX_TYPE_2D;
+            printf("GPS: fix type: 2D\n");
+            gps.state = STATE_HAS_2D_FIX;
+            break;
+        case GPS_FIX_TYPE_3D:
+            gps_data.fix_type = GPS_FIX_TYPE_3D;
+            printf("GPS: fix type: 3D\n");
+            gps.state = STATE_HAS_3D_FIX;
+            break;
+        default:
+            printf("GPS: Error, unknown GPS fix type!");
+            return -1;
+            break;
+        }
+        gps_data.fix_type = gps_fix_type;
+        gps_data.pdop = pdop;
+        gps_data.hdop = hdop;
+        gps_data.vdop = vdop;
+        printf("GPS: pdop: %f\n", gps_data.pdop);
+        printf("GPS: hdop: %f\n", gps_data.hdop);
+        printf("GPS: vdop: %f\n", gps_data.vdop);
+        return 0;
+    }
+}
+
+int parse_gprmc(const char *line) {
+    char time[11], status[2], ns[2], ew[2], date[7];
+    double lat, lon, speed_ms, heading;
+    
+    const char *error;
+    error = slre_match(0, "^\\$GPRMC,([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),[^,]*,[^,]*,[^,]*",
+                line, strlen(line),
+                SLRE_STRING, sizeof(time), time,
+                SLRE_STRING, sizeof(status), status,
+                SLRE_FLOAT, sizeof(lat), &lat,
+                SLRE_STRING, sizeof(ns), ns,
+                SLRE_FLOAT, sizeof(lon), &lon,
+                SLRE_STRING, sizeof(ew), ew,
+                SLRE_FLOAT, sizeof(speed_ms), &speed_ms,
+                SLRE_FLOAT, sizeof(heading), &heading,
+                SLRE_STRING, sizeof(date), date);
+
+    if(error != NULL) {
+        printf("GPS: Error parsing string: %s\n", error);
+        return -1;
+    } else {
+        if(strcmp(status, "A") != 0) {
+            printf("GPS: No GPS fix\n");
+            return -1;
+        }
+        parse_nmea_time_str(time, &gps_data.dt);
+        parse_nmea_date_str(date, &gps_data.dt);
+        gps_data.lat = nmeadeg2degree(lat);
+        gps_data.lon = nmeadeg2degree(lon);
+        /*
+        printf("GPS: hh: %d\n", gps_data.dt.hh);
+        printf("GPS: mm: %d\n", gps_data.dt.mm);
+        printf("GPS: sec: %d\n", gps_data.dt.sec);
+        printf("GPS: msec: %d\n", gps_data.dt.msec);
+        printf("GPS: day: %d\n", gps_data.dt.day);
+        printf("GPS: month: %d\n", gps_data.dt.month);
+        printf("GPS: year: %d\n", gps_data.dt.year);
+        printf("GPS: status: %s\n", status);
+        printf("GPS: latitude: %f\n", lat);
+        printf("GPS: ns_indicator: %s\n", ns);
+        printf("GPS: longitude: %f\n", lon);
+        printf("GPS: ew_indicator: %s\n", ew);
+        */
+        printf("GPS: speed_ms: %f\n", speed_ms);
+        printf("GPS: heading: %f\n", heading);
+        return 0;
+    }
+}
+
+// Time string should be the following format: '093222.000'
+void parse_nmea_time_str(char *str, gps_datetime *dt) {
+    char tmp[4];
+
+    memcpy(tmp, str, 2);
+    tmp[2] = 0;
+    dt->hh = strtol(tmp, NULL, 10);
+    memcpy(tmp, str+2, 2);
+    dt->mm = strtol(tmp, NULL, 10);
+    memcpy(tmp, str+4, 2);
+    dt->sec = strtol(tmp, NULL, 10);
+    memcpy(tmp, str+7, 3);
+    dt->msec = strtol(tmp, NULL, 10);
+    tmp[3] = 0;
+}
+
+// Date string should be the following format: '140413'
+void parse_nmea_date_str(char *str, gps_datetime *dt) {
+    char tmp[6];
+
+    memcpy(tmp, str, 2);
+    tmp[2] = 0;
+    dt->day = strtol(tmp, NULL, 10);
+    memcpy(tmp, str+2, 2);
+    dt->month = strtol(tmp, NULL, 10);
+    memcpy(tmp, str+4, 2);
+    dt->year = 2000 + strtol(tmp, NULL, 10); // Its past Y2k now
+}
+
+double nmeadeg2degree(double val) {
+    double deg = ((int)(val / 100));
+    val = deg + (val - deg * 100) / 60;
+    return val;
+}
+
+double degree2nmeadeg(double val) {
+    double int_part;
+    double fra_part;
+    fra_part = modf(val, &int_part);
+    val = int_part * 100 + fra_part * 60;
+    return val;
+}
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -140,10 +339,13 @@ const LUA_REG_TYPE gps_map[] =
 
   /* CONSTANTS */
 #define MAP(a) { LSTRKEY(#a), LNUMVAL(a) }
+  MAP( GPS_POWER_OFF),
+  MAP( GPS_POWER_ON),
   MAP( STATE_UNKNOWN),
   MAP( STATE_OFF),
   MAP( STATE_ON ),
-  MAP( STATE_HAS_FIX ),
+  MAP( STATE_HAS_2D_FIX ),
+  MAP( STATE_HAS_3D_FIX ),
   MAP( STATE_ERROR ),
 #endif
   { LNILKEY, LNILVAL }
@@ -158,5 +360,5 @@ LUALIB_API int luaopen_gps( lua_State *L )
 #endif // #if LUA_OPTIMIZE_MEMORY > 0
 }
 
-#endif	/* BUILD_GSM */
+#endif	/* BUILD_GPS */
 
