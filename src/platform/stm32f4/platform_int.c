@@ -485,9 +485,8 @@ void platform_int_init()
   NVIC_InitTypeDef nvic_init_structure;
   unsigned i;
   
-  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);
   // Enable all USART interrupts in the NVIC
-  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 0;
+  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 1;
   nvic_init_structure.NVIC_IRQChannelSubPriority = 2;
   nvic_init_structure.NVIC_IRQChannelCmd = ENABLE;
 
@@ -516,8 +515,8 @@ void platform_int_init()
   /* Initialize TIMER 14 for the handler loop */
   platform_timer_set_clock( 11, 500000 ); //TIM14 = id 11
   TIM_ITConfig(TIM14, TIM_IT_Update, ENABLE);
-  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 1;
-  nvic_init_structure.NVIC_IRQChannelSubPriority = 7;
+  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 2;
+  nvic_init_structure.NVIC_IRQChannelSubPriority = 1;
   nvic_init_structure.NVIC_IRQChannel = TIM8_TRG_COM_TIM14_IRQn;
   NVIC_Init(&nvic_init_structure);
 
