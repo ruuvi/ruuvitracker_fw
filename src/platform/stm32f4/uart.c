@@ -57,7 +57,7 @@ const u8 stm32_usart_AF[] =       { GPIO_AF_USART1, GPIO_AF_USART2, GPIO_AF_USAR
 #error "Define UART pins/ports for this board in uart.c"
 #endif
 
-#define BUFF_SIZE	768
+#define BUFF_SIZE	1024
 
 struct rbuff *rbuff[NUM_UART];
 
