@@ -56,6 +56,7 @@ static void cans_init();
 #endif
 extern void usb_init();
 extern void uarts_init();
+static void i2cs_init();
 
 
 int platform_init()
@@ -81,6 +82,10 @@ int platform_init()
 #ifdef BUILD_ADC
   // Setup ADCs
   adcs_init();
+#endif
+
+#if (NUM_I2C > 0)
+  i2cs_init();
 #endif
 
 #if (NUM_CAN > 0)
@@ -113,6 +118,15 @@ int platform_init()
 
   // All done
   return PLATFORM_OK;
+}
+
+#define SPEED_100K  100000
+#define SPEED_400K  400000
+static void i2cs_init()
+{
+  int i;
+  for (i=0;i<NUM_I2C;i++)
+    platform_i2c_setup(i, SPEED_400K);
 }
 
 // ****************************************************************************
