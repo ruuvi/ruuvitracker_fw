@@ -22,6 +22,7 @@
 #include "lauxlib.h"
 #include "lrotable.h"
 #include "gsm.h"
+#include "gps.h"
 
 // Platform specific includes
 #include "stm32f4xx_conf.h"
@@ -89,6 +90,10 @@ int platform_init()
 
 #ifdef BUILD_GSM
   gsm_setup_io();
+#endif
+
+#ifdef BUILD_GPS
+  gps_setup_io();
 #endif
 
   // Setup system timer

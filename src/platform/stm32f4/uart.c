@@ -3,12 +3,14 @@
 #include "platform_conf.h"
 #include "elua_int.h"
 #include "common.h"
+#include "delay.h"
 
 // Platform specific includes
 #include "stm32f4xx_conf.h"
 #include "usbd_cdc_vcp.h"
 #include "ringbuff.h"
 #include "gsm.h"
+#include "gps.h"
 #include <delay.h>
 
 //Prototypes
@@ -55,8 +57,8 @@ const u8 stm32_usart_AF[] =       { GPIO_AF_USART1, GPIO_AF_USART2, GPIO_AF_USAR
 #error "Define UART pins/ports for this board in uart.c"
 #endif
 
+#define BUFF_SIZE	1024
 
-#define BUFF_SIZE	256
 struct rbuff *rbuff[NUM_UART];
 
 static void usart_init(u32 id, USART_InitTypeDef * initVals)
@@ -205,7 +207,11 @@ void all_usart_irqhandler( int id )
     elua_add_c_hook(gsm_line_received);
   }
 #endif
-
+#ifdef BUILD_GPS
+  if ( (id == GPS_UART_ID) && (c == '\n')) {
+    elua_add_c_hook(gps_line_received);
+  }
+#endif
 }
 
 
