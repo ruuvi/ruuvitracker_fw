@@ -89,6 +89,7 @@ static void set_hw_flow();
 static void parse_cfun(char *line);
 static void gpsready(char *line);
 static void sim_inserted(char *line);
+static void no_sim(char *line);
 static void incoming_call(char *line);
 static void call_ended(char *line);
 static void parse_caller(char *line);
@@ -106,7 +107,7 @@ struct Message {
 static Message urc_messages[] = {
   /* Unsolicited Result Codes (URC messages) */
   { "RDY",                  .next_state=STATE_BOOTING },
-  { "+CPIN: NOT INSERTED",  .next_state=STATE_ERROR },
+  { "+CPIN: NOT INSERTED",  .next_state=STATE_ERROR, .func = no_sim },
   { "+CPIN: READY",         .next_state=STATE_WAIT_NETWORK, .func = sim_inserted },
   { "+CPIN: SIM PIN",       .next_state=STATE_ASK_PIN, .func = sim_inserted },
   { "+CFUN:",               .func = parse_cfun },
@@ -195,6 +196,11 @@ static void parse_sapbr(char *line)
 static void sim_inserted(char *line)
 {
   gsm.flags |= SIM_INSERTED;
+}
+
+static void no_sim(char *line)
+{
+  gsm.flags &= ~SIM_INSERTED;
 }
 
 static void gpsready(char *line)
