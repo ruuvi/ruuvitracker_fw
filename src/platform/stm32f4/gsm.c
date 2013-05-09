@@ -94,6 +94,7 @@ static void incoming_call(char *line);
 static void call_ended(char *line);
 static void parse_caller(char *line);
 static void parse_network(char *line);
+static void parse_sapbr(char *line);
 
 typedef struct Message Message;
 struct Message {
@@ -116,11 +117,13 @@ static Message urc_messages[] = {
   { "+SAPBR 1: DEACT",      .func = gprs_off },
   { "+COPS:",               .func = parse_network },
   { "+CLCC:",               .func = parse_caller },
+  { "+SAPBR:",              .func = parse_sapbr },
   /* Return codes */
   { "OK",   .func = handle_ok },
   { "FAIL", .func = handle_fail },
   { "ERROR",.func = handle_error },
   { "+CME ERROR", .func = handle_error },
+  { "+CMS ERROR" },                       /* TODO: handle */
   /* During Call */
   { "NO CARRIER",   .func = call_ended }, /* This is general end-of-call */
   { "NO DIALTONE",  .func = call_ended },
@@ -133,7 +136,7 @@ static Message urc_messages[] = {
 static void incoming_call(char *line)
 {
   gsm.flags |= INCOMING_CALL;
-  gsm_uart_write("AT+CLCC" GSM_CMD_LINE_END);
+  gsm_uart_write("AT+CLCC" GSM_CMD_LINE_END); /* XXX: This is not working! Why? */
 }
 
 static void call_ended(char *line)
@@ -161,6 +164,29 @@ static void parse_network(char *line)
     *strchr(network,'"') = 0;
     printf("GSM: Registered to network %s\n", network);
     gsm.state = STATE_READY;
+  }
+}
+
+#define STATUS_CONNECTING 0
+#define STATUS_CONNECTED 1
+static void parse_sapbr(char *line)
+{
+  int status;
+
+  /* Example: +SAPBR: 1,1,"10.172.79.111"
+   * 1=Profile number
+   * 1=connected, 0=connecting, 3,4 =closing/closed
+   * ".." = ip addr
+   */
+  if (1 == sscanf(line, "+SAPBR: %*d,%d", &status)) {
+    switch(status) {
+    case STATUS_CONNECTING:
+    case STATUS_CONNECTED:
+      gsm.flags |= GPRS_READY;
+      break;
+    default:
+      gsm.flags &= ~GPRS_READY;
+    }
   }
 }
 
@@ -366,6 +392,9 @@ void gsm_line_received()
       break;
   }
   buf[i] = 0;
+  if (0 == i)
+    return;                     /* Skip empty lines */
+
   printf("GSM: %s\n", buf);
 
   m = lookup_urc_message(buf);
@@ -396,6 +425,10 @@ int gsm_send_cmd(lua_State *L) {
 
   ret = gsm_cmd(cmd);
   lua_pushinteger(L, ret);
+
+  if (ret != AT_OK) {
+    printf("GSM: Cmd failed (%s) returned %d\n", cmd, ret);
+  }
   return 1;
 }
 
@@ -436,7 +469,10 @@ int gsm_gprs_enable(lua_State *L)
   const char *apn = luaL_checkstring(L, 1);
   char ap_cmd[64];
 
-  if (gsm.flags&GPRS_READY)     /* If already enabled */
+  /* Check if already enabled */
+  gsm_cmd("AT+SAPBR=2,1");
+
+  if (gsm.flags&GPRS_READY)
     return 0;
 
   snprintf(ap_cmd, 64, "AT+SAPBR=3,1,\"APN\",\"%s\"", apn);
@@ -640,11 +676,17 @@ int gsm_set_power_state(lua_State *L)
       gsm_enable_voltage();
       gsm_toggle_power_pin();
       set_hw_flow();
-    } else {                    /* Check if unknown state */
+    } else {                    /* Modem already on. Possibly warm reset */
       if (gsm.state == STATE_OFF) {
         gsm_cmd("AT+CPIN?");    /* Check PIN, Functionality and Network status */
         gsm_cmd("AT+CFUN?");    /* Responses of these will feed the state machine */
         gsm_cmd("AT+COPS?");
+        gsm_cmd("AT+SAPBR=2,1"); /* Query GPRS status */
+        set_hw_flow();
+        gsm_cmd("ATE0");
+        /* We should now know modem's real status */
+        /* Assume that gps is ready, there is no good way to check it */
+        gsm.flags |= GPS_READY;
       }
     }
     break;
