@@ -155,12 +155,18 @@ static int i2c_read_from( lua_State *L )
   platform_i2c_send_stop(id);
   platform_i2c_send_start(id);
   platform_i2c_send_address(id, (u16)(dev&0xff), PLATFORM_I2C_DIRECTION_RECEIVER);
-  for( i = 0; i < size; i ++ )
-    if( ( data = platform_i2c_recv_byte( id, i < size - 1 ) ) == -1 )
-      break;
-    else
-      luaL_addchar( &b, ( char )data );
-  luaL_pushresult( &b );
+  if (1 == size) {
+    data = platform_i2c_recv_byte( id, 0 );
+    lua_pushinteger(L, data);
+  } else {
+    for( i = 0; i < size; i ++ ) {
+      if( ( data = platform_i2c_recv_byte( id, i < size - 1 ) ) == -1 )
+        break;
+      else
+        luaL_addchar( &b, ( char )data );
+    }
+    luaL_pushresult( &b );
+  }
   platform_i2c_send_stop(id);
   return 1;
 }
