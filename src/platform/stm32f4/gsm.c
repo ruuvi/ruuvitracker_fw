@@ -411,14 +411,64 @@ void gsm_line_received()
   }
 }
 
+/* Enable GSM module */
+void gsm_set_power_state(enum Power_mode mode)
+{
+  int status_pin = platform_pio_op(STATUS_PORT, STATUS_PIN, PLATFORM_IO_PIN_GET);
+
+  switch(mode) {
+  case POWER_ON:
+    if (0 == status_pin) {
+      gsm_enable_voltage();
+      gsm_toggle_power_pin();
+      set_hw_flow();
+    } else {                    /* Modem already on. Possibly warm reset */
+      if (gsm.state == STATE_OFF) {
+        gsm_cmd("AT+CPIN?");    /* Check PIN, Functionality and Network status */
+        gsm_cmd("AT+CFUN?");    /* Responses of these will feed the state machine */
+        gsm_cmd("AT+COPS?");
+        gsm_cmd("AT+SAPBR=2,1"); /* Query GPRS status */
+        set_hw_flow();
+        gsm_cmd("ATE0");
+        /* We should now know modem's real status */
+        /* Assume that gps is ready, there is no good way to check it */
+        gsm.flags |= GPS_READY;
+      }
+    }
+    break;
+  case POWER_OFF:
+    if (1 == status_pin) {
+      gsm_toggle_power_pin();
+    }
+    break;
+  }
+}
 
 
 
 /* -------------------- L U A   I N T E R F A C E --------------------*/
 
-/* LUA Application interface */
+int gsm_lua_set_power_state(lua_State *L)
+{
+  enum Power_mode next = luaL_checkinteger(L, -1);
+  gsm_set_power_state(next);
+  return 0;
+}
 
-int gsm_send_cmd(lua_State *L) {
+int gsm_power_on(lua_State *L)
+{
+  gsm_set_power_state(POWER_ON);
+  return 0;
+}
+
+int gsm_power_off(lua_State *L)
+{
+  gsm_set_power_state(POWER_OFF);
+  return 0;
+}
+
+int gsm_send_cmd(lua_State *L)
+{
   const char *cmd;
   int ret;
 
@@ -676,40 +726,6 @@ int gsm_state(lua_State *L)
   return 1;
 }
 
-/* Enable GSM module */
-int gsm_set_power_state(lua_State *L)
-{
-  enum Power_mode next = luaL_checkinteger(L, -1);
-  int status_pin = platform_pio_op(STATUS_PORT, STATUS_PIN, PLATFORM_IO_PIN_GET);
-
-  switch(next) {
-  case POWER_ON:
-    if (0 == status_pin) {
-      gsm_enable_voltage();
-      gsm_toggle_power_pin();
-      set_hw_flow();
-    } else {                    /* Modem already on. Possibly warm reset */
-      if (gsm.state == STATE_OFF) {
-        gsm_cmd("AT+CPIN?");    /* Check PIN, Functionality and Network status */
-        gsm_cmd("AT+CFUN?");    /* Responses of these will feed the state machine */
-        gsm_cmd("AT+COPS?");
-        gsm_cmd("AT+SAPBR=2,1"); /* Query GPRS status */
-        set_hw_flow();
-        gsm_cmd("ATE0");
-        /* We should now know modem's real status */
-        /* Assume that gps is ready, there is no good way to check it */
-        gsm.flags |= GPS_READY;
-      }
-    }
-    break;
-  case POWER_OFF:
-    if (1 == status_pin) {
-      gsm_toggle_power_pin();
-    }
-    break;
-  }
-  return 0;
-}
 
 int gsm_is_ready(lua_State *L)
 {
@@ -734,7 +750,7 @@ const LUA_REG_TYPE gsm_map[] =
 #if LUA_OPTIMIZE_MEMORY > 0
   /* Functions, Map name to func (I was lazy)*/
 #define F(name,func) { LSTRKEY(#name), LFUNCVAL(func) }
-  { LSTRKEY("set_power_state") , LFUNCVAL(gsm_set_power_state) },
+  F(set_power_state, gsm_lua_set_power_state) ,
   F(is_ready, gsm_is_ready),
   F(flag_is_set, gsm_flag_is_set),
   F(state, gsm_state),
@@ -744,6 +760,8 @@ const LUA_REG_TYPE gsm_map[] =
   F(cmd, gsm_send_cmd),
   F(wait, gsm_lua_wait),
   F(gprs_enable, gsm_gprs_enable),
+  F(power_on, gsm_power_on),
+  F(power_off, gsm_power_off),
 
   /* CONSTANTS */
 #define MAP(a) { LSTRKEY(#a), LNUMVAL(a) }
