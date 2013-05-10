@@ -48,6 +48,9 @@ int gps_set_power_state(lua_State *L)
   switch(next) {
     case GPS_POWER_ON:
       if(gps.state == STATE_OFF) {
+        while(gsm_is_gps_ready() != TRUE) {
+          delay_ms(100);
+        }
         gsm_cmd("AT+CGPSPWR=1");    /* Power-on */
         gsm_cmd("AT+CGPSOUT=255");  /* Select which GP sentences GPS should print */
         gsm_cmd("AT+CGPSRST=1");    /* Do a GPS warm reset */
@@ -216,9 +219,11 @@ int parse_gpgsa(const char *line) {
         gps_data.pdop = pdop;
         gps_data.hdop = hdop;
         gps_data.vdop = vdop;
+        /*
         printf("GPS: pdop: %f\n", gps_data.pdop);
         printf("GPS: hdop: %f\n", gps_data.hdop);
         printf("GPS: vdop: %f\n", gps_data.vdop);
+        */
         return 0;
     }
 }
@@ -265,9 +270,9 @@ int parse_gprmc(const char *line) {
         printf("GPS: ns_indicator: %s\n", ns);
         printf("GPS: longitude: %f\n", lon);
         printf("GPS: ew_indicator: %s\n", ew);
-        */
         printf("GPS: speed_ms: %f\n", speed_ms);
         printf("GPS: heading: %f\n", heading);
+        */
         return 0;
     }
 }
