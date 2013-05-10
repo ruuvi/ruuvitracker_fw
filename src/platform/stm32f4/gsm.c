@@ -648,7 +648,7 @@ int gsm_http_handle(lua_State *L, method_t method,
   gsm_wait("+HTTPACTION", TIMEOUT, ret); //TODO: timeouts
 
   if (2 != sscanf(ret, "+HTTPACTION:%*d,%d,%d", &status, &len)) { /* +HTTPACTION:<method>,<result>,<lenght of data> */
-    printf("Failed to parse response\n");
+    printf("GSM: Failed to parse response\n");
     goto HTTP_END;
   }
 
@@ -657,7 +657,7 @@ int gsm_http_handle(lua_State *L, method_t method,
     goto HTTP_END;
 
   if (NULL == (buf = malloc(len))) {
-    printf("Out of memory\n");
+    printf("GSM: Out of memory\n");
     goto HTTP_END;
   }
   
