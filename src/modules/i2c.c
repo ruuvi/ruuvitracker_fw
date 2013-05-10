@@ -143,18 +143,26 @@ static int i2c_read_from( lua_State *L )
   int dev     = luaL_checkinteger(L, 2);
   int addr    = luaL_checkinteger(L, 3);
   int size   = luaL_checkinteger(L, 4);
-  int i,data;
+  int i,data,ret;
 
   MOD_CHECK_ID( i2c, id );
   if( size == 0 )
     return 0;
   luaL_buffinit( L, &b );
   platform_i2c_send_start(id);
-  platform_i2c_send_address(id, (u16)(dev&0xff), PLATFORM_I2C_DIRECTION_TRANSMITTER);
+  ret = platform_i2c_send_address(id, (u16)(dev&0xff), PLATFORM_I2C_DIRECTION_TRANSMITTER);
+  if (0 == ret) {               /* No response from device */
+    platform_i2c_send_stop(id);
+    return 0;
+  }
   platform_i2c_send_byte(id, (u8) (addr&0xff));
   platform_i2c_send_stop(id);
   platform_i2c_send_start(id);
-  platform_i2c_send_address(id, (u16)(dev&0xff), PLATFORM_I2C_DIRECTION_RECEIVER);
+  ret = platform_i2c_send_address(id, (u16)(dev&0xff), PLATFORM_I2C_DIRECTION_RECEIVER);
+  if (0 == ret) {
+    platform_i2c_send_stop(id);
+    return 0;
+  }
   if (1 == size) {
     data = platform_i2c_recv_byte( id, 0 );
     lua_pushinteger(L, data);
@@ -173,13 +181,18 @@ static int i2c_read_from( lua_State *L )
 
 static int i2c_write_to( lua_State *L )
 {
+  int ret;
   unsigned id = luaL_checkinteger(L, 1);
   int dev     = luaL_checkinteger(L, 2);
   int addr    = luaL_checkinteger(L, 3);
 
   MOD_CHECK_ID( i2c, id );
   platform_i2c_send_start(id);
-  platform_i2c_send_address(id, (u16)(dev&0xff), PLATFORM_I2C_DIRECTION_TRANSMITTER);
+  ret = platform_i2c_send_address(id, (u16)(dev&0xff), PLATFORM_I2C_DIRECTION_TRANSMITTER);
+  if (0 == ret) {               /* No response from device */
+    platform_i2c_send_stop(id);
+    return 0;
+  }
   platform_i2c_send_byte(id, (u8) (addr&0xff));
 
   /* Manipulate stack to please i2c_write function */
