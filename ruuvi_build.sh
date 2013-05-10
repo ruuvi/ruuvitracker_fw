@@ -11,21 +11,33 @@ print_usage() {
     echo "      clean: clean all instead of build."
 }
 
-#Build cross-compiler first
-if [ ! -f luac.cross.elf ]; then
-    scons -f cross-lua.py
-fi
+build() {
+    # Build cross compiler if not found
+    if [ ! -f luac.cross.elf ]; then
+	scons -f cross-lua.py
+    fi
+    # If TAGS file found, update tags&cscope
+    if [ -f TAGS ]; then
+	./generate_tags.sh >/dev/null 2>&1 &  # Run silently on background
+    fi
+    # Build
+    scons --jobs 4 board=$BOARD $COMPILE prog
+}
+
+clean() {
+    scons --jobs 4 board=$BOARD -c
+    rm elua_lua_*.{bin,elf,hex,map} >/dev/null 2>&1
+}
 
 case $1 in
     clean)
-	scons board=$BOARD -c
-	rm elua_lua_*.{bin,elf,hex,map} >/dev/null 2>&1
+	clean
 	;;
     "-h")
 	print_usage
 	;;
     *)
-	scons board=$BOARD $COMPILE prog
+	build
 	;;
 esac
 

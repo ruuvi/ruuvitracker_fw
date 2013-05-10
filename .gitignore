@@ -22,3 +22,8 @@ inc/git_version.h
 *.*~
 luac.cross*
 .DS_Store
+TAGS
+cscope.files
+cscope.in.out
+cscope.out
+cscope.po.out
