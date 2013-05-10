@@ -136,6 +136,78 @@ static int i2c_read( lua_State *L )
   return 1;
 }
 
+static int i2c_read_from( lua_State *L )
+{
+  luaL_Buffer b;
+  unsigned id = luaL_checkinteger(L, 1);
+  int dev     = luaL_checkinteger(L, 2);
+  int addr    = luaL_checkinteger(L, 3);
+  int size   = luaL_checkinteger(L, 4);
+  int i,data,ret;
+
+  MOD_CHECK_ID( i2c, id );
+  if( size == 0 )
+    return 0;
+  luaL_buffinit( L, &b );
+  platform_i2c_send_start(id);
+  ret = platform_i2c_send_address(id, (u16)(dev&0xff), PLATFORM_I2C_DIRECTION_TRANSMITTER);
+  if (0 == ret) {               /* No response from device */
+    platform_i2c_send_stop(id);
+    return 0;
+  }
+  platform_i2c_send_byte(id, (u8) (addr&0xff));
+  platform_i2c_send_stop(id);
+  platform_i2c_send_start(id);
+  ret = platform_i2c_send_address(id, (u16)(dev&0xff), PLATFORM_I2C_DIRECTION_RECEIVER);
+  if (0 == ret) {
+    platform_i2c_send_stop(id);
+    return 0;
+  }
+  if (1 == size) {
+    data = platform_i2c_recv_byte( id, 0 );
+    lua_pushinteger(L, data);
+  } else {
+    for( i = 0; i < size; i ++ ) {
+      if( ( data = platform_i2c_recv_byte( id, i < size - 1 ) ) == -1 )
+        break;
+      else
+        luaL_addchar( &b, ( char )data );
+    }
+    luaL_pushresult( &b );
+  }
+  platform_i2c_send_stop(id);
+  return 1;
+}
+
+static int i2c_write_to( lua_State *L )
+{
+  int ret;
+  unsigned id = luaL_checkinteger(L, 1);
+  int dev     = luaL_checkinteger(L, 2);
+  int addr    = luaL_checkinteger(L, 3);
+
+  MOD_CHECK_ID( i2c, id );
+  platform_i2c_send_start(id);
+  ret = platform_i2c_send_address(id, (u16)(dev&0xff), PLATFORM_I2C_DIRECTION_TRANSMITTER);
+  if (0 == ret) {               /* No response from device */
+    platform_i2c_send_stop(id);
+    return 0;
+  }
+  platform_i2c_send_byte(id, (u8) (addr&0xff));
+
+  /* Manipulate stack to please i2c_write function */
+  int top = lua_gettop(L);
+  lua_remove(L, 3);
+  lua_remove(L, 2);
+  i2c_write(L);
+  platform_i2c_send_stop(id);
+  int reply = luaL_checkinteger(L, lua_gettop(L));
+  /* Now manipulate stack back to what lua assumes it to be */
+  lua_settop(L,top);
+  lua_pushinteger(L, reply);
+  return 1;
+}
+
 // Module function map
 #define MIN_OPT_LEVEL   2
 #include "lrodefs.h"
@@ -147,6 +219,8 @@ const LUA_REG_TYPE i2c_map[] =
   { LSTRKEY( "address" ), LFUNCVAL( i2c_address ) },
   { LSTRKEY( "write" ), LFUNCVAL( i2c_write ) },
   { LSTRKEY( "read" ), LFUNCVAL( i2c_read ) },
+  { LSTRKEY( "read_from" ), LFUNCVAL( i2c_read_from ) },
+  { LSTRKEY( "write_to" ), LFUNCVAL( i2c_write_to ) },
 #if LUA_OPTIMIZE_MEMORY > 0
   { LSTRKEY( "FAST" ), LNUMVAL( PLATFORM_I2C_SPEED_FAST ) },
   { LSTRKEY( "SLOW" ), LNUMVAL( PLATFORM_I2C_SPEED_SLOW ) },

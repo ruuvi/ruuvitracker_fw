@@ -16,10 +16,10 @@ enum Reply { AT_OK=0, AT_FAIL, AT_ERROR };
 int gsm_cmd(const char *cmd); 	/* Send AT command to modem. Returns AT_OK, AT_FAIL or AT_ERROR */
 int gsm_wait(const char *pattern, int timeout, char *line); /* wait for pattern to appear */
 void gsm_uart_write(const char *line);
+void gsm_set_power_state(enum Power_mode mode);
 
 /* LUA Application interface */
 int gsm_send_cmd(lua_State *L);
-int gsm_set_power_state(lua_State *L);
 int gsm_is_pin_required(lua_State *L);
 int gsm_send_pin(lua_State *L);
 int gsm_is_ready(lua_State *L);

@@ -144,6 +144,9 @@ comp = Environment( tools = [],
                     OBJSUFFIX = ".o",
                     PROGSUFFIX = ".elf",
                     ENV = os.environ,
+                    CCCOMSTR = "Compiling $TARGET",
+                    ASCOMSTR = "Compiling $TARGET",
+                    LINKCOMSTR = "Linking $TARGET",
                     CPPDEFINES = {} )
 
 if comp['PLATFORM'] == 'win32':
