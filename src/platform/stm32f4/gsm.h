@@ -10,7 +10,7 @@
 #include "lualib.h"
 
 enum Power_mode { POWER_OFF=0, POWER_ON };
-enum Reply { AT_OK=0, AT_FAIL, AT_ERROR };
+enum Reply { AT_OK=0, AT_FAIL, AT_ERROR, AT_TIMEOUT };
 
 /* C-API */
 int gsm_cmd(const char *cmd); 	/* Send AT command to modem. Returns AT_OK, AT_FAIL or AT_ERROR */

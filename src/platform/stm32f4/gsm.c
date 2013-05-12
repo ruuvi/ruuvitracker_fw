@@ -42,7 +42,8 @@
 
 #define GSM_CMD_LINE_END "\r\n"
 
-#define TIMEOUT  1000           /* Default timeout 1000ms */
+#define TIMEOUT_MS  1000        /* Default timeout 1000ms */
+#define TIMEOUT_HTTP 10000      /* Http timeout, 10s */
 
 enum State {
   STATE_UNKNOWN = 0,
@@ -244,13 +245,22 @@ static void handle_error(char *line)
  */
 int gsm_cmd(const char *cmd)
 {
-  gsm.waiting_reply = 1;
+  unsigned int t;
 
+  t = systick_get_raw();                  /* Get System timer current value */
+  t += TIMEOUT_MS*systick_get_hz()/1000;
+  gsm.waiting_reply = 1;
   gsm_uart_write(cmd);
   gsm_uart_write(GSM_CMD_LINE_END);
 
-  while(gsm.waiting_reply)
+  while(gsm.waiting_reply) {
+    if (t < systick_get_raw()) {
+      /* Timeout */
+      gsm.waiting_reply = 0;
+      return AT_TIMEOUT;
+    }
     delay_ms(1);
+  }
 
   return gsm.reply;
 }
@@ -261,13 +271,22 @@ int gsm_wait(const char *pattern, int timeout, char *line)
   const char *p = pattern;
   int c;
   int i;
+  unsigned int t = systick_get_raw();
+  t+=timeout*systick_get_hz()/1000;
 
   gsm.waiting_pattern = 1;
 
   while(*p) {
-    c = platform_s_uart_recv(GSM_UART_ID, timeout);
-    if (-1 == c)
-      return AT_FAIL;
+    c = platform_s_uart_recv(GSM_UART_ID, 0);
+    if (-1 == c) {
+      if (t < systick_get_raw()) {
+        gsm.waiting_pattern = 0;
+        return AT_TIMEOUT;
+      } else {
+        delay_ms(1);
+      }
+      continue;
+    }
     if (c == *p) { //Match
       p++;
     } else { //No match, go back to start
@@ -530,6 +549,10 @@ int gsm_gprs_enable(lua_State *L)
   const char *apn = luaL_checkstring(L, 1);
   char ap_cmd[64];
 
+  /* Wait for CFUN=1 (Radio on)*/
+  while(gsm.cfun != CFUN_1)
+    delay_ms(TIMEOUT_MS);
+
   /* Check if already enabled */
   gsm_cmd("AT+SAPBR=2,1");
 
@@ -571,7 +594,7 @@ int gsm_send_sms(lua_State *L)
   gsm_uart_write(number);
 
   gsm_uart_write("\"\r");
-  gsm_wait(">", TIMEOUT, NULL);	 /* Send SMS cmd and wait for '>' to appear */
+  gsm_wait(">", TIMEOUT_MS, NULL);	 /* Send SMS cmd and wait for '>' to appear */
   gsm_uart_write(text);
   ret = gsm_cmd(ctrlZ);		/* CTRL-Z ends message */
   lua_pushinteger(L, ret);
@@ -580,74 +603,97 @@ int gsm_send_sms(lua_State *L)
 
 typedef enum method_t { GET, POST } method_t; /* HTTP methods */
 
-static void gsm_http_init(const char *url)
+static int gsm_http_init(const char *url)
 {
+  int ret;
   char url_cmd[256];
   snprintf(url_cmd, 256, "AT+HTTPPARA=\"URL\",\"%s\"", url);
-  gsm_cmd("AT+HTTPINIT");
-  gsm_cmd("AT+HTTPPARA=\"CID\",\"1\"");
-  gsm_cmd(url_cmd);
-  gsm_cmd("AT+HTTPPARA=\"UA\",\"RuuviTracker/SIM908\"");
-  gsm_cmd("AT+HTTPPARA=\"REDIR\",\"1\"");
+  ret = gsm_cmd("AT+HTTPINIT");
+  if (ret != AT_OK)
+    return -1;
+  ret = gsm_cmd("AT+HTTPPARA=\"CID\",\"1\"");
+  if (ret != AT_OK)
+    return -1;
+  ret = gsm_cmd(url_cmd);
+  if (ret != AT_OK)
+    return -1;
+  ret = gsm_cmd("AT+HTTPPARA=\"UA\",\"RuuviTracker/SIM908\"");
+  if (ret != AT_OK)
+    return -1;
+  ret = gsm_cmd("AT+HTTPPARA=\"REDIR\",\"1\"");
+  if (ret != AT_OK)
+    return -1;
+  return 0;
 }
 
-static void gsm_http_send_content_type(const char *content_type)
+static int gsm_http_send_content_type(const char *content_type)
 {
   char cmd[256];
   snprintf(cmd,256,"AT+HTTPPARA=\"CONTENT\",\"%s\"", content_type);
-  if (AT_OK != gsm_cmd(cmd)) {
-    printf("GSM: Failed to set content type\n");
-  }
+  if (gsm_cmd(cmd) != AT_OK)
+    return -1;
+  return 0;
 }
 
-static void gsm_http_send_data(const char *data)
+static int gsm_http_send_data(const char *data)
 {
   char cmd[256];
   snprintf(cmd, 256, "AT+HTTPDATA=%d,1000" GSM_CMD_LINE_END, strlen(data));
   gsm_uart_write(cmd);
-  gsm_wait("DOWNLOAD", TIMEOUT, NULL);
+  if (gsm_wait("DOWNLOAD", TIMEOUT_MS, NULL) == AT_TIMEOUT) {
+    gsm.reply = AT_TIMEOUT;
+    return -1;
+  }
   gsm_uart_write(data);
-  gsm_cmd(GSM_CMD_LINE_END);  /* Send empty command to wait for OK */
-  if (AT_OK != gsm.reply)
-    printf("GSM: Failed to load query data\n");
+  if (gsm_cmd(GSM_CMD_LINE_END) != AT_OK)  /* Send empty command to wait for OK */
+    return -1;
+  return 0;
 }
 
 int gsm_http_handle(lua_State *L, method_t method,
                     const char *data, const char *content_type)
 {
-  int i,status,len;
-  char ret[64];
+  int i,status,len,ret;
+  char resp[64];
   const char *url = luaL_checkstring(L, 1);
   const char *p,*httpread_pattern = "+HTTPREAD";
   char *buf=0;
   char c;
 
-  gsm_http_init(url);
-  if (AT_OK != gsm.reply) {
+  if (gsm_http_init(url) != 0) {
     printf("GSM: Failed to initialize HTTP\n");
     goto HTTP_END;
   }
 
   if (content_type) {
-    gsm_http_send_content_type(content_type);
-    if (AT_OK != gsm.reply)
+    if (gsm_http_send_content_type(content_type) != 0) {
+      printf("GSM: Failed to set content type\n");
       goto HTTP_END;
+    }
   }
 
   if (data) {
-    gsm_http_send_data(data);
-    if (AT_OK != gsm.reply)
+    if (gsm_http_send_data(data) != 0) {
+      printf("GSM: Failed to send http data\n");
       goto HTTP_END;
+    }
   }
 
   if (GET == method)
-    gsm_cmd("AT+HTTPACTION=0");
+    ret = gsm_cmd("AT+HTTPACTION=0");
   else
-    gsm_cmd("AT+HTTPACTION=1");
+    ret = gsm_cmd("AT+HTTPACTION=1");
+  if (ret != AT_OK) {
+    printf("GSM: HTTP Action failed\n");
+    goto HTTP_END;
+  }
 
-  gsm_wait("+HTTPACTION", TIMEOUT, ret); //TODO: timeouts
+  if (gsm_wait("+HTTPACTION", TIMEOUT_HTTP, resp) == AT_TIMEOUT) {
+    printf("GSM: HTTP Timeout\n");
+    goto HTTP_END;
+  }
 
-  if (2 != sscanf(ret, "+HTTPACTION:%*d,%d,%d", &status, &len)) { /* +HTTPACTION:<method>,<result>,<lenght of data> */
+  if (2 != sscanf(resp, "+HTTPACTION:%*d,%d,%d", &status, &len)) { /* +HTTPACTION:<method>,<result>,<lenght of data> */
     printf("Failed to parse response\n");
     goto HTTP_END;
   }
@@ -715,7 +761,7 @@ int gsm_http_post(lua_State *L)
 
 int gsm_lua_wait(lua_State *L)
 {
-  int ret,timeout=TIMEOUT;
+  int ret,timeout=TIMEOUT_MS;
   char line[256];
   const char *text;
   text = luaL_checklstring(L, 1, NULL);
@@ -788,6 +834,7 @@ const LUA_REG_TYPE gsm_map[] =
   { LSTRKEY("OK"), LNUMVAL(AT_OK) },
   { LSTRKEY("FAIL"), LNUMVAL(AT_FAIL) },
   { LSTRKEY("ERROR"), LNUMVAL(AT_ERROR) },
+  { LSTRKEY("TIMEOUT"), LNUMVAL(AT_TIMEOUT) },
 #endif
   { LNILKEY, LNILVAL }
 };
