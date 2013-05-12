@@ -455,7 +455,7 @@ const TIM_TypeDef * const timer[] = {
 
 u32 platform_timer_set_clock( unsigned id, u32 clock );
 
-volatile unsigned int systick=0;
+static volatile unsigned int systick=0;
 
 void SysTick_Handler( void )
 {
@@ -469,6 +469,15 @@ void SysTick_Handler( void )
   NVIC_SystemLPConfig(NVIC_LP_SLEEPONEXIT, DISABLE);
 
   systick++;
+}
+
+unsigned int systick_get_raw()
+{
+  return systick;
+}
+unsigned int systick_get_hz()
+{
+  return SYSTICKHZ;
 }
 
 /**

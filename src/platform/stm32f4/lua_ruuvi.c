@@ -28,9 +28,6 @@ static int hello( lua_State *L ) {
   return 0;
 }
 
-/* Systick flag, it is raised on Systick interrupt handler */
-extern volatile int systick;
-
 /* Start a loop that gets runned by Systick clock intevalls */
 /* Parameter: function to run on loop */
 /* this function never returns */
@@ -45,8 +42,8 @@ static int idleloop( lua_State *L) {
     lua_pcall(L, 0, 0, 0); //Call the function
 
     NVIC_SystemLPConfig(NVIC_LP_SLEEPONEXIT, ENABLE); //Enable SleepOnExit mode for interrupt
-    tick = systick;
-    while(tick == systick)
+    tick = systick_get_raw();
+    while(tick == systick_get_raw())
       __WFI(); //Go to sleep (WaitForInterrupt)
   }
   return 0;
