@@ -30,6 +30,25 @@
 #include "lrodefs.h"
 
 
+static struct gps_device gps = {	/* Initial status */
+  .power_mode = GPS_POWER_OFF,
+  .state = STATE_OFF,
+};
+
+static struct _gps_data gps_data = {
+  .fix_type     = GPS_FIX_TYPE_NONE,  // Set initial values
+  .n_satellites = 0,
+  .lat          = 0.0,
+  .ns           = '-',
+  .lon          = 0.0,
+  .ew           = '-',
+  .speed        = 0.0,
+  .heading      = 0.0,
+  .pdop         = 0.0,
+  .hdop         = 0.0,
+  .vdop         = 0.0,
+};
+
 
 
 int gps_has_fix(lua_State *L)

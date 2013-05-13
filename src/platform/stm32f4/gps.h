@@ -27,9 +27,6 @@ enum GPS_state {
 struct gps_device {
   enum GPS_power_mode power_mode;
   enum GPS_state state;
-} static gps = {	/* Initial status */
-  .power_mode = GPS_POWER_OFF,
-  .state = STATE_OFF,
 };
 
 /* Date and time data */
@@ -60,18 +57,6 @@ struct _gps_data {
     double  vdop;
 
     gps_datetime dt;
-} static gps_data = {
-  .fix_type     = GPS_FIX_TYPE_NONE,  // Set initial values
-  .n_satellites = 0,
-  .lat          = 0.0,
-  .ns           = '-',
-  .lon          = 0.0,
-  .ew           = '-',
-  .speed        = 0.0,
-  .heading      = 0.0,
-  .pdop         = 0.0,
-  .hdop         = 0.0,
-  .vdop         = 0.0,
 };
 
 
