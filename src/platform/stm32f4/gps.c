@@ -71,15 +71,14 @@ struct _gps_data {
 };
 
 
-/* ===================C interface begins===================================== */
+/* ===================Lua interface begins=================================== */
 
 /* For production tests, check that MCU<->GPS serial line works */
-int gps_validate_serial_port()
+int gps_validate_serial_port(lua_State *L)
 {
-  return gps.serial_port_validated;
+  lua_pushboolean(L, gps.serial_port_validated);
+  return 1;
 }
-
-/* ===================Lua interface begins=================================== */
 
 /* Check if GPS has a fix */
 int gps_has_fix(lua_State *L)
@@ -409,6 +408,7 @@ const LUA_REG_TYPE gps_map[] =
   { LSTRKEY("set_power_state") , LFUNCVAL(gps_set_power_state) },
   { LSTRKEY("has_fix") , LFUNCVAL(gps_has_fix) },
   { LSTRKEY("get_location") , LFUNCVAL(gps_get_location) },
+  { LSTRKEY("is_receiving"), LFUNCVAL(gps_validate_serial_port) },
 
   /* CONSTANTS */
 #define MAP(a) { LSTRKEY(#a), LNUMVAL(a) }
