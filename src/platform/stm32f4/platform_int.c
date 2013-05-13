@@ -12,6 +12,7 @@
 #include "usb_core.h"
 #include "usbd_core.h"
 #include "usbd_cdc_core.h"
+#include "gsm.h"
 
 #ifndef VTMR_TIMER_ID
 #define VTMR_TIMER_ID         ( -1 )
@@ -628,4 +629,6 @@ const elua_int_descriptor elua_int_table[ INT_ELUA_LAST ] =
   { int_gpio_negedge_set_status, int_gpio_negedge_get_status, int_gpio_negedge_get_flag },
   { int_tmr_match_set_status, int_tmr_match_get_status, int_tmr_match_get_flag },
   { int_uart_rx_set_status, int_uart_rx_get_status, int_uart_rx_get_flag },
+  { gsm_int_dummy_set_status, gsm_int_dummy_get_status, gsm_int_call_get_flag },
+  { gsm_int_dummy_set_status, gsm_int_dummy_get_status, gsm_int_sms_get_flag },
 };

@@ -19,6 +19,7 @@
 #include <delay.h>
 #include <string.h>
 #include <stdlib.h>
+#include <slre.h>
 
 #ifdef BUILD_GSM
 
@@ -42,8 +43,8 @@
 
 #define GSM_CMD_LINE_END "\r\n"
 
-#define TIMEOUT_MS  1000        /* Default timeout 1000ms */
-#define TIMEOUT_HTTP 10000      /* Http timeout, 10s */
+#define TIMEOUT_MS   5000        /* Default timeout 5s */
+#define TIMEOUT_HTTP 15000      /* Http timeout, 15s */
 
 enum State {
   STATE_UNKNOWN = 0,
@@ -72,10 +73,11 @@ struct gsm_modem {
   enum Power_mode power_mode;
   enum State state;
   volatile int waiting_reply;
-  volatile int waiting_pattern;
+  volatile int raw_mode;
   enum Reply reply;
   int flags;
   enum CFUN cfun;
+  int last_sms_index;
 } static gsm = {		/* Initial status */
   .power_mode=POWER_OFF,
   .state = STATE_OFF,
@@ -93,9 +95,9 @@ static void sim_inserted(char *line);
 static void no_sim(char *line);
 static void incoming_call(char *line);
 static void call_ended(char *line);
-static void parse_caller(char *line);
 static void parse_network(char *line);
 static void parse_sapbr(char *line);
+static void parse_sms_in(char *line);
 
 typedef struct Message Message;
 struct Message {
@@ -116,7 +118,6 @@ static Message urc_messages[] = {
   { "GPS Ready",            .func = gpsready },
   { "NORMAL POWER DOWN",    .next_state=STATE_OFF },
   { "+COPS:",               .func = parse_network },
-  { "+CLCC:",               .func = parse_caller },
   { "+SAPBR:",              .func = parse_sapbr },
   /* Return codes */
   { "OK",   .func = handle_ok },
@@ -130,13 +131,30 @@ static Message urc_messages[] = {
   { "BUSY",         .func = handle_fail },
   { "NO ANSWER",    .func = handle_fail },
   { "RING",         .func = incoming_call },
+  /* SMS */
+  { "+CMTI:",       .func = parse_sms_in },
   { NULL } /* Table must end with NULL */
 };
+
+/* Some interrupt helpers */
+int gsm_int_dummy_set_status( elua_int_resnum resnum, int state ) { return 0; }
+int gsm_int_dummy_get_status( elua_int_resnum resnum ) { return ENABLE; }
+
+int gsm_int_call_get_flag  ( elua_int_resnum resnum, int clear )
+{
+  return (gsm.flags&INCOMING_CALL)!=0;
+}
+
+int gsm_int_sms_get_flag  ( elua_int_resnum resnum, int clear )
+{
+//TODO: implement
+  return 0;
+}
 
 static void incoming_call(char *line)
 {
   gsm.flags |= INCOMING_CALL;
-  gsm_uart_write("AT+CLCC" GSM_CMD_LINE_END); /* XXX: This is not working! Why? */
+  cmn_int_handler( INT_GSM_CALL, 0 );
 }
 
 static void call_ended(char *line)
@@ -145,14 +163,10 @@ static void call_ended(char *line)
   gsm.flags &= ~INCOMING_CALL;
 }
 
-static void parse_caller(char *line)
+static void parse_sms_in(char *line)
 {
-  char number[64];
-
-  /* Example reply: +CLCC: 1,1,4,0,0,"+35850381xxxx",145,"" */
-  if (1 == sscanf(line, "+CLCC: %*d,%*d,4,0,%*d,\"%s", number)) {
-    *strchr(number,'"') = 0; //Set number to end to  " mark
-    printf("GSM: Incoming call from %s\n", number);
+  if (1 == sscanf(line, "+CMTI: \"SM\",%d", &gsm.last_sms_index)) {
+    cmn_int_handler( INT_GSM_SMS, gsm.last_sms_index);
   }
 }
 
@@ -247,6 +261,11 @@ int gsm_cmd(const char *cmd)
 {
   unsigned int t;
 
+  /* Flush buffers */
+  gsm_disable_raw_mode();
+  while(-1 != platform_s_uart_recv(GSM_UART_ID, 0))
+    ;;
+
   t = systick_get_raw();                  /* Get System timer current value */
   t += TIMEOUT_MS*systick_get_hz()/1000;
   gsm.waiting_reply = 1;
@@ -265,23 +284,38 @@ int gsm_cmd(const char *cmd)
   return gsm.reply;
 }
 
-/* Wait for specific pattern */
+void gsm_set_raw_mode()
+{
+  gsm.raw_mode = 1;
+}
+void gsm_disable_raw_mode()
+{
+  gsm.raw_mode = 0;
+}
+int gsm_is_raw_mode()
+{
+  return gsm.raw_mode;
+}
+
+/* Wait for specific pattern, copy rest of line to buffer, if given*/
 int gsm_wait(const char *pattern, int timeout, char *line)
 {
   const char *p = pattern;
-  int c;
+  int c, ret;
   int i;
   unsigned int t = systick_get_raw();
   t+=timeout*systick_get_hz()/1000;
 
-  gsm.waiting_pattern = 1;
+  int was_raw_mode = gsm_is_raw_mode();
+  gsm_set_raw_mode();
 
+  ret = AT_OK;
   while(*p) {
     c = platform_s_uart_recv(GSM_UART_ID, 0);
     if (-1 == c) {
       if (t < systick_get_raw()) {
-        gsm.waiting_pattern = 0;
-        return AT_TIMEOUT;
+        ret = AT_TIMEOUT;
+        goto WAIT_END;
       } else {
         delay_ms(1);
       }
@@ -302,9 +336,42 @@ int gsm_wait(const char *pattern, int timeout, char *line)
        }
   }
 
-  gsm.waiting_pattern = 0;
+WAIT_END:
+  if (!was_raw_mode)
+    gsm_disable_raw_mode();
 
-  return AT_OK;
+  return ret;
+}
+
+/* Read line from GSM serial port to buffer */
+int gsm_read_line(char *buf, int max_len)
+{
+  int i,c;
+  int was_raw = gsm_is_raw_mode();
+  gsm_set_raw_mode();
+  for(i=0;i<(max_len-1);i++) {
+    c = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT);
+    buf[i] = (char)c;
+    if ('\n' == c)
+      break;
+  }
+  buf[++i]=0;
+  if (!was_raw)
+    gsm_disable_raw_mode();
+  return i;
+}
+
+int gsm_read_raw(char *buf, int max_len)
+{
+  int i;
+  int was_raw = gsm_is_raw_mode();
+  gsm_set_raw_mode();
+  for(i=0;i<max_len;i++) {
+    buf[i] = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT);
+  }
+  if (!was_raw)
+    gsm_disable_raw_mode();
+  return i;
 }
 
 /* Setup IO ports. Called in platform_setup() from platform.c */
@@ -401,7 +468,7 @@ void gsm_line_received()
   int c,i=0;
 
   /* Dont mess with patterns */
-  if (gsm.waiting_pattern)
+  if (gsm_is_raw_mode())
     return;
 
   while('\n' != (c=platform_s_uart_recv(GSM_UART_ID,0))) {
@@ -414,8 +481,11 @@ void gsm_line_received()
       break;
   }
   buf[i] = 0;
+  /* Skip empty lines */
   if (0 == i)
-    return;                     /* Skip empty lines */
+    return;
+  if (0 == strcmp(GSM_CMD_LINE_END, buf))
+    return;
 
   printf("GSM: %s\n", buf);
 
@@ -596,9 +666,87 @@ int gsm_send_sms(lua_State *L)
   gsm_uart_write("\"\r");
   gsm_wait(">", TIMEOUT_MS, NULL);	 /* Send SMS cmd and wait for '>' to appear */
   gsm_uart_write(text);
-  ret = gsm_cmd(ctrlZ);		/* CTRL-Z ends message */
+  ret = gsm_cmd(ctrlZ);		/* CTRL-Z ends message. Wait for 'OK' */
   lua_pushinteger(L, ret);
   return 1;
+}
+
+int gsm_read_sms(lua_State *L)
+{
+  char tmp[256], msg[161], number[100];
+  const char *err;
+  int r;
+  int index = luaL_checkinteger(L, 1);
+  gsm_cmd("AT+CMGF=1");         /* Set to text mode */
+  gsm_set_raw_mode();
+  snprintf(tmp, 161, "AT+CMGR=%d" GSM_CMD_LINE_END, index);
+  gsm_uart_write(tmp);
+  r = gsm_wait("+CMGR:", TIMEOUT_MS, tmp);
+  if (AT_OK != r) {
+    printf("GSM: timeout\n");
+    gsm_disable_raw_mode();
+    return 0;
+  }
+  /* Example: +CMGR: "REC READ","+358403445818","","13/05/13,18:00:15+12" */
+  err = slre_match(0, "^\\+CMGR:\\s\"[^\"]+\",\"([^\"]+)", tmp, strlen(tmp),
+                   SLRE_STRING, sizeof(number), number);
+  if (NULL != err) {
+    printf("GSM: Error parsing \"%s\": %s\n", tmp, err);
+    gsm_disable_raw_mode();
+    return 0;
+  }
+  msg[0] = 0;
+  tmp[0] = 0;
+  do {
+    gsm_read_line(tmp, sizeof(tmp));
+    if (0 == strcmp(GSM_CMD_LINE_END, tmp)) /* Stop at empty line */
+      break;
+    strcat(msg, tmp);
+  } while(1);
+  gsm_wait("OK", TIMEOUT_MS, tmp);       /* Read response to clear buffer */
+  gsm_disable_raw_mode();
+
+  /* Response table */
+  lua_newtable(L);
+  lua_pushstring(L, "from");
+  lua_pushstring(L, number);
+  lua_settable(L, -3);
+  lua_pushstring(L, "text");
+  lua_pushstring(L, msg);
+  lua_settable(L, -3);
+  return 1;
+}
+
+int gsm_delete_sms(lua_State *L)
+{
+  char cmd[20];
+  int ret;
+  int index = luaL_checkinteger(L, 1);
+  snprintf(cmd,64,"AT+CMGD=%d", index);
+  ret = gsm_cmd(cmd);
+  lua_pushinteger(L, ret);
+  return 1;
+}
+
+int gsm_get_caller(lua_State *L)
+{
+  char line[128];
+  char number[64];
+  gsm_set_raw_mode();
+  gsm_uart_write("AT+CLCC" GSM_CMD_LINE_END);
+  while(1) {
+    gsm_read_line(line, 128);
+    if(1 == sscanf(line, "+CLCC: %*d,%*d,4,0,%*d,\"%s", number)) {
+      *strchr(number,'"') = 0;
+      lua_pushstring(L, number);
+      gsm_disable_raw_mode();
+      return 1;
+    }
+    if(0 == strcmp(line, "OK\r\n")) /* End of responses */
+      break;
+  }
+  gsm_disable_raw_mode();
+  return 0;
 }
 
 typedef enum method_t { GET, POST } method_t; /* HTTP methods */
@@ -708,7 +856,7 @@ int gsm_http_handle(lua_State *L, method_t method,
   }
   
   //Now read all bytes. block others from reading.
-  gsm.waiting_pattern = 1;
+  gsm_set_raw_mode();
   gsm_uart_write("AT+HTTPREAD" GSM_CMD_LINE_END); //Wait for header
   p = httpread_pattern;
   while(*p) {           /* Wait for "+HTTPREAD:<data_len>" */
@@ -726,7 +874,7 @@ int gsm_http_handle(lua_State *L, method_t method,
     buf[i] = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT);
   }
   buf[i]=0;
-  gsm.waiting_pattern = 0;      /* Release block */
+  gsm_disable_raw_mode();
 
 HTTP_END:
   gsm_cmd("AT+HTTPTERM");
@@ -774,6 +922,8 @@ int gsm_lua_wait(lua_State *L)
   return 2;
 }
 
+
+
 int gsm_state(lua_State *L)
 {
   lua_pushinteger(L, gsm.state);
@@ -811,11 +961,14 @@ const LUA_REG_TYPE gsm_map[] =
   F(is_pin_required, gsm_is_pin_required),
   F(send_pin, gsm_send_pin),
   F(send_sms, gsm_send_sms),
+  F(read_sms, gsm_read_sms),
+  F(delete_sms, gsm_delete_sms),
   F(cmd, gsm_send_cmd),
   F(wait, gsm_lua_wait),
   F(gprs_enable, gsm_gprs_enable),
   F(power_on, gsm_power_on),
   F(power_off, gsm_power_off),
+  F(get_caller, gsm_get_caller),
 
   /* CONSTANTS */
 #define MAP(a) { LSTRKEY(#a), LNUMVAL(a) }

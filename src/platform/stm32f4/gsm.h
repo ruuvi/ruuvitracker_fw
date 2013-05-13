@@ -18,6 +18,8 @@ int gsm_wait(const char *pattern, int timeout, char *line); /* wait for pattern 
 void gsm_uart_write(const char *line);
 void gsm_set_power_state(enum Power_mode mode);
 int gsm_is_gps_ready();         /* Check if GPS flag is set in GSM */
+int gsm_read_line(char *buf, int max_len);
+int gsm_read_raw(char *buf, int max_len);
 
 /* LUA Application interface */
 int gsm_send_cmd(lua_State *L);
@@ -36,5 +38,12 @@ void gsm_setup_io();
 void gsm_toggle_power_pin();
 void gsm_enable_voltage();
 void gsm_disable_voltage();
+void gsm_set_raw_mode();
+void gsm_disable_raw_mode();
+int gsm_is_raw_mode();
+int gsm_int_dummy_set_status( elua_int_resnum resnum, int state );
+int gsm_int_dummy_get_status( elua_int_resnum resnum );
+int gsm_int_call_get_flag  ( elua_int_resnum resnum, int clear );
+int gsm_int_sms_get_flag  ( elua_int_resnum resnum, int clear );
 
 #endif	/* GSM_H */

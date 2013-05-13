@@ -216,13 +216,17 @@ u32 platform_s_cpu_get_frequency();
 #define INT_GPIO_NEGEDGE      ( ELUA_INT_FIRST_ID + 1 )
 #define INT_TMR_MATCH         ( ELUA_INT_FIRST_ID + 2 )
 #define INT_UART_RX           ( ELUA_INT_FIRST_ID + 3 )
-#define INT_ELUA_LAST         INT_UART_RX
+#define INT_GSM_CALL          ( ELUA_INT_FIRST_ID + 4 )
+#define INT_GSM_SMS           ( ELUA_INT_FIRST_ID + 5 )
+#define INT_ELUA_LAST         INT_GSM_SMS
 
 #define PLATFORM_CPU_CONSTANTS\
   _C( INT_GPIO_POSEDGE ),     \
   _C( INT_GPIO_NEGEDGE ),     \
   _C( INT_TMR_MATCH ),        \
-  _C( INT_UART_RX )
+       _C( INT_UART_RX ),     \
+       _C( INT_GSM_CALL ),    \
+       _C( INT_GSM_SMS )
 
 // Conver from GPIO_PinSourceXX to GPIO_Pin_XX
 #define GPIO_SOURCE2PIN(n)    (1 << (n))
