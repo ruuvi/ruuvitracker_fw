@@ -194,7 +194,6 @@ int calculate_gps_checksum(const char *data) {
   }
   sscanf(checksum_index + 1, "%02hhx", &received_checksum);
   
-  //printf("test: %s\n", data);
   /* Loop through data, XORing each character to the next */
   data = strstr(data, "$");
   data++;
@@ -203,8 +202,6 @@ int calculate_gps_checksum(const char *data) {
     data++;
   }
   
-  //printf("GPS: the calculated checksum is 0x%02x\n", checksum);
-  //printf("GPS: received checksum is 0x%02x\n", received_checksum);
   if(checksum == received_checksum) {
     return TRUE;
   } else {
