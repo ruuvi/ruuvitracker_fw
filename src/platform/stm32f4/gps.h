@@ -24,11 +24,6 @@ enum GPS_state {
   STATE_ERROR = 5
 };
 
-struct gps_device {
-  enum GPS_power_mode power_mode;
-  enum GPS_state state;
-};
-
 /* Date and time data */
 typedef struct _gps_datetime {
     int hh;
@@ -40,27 +35,8 @@ typedef struct _gps_datetime {
     int year;
 } gps_datetime;
 
-/* Location data */
-struct _gps_data {
-    int     fix_type;
-    int     n_satellites;
-
-    double  lat;
-    char    ns;
-    double  lon;
-    char    ew;
-    double  speed;
-    double  heading;
-
-    double  pdop;
-    double  hdop;
-    double  vdop;
-
-    gps_datetime dt;
-};
-
-
 /* C-API */
+int gps_validate_serial_port();
 
 /* LUA Application interface */
 int gps_set_power_state(lua_State *L);
@@ -71,6 +47,7 @@ int gps_get_location(lua_State *L);
 int luaopen_gps( lua_State *L );
 void gps_setup_io();
 void gps_line_received();
+int calculate_gps_checksum(const char *data);
 int parse_gpzda(const char *line);
 int parse_gpgga(const char *line);
 int parse_gpgsa(const char *line);
