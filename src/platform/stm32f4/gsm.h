@@ -21,16 +21,6 @@ int gsm_is_gps_ready();         /* Check if GPS flag is set in GSM */
 int gsm_read_line(char *buf, int max_len);
 int gsm_read_raw(char *buf, int max_len);
 
-/* LUA Application interface */
-int gsm_send_cmd(lua_State *L);
-int gsm_is_pin_required(lua_State *L);
-int gsm_send_pin(lua_State *L);
-int gsm_is_ready(lua_State *L);
-int gsm_is_gprs_enabled(lua_State *L);
-int gsm_gprs_enable(lua_State *L);
-int gsm_send_sms(lua_State *L);
-int gsm_state(lua_State *L);
-
 /* Internals */
 int luaopen_gsm( lua_State *L );
 void gsm_line_received();

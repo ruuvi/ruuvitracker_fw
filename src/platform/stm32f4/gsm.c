@@ -545,26 +545,28 @@ int gsm_is_gps_ready()
 
 /* -------------------- L U A   I N T E R F A C E --------------------*/
 
-int gsm_lua_set_power_state(lua_State *L)
+/* COMMON FUNCTIONS */
+
+static int gsm_lua_set_power_state(lua_State *L)
 {
   enum Power_mode next = luaL_checkinteger(L, -1);
   gsm_set_power_state(next);
   return 0;
 }
 
-int gsm_power_on(lua_State *L)
+static int gsm_power_on(lua_State *L)
 {
   gsm_set_power_state(POWER_ON);
   return 0;
 }
 
-int gsm_power_off(lua_State *L)
+static int gsm_power_off(lua_State *L)
 {
   gsm_set_power_state(POWER_OFF);
   return 0;
 }
 
-int gsm_send_cmd(lua_State *L)
+static int gsm_send_cmd(lua_State *L)
 {
   const char *cmd;
   int ret;
@@ -582,7 +584,7 @@ int gsm_send_cmd(lua_State *L)
   return 1;
 }
 
-int gsm_is_pin_required(lua_State *L)
+static int gsm_is_pin_required(lua_State *L)
 {
   /* Wait for modem to boot */
   while( gsm.state < STATE_ASK_PIN )
@@ -592,7 +594,7 @@ int gsm_is_pin_required(lua_State *L)
   return 1;
 }
 
-int gsm_send_pin(lua_State *L)
+static int gsm_send_pin(lua_State *L)
 {
   int ret;
   char cmd[20];
@@ -614,7 +616,7 @@ int gsm_send_pin(lua_State *L)
   return 1;
 }
 
-int gsm_gprs_enable(lua_State *L)
+static int gsm_gprs_enable(lua_State *L)
 {
   const char *apn = luaL_checkstring(L, 1);
   char ap_cmd[64];
@@ -643,8 +645,68 @@ int gsm_gprs_enable(lua_State *L)
   return gsm.reply;
 }
 
+
+static int gsm_lua_wait(lua_State *L)
+{
+  int ret,timeout=TIMEOUT_MS;
+  char line[256];
+  const char *text;
+  text = luaL_checklstring(L, 1, NULL);
+  if (2 <= lua_gettop(L)) {
+       timeout = luaL_checkinteger(L, 2);
+  }
+  ret = gsm_wait(text, timeout, line);
+  lua_pushinteger(L, ret);
+  lua_pushstring(L, line);
+  return 2;
+}
+
+static int gsm_state(lua_State *L)
+{
+  lua_pushinteger(L, gsm.state);
+  return 1;
+}
+
+
+static int gsm_is_ready(lua_State *L)
+{
+  lua_pushboolean(L, gsm.state == STATE_READY);
+  return 1;
+}
+
+static int gsm_flag_is_set(lua_State *L)
+{
+  int flag = luaL_checkinteger(L, -1);
+  lua_pushboolean(L, (gsm.flags&flag) != 0);
+  return 1;
+}
+
+static int gsm_get_caller(lua_State *L)
+{
+  char line[128];
+  char number[64];
+  gsm_set_raw_mode();
+  gsm_uart_write("AT+CLCC" GSM_CMD_LINE_END);
+  while(1) {
+    gsm_read_line(line, 128);
+    if(1 == sscanf(line, "+CLCC: %*d,%*d,4,0,%*d,\"%s", number)) {
+      *strchr(number,'"') = 0;
+      lua_pushstring(L, number);
+      gsm_disable_raw_mode();
+      return 1;
+    }
+    if(0 == strcmp(line, "OK\r\n")) /* End of responses */
+      break;
+  }
+  gsm_disable_raw_mode();
+  return 0;
+}
+
+
+/* SMS FUNCTIONS */
+
 static const char ctrlZ[] = {26, 0};
-int gsm_send_sms(lua_State *L)
+static int gsm_send_sms(lua_State *L)
 {
   const char *number;
   const char *text;
@@ -671,7 +733,7 @@ int gsm_send_sms(lua_State *L)
   return 1;
 }
 
-int gsm_read_sms(lua_State *L)
+static int gsm_read_sms(lua_State *L)
 {
   char tmp[256], msg[161], number[100];
   const char *err;
@@ -717,7 +779,7 @@ int gsm_read_sms(lua_State *L)
   return 1;
 }
 
-int gsm_delete_sms(lua_State *L)
+static int gsm_delete_sms(lua_State *L)
 {
   char cmd[20];
   int ret;
@@ -728,26 +790,8 @@ int gsm_delete_sms(lua_State *L)
   return 1;
 }
 
-int gsm_get_caller(lua_State *L)
-{
-  char line[128];
-  char number[64];
-  gsm_set_raw_mode();
-  gsm_uart_write("AT+CLCC" GSM_CMD_LINE_END);
-  while(1) {
-    gsm_read_line(line, 128);
-    if(1 == sscanf(line, "+CLCC: %*d,%*d,4,0,%*d,\"%s", number)) {
-      *strchr(number,'"') = 0;
-      lua_pushstring(L, number);
-      gsm_disable_raw_mode();
-      return 1;
-    }
-    if(0 == strcmp(line, "OK\r\n")) /* End of responses */
-      break;
-  }
-  gsm_disable_raw_mode();
-  return 0;
-}
+
+/* HTTP FUNCTIONS */
 
 typedef enum method_t { GET, POST } method_t; /* HTTP methods */
 
@@ -798,7 +842,7 @@ static int gsm_http_send_data(const char *data)
   return 0;
 }
 
-int gsm_http_handle(lua_State *L, method_t method,
+static int gsm_http_handle(lua_State *L, method_t method,
                     const char *data, const char *content_type)
 {
   int i,status,len,ret;
@@ -895,54 +939,18 @@ HTTP_END:
   return 1;
 }
 
-int gsm_http_get(lua_State *L)
+static int gsm_http_get(lua_State *L)
 {
   return gsm_http_handle(L, GET, NULL, NULL);
 }
 
-int gsm_http_post(lua_State *L)
+static int gsm_http_post(lua_State *L)
 {
   const char *data = luaL_checkstring(L, 2); /* 1 is url, it is handled in http_handle function */
   const char *content_type = luaL_checkstring(L, 3);
   return gsm_http_handle(L, POST, data, content_type);
 }
 
-int gsm_lua_wait(lua_State *L)
-{
-  int ret,timeout=TIMEOUT_MS;
-  char line[256];
-  const char *text;
-  text = luaL_checklstring(L, 1, NULL);
-  if (2 <= lua_gettop(L)) {
-       timeout = luaL_checkinteger(L, 2);
-  }
-  ret = gsm_wait(text, timeout, line);
-  lua_pushinteger(L, ret);
-  lua_pushstring(L, line);
-  return 2;
-}
-
-
-
-int gsm_state(lua_State *L)
-{
-  lua_pushinteger(L, gsm.state);
-  return 1;
-}
-
-
-int gsm_is_ready(lua_State *L)
-{
-  lua_pushboolean(L, gsm.state == STATE_READY);
-  return 1;
-}
-
-int gsm_flag_is_set(lua_State *L)
-{
-  int flag = luaL_checkinteger(L, -1);
-  lua_pushboolean(L, (gsm.flags&flag) != 0);
-  return 1;
-}
 
 /* Export Lua GSM library */
 
