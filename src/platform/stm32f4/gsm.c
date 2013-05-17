@@ -66,6 +66,7 @@ enum GSM_FLAGS {
   GPRS_READY      = 0x08,
   CALL            = 0x10,
   INCOMING_CALL   = 0x20,
+  TCP_ENABLED     = 0x40,
 };
 
 /* Modem Status */
@@ -78,6 +79,7 @@ struct gsm_modem {
   int flags;
   enum CFUN cfun;
   int last_sms_index;
+  char ap_name[64];
 } static gsm = {		/* Initial status */
   .power_mode=POWER_OFF,
   .state = STATE_OFF,
@@ -98,6 +100,7 @@ static void call_ended(char *line);
 static void parse_network(char *line);
 static void parse_sapbr(char *line);
 static void parse_sms_in(char *line);
+static void socket_receive(char *line);
 
 typedef struct Message Message;
 struct Message {
@@ -119,6 +122,8 @@ static Message urc_messages[] = {
   { "NORMAL POWER DOWN",    .next_state=STATE_OFF },
   { "+COPS:",               .func = parse_network },
   { "+SAPBR:",              .func = parse_sapbr },
+  { "+PDP: DEACT", }, //TODO
+  { "+RECEIVE",             .func = socket_receive },
   /* Return codes */
   { "OK",   .func = handle_ok },
   { "FAIL", .func = handle_fail },
@@ -284,6 +289,38 @@ int gsm_cmd(const char *cmd)
   return gsm.reply;
 }
 
+int gsm_cmd_check(const char *cmd)
+{
+  int rc;
+  printf("GSM CMD: %s\n", cmd);
+  rc = gsm_cmd(cmd);
+  if (rc) {
+    switch(rc) {
+    case AT_TIMEOUT:
+      printf("TIMEOUT\n");
+      break;
+    case AT_FAIL:
+      printf("Failed\n");
+      break;
+    case AT_ERROR:
+      printf("Returned error\n");
+      break;
+    }
+  }
+  return rc;
+}
+#define gsm_cmd gsm_cmd_check
+
+int gsm_cmd_fmt(const char *fmt, ...)
+{
+  char cmd[256];
+  va_list ap;
+  va_start( ap, fmt );
+  vsnprintf( cmd, 256, fmt, ap );
+  va_end( ap );
+  return gsm_cmd(cmd);
+}
+
 void gsm_set_raw_mode()
 {
   gsm.raw_mode = 1;
@@ -341,6 +378,25 @@ WAIT_END:
     gsm_disable_raw_mode();
 
   return ret;
+}
+
+int gsm_cmd_wait(const char *cmd, const char *response, int timeout)
+{
+  int r;
+  gsm_set_raw_mode();
+  gsm_uart_write(cmd);
+  r = gsm_wait(response, timeout, NULL);
+  gsm_disable_raw_mode();
+  return r;
+}
+int gsm_cmd_wait_fmt(const char *response, int timeout, char *fmt, ...)
+{
+  char cmd[256];
+  va_list ap;
+  va_start( ap, fmt );
+  vsnprintf( cmd, 256, fmt, ap );
+  va_end( ap );
+  return gsm_cmd_wait(cmd, response, timeout);
 }
 
 /* Read line from GSM serial port to buffer */
@@ -445,6 +501,16 @@ void gsm_uart_write(const char *line)
   }
 }
 
+void gsm_uart_write_fmt(const char *fmt, ...)
+{
+  char cmd[256];
+  va_list ap;
+  va_start( ap, fmt );
+  vsnprintf( cmd, 256, fmt, ap );
+  va_end( ap );
+  gsm_uart_write(cmd);
+}
+
 /* Find message matching current line */
 static Message *lookup_urc_message(const char *line)
 {
@@ -543,6 +609,38 @@ int gsm_is_gps_ready()
   }
 }
 
+int gsm_gprs_enable()
+{
+  int rc;
+  /* Wait for network */
+  while(gsm.state < STATE_READY)
+    delay_ms(TIMEOUT_MS);
+
+  /* Check if already enabled */
+  gsm_cmd("AT+SAPBR=2,1");
+
+  if (gsm.flags&GPRS_READY)
+    return 0;
+
+  rc = 0;
+  rc += gsm_cmd("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");
+  rc += gsm_cmd_fmt("AT+SAPBR=3,1,\"APN\",\"%s\"", gsm.ap_name);
+  rc += gsm_cmd("AT+SAPBR=1,1");
+
+  if (AT_OK == rc)
+    gsm.flags |= GPRS_READY;
+  return rc;
+}
+
+int gsm_gprs_disable()
+{
+  gsm_cmd("AT+SAPBR=2,1");
+  if (!(gsm.flags&GPRS_READY))
+    return 0; //Was not enabled
+
+  return gsm_cmd("AT+SAPBR=0,1"); //Close Bearer
+}
+
 /* -------------------- L U A   I N T E R F A C E --------------------*/
 
 /* COMMON FUNCTIONS */
@@ -616,35 +714,12 @@ static int gsm_send_pin(lua_State *L)
   return 1;
 }
 
-static int gsm_gprs_enable(lua_State *L)
+static int gsm_set_apn(lua_State *L)
 {
   const char *apn = luaL_checkstring(L, 1);
-  char ap_cmd[64];
-
-  /* Wait for CFUN=1 (Radio on)*/
-  while(gsm.cfun != CFUN_1)
-    delay_ms(TIMEOUT_MS);
-
-  /* Check if already enabled */
-  gsm_cmd("AT+SAPBR=2,1");
-
-  if (gsm.flags&GPRS_READY)
-    return 0;
-
-  snprintf(ap_cmd, 64, "AT+SAPBR=3,1,\"APN\",\"%s\"", apn);
-
-  while (gsm.state < STATE_READY)
-    delay_ms(1000);
-
-  gsm_cmd("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");
-  gsm_cmd(ap_cmd);
-  gsm_cmd("AT+SAPBR=1,1");
-
-  if (AT_OK == gsm.reply)
-    gsm.flags |= GPRS_READY;
-  return gsm.reply;
+  strncpy(gsm.ap_name, apn, sizeof(gsm.ap_name));
+  return 0;
 }
-
 
 static int gsm_lua_wait(lua_State *L)
 {
@@ -799,6 +874,9 @@ static int gsm_http_init(const char *url)
 {
   int ret;
   char url_cmd[256];
+
+  gsm_gprs_enable();
+
   snprintf(url_cmd, 256, "AT+HTTPPARA=\"URL\",\"%s\"", url);
   ret = gsm_cmd("AT+HTTPINIT");
   if (ret != AT_OK)
@@ -952,17 +1030,200 @@ static int gsm_http_post(lua_State *L)
 }
 
 
-/* Export Lua GSM library */
+/* TCP FUNCTIONS */
+
+typedef struct socket {
+  int con;
+  enum {CONNECTED, DISCONNECTED} state;
+} socket;
+
+/* Initialize GSM metatable */
+static void gsm_tcp_initialize_meta(lua_State *L)
+{
+  int index;
+  if(0 == luaL_newmetatable(L, "socket_meta")) /* Create our metatable */
+    return;                                    /* Already created. */
+  index = lua_gettop(L);
+  lua_getglobal(L, "gsm");      /* Get gsm.socket to top */
+  lua_pushstring(L, "socket");
+  lua_gettable(L, -2);
+  lua_setfield(L, index, "__index"); /* socket_meta.__index = gsm.socket */
+}
+
+static int gsm_tcp_enable()
+{
+  int rc = 0;
+  while(gsm.state < STATE_READY)
+    delay_ms(100);
+
+  if (gsm.flags&TCP_ENABLED)
+    return 0;
+
+  rc = gsm_cmd("AT+CIPMUX=1");  /* Multi IP */
+  rc = gsm_cmd("AT+CIPSPRT=1"); /* Report '>' */
+  rc = gsm_cmd("AT+CGATT?");
+  rc = gsm_cmd_fmt("AT+CSTT=\"%s\"", gsm.ap_name);
+  rc = gsm_cmd("AT+CIICR");
+  gsm_cmd("AT+CIFSR"); //This does not respond 'OK' but is required to change state
+  if (!rc)
+    gsm.flags |= TCP_ENABLED;
+  return rc;
+}
+
+enum MODE { TCP, UDP };
+static int gsm_tcp_connect(lua_State *L)
+{
+  int rc,con;
+  int mode = TCP;
+  static int next_connection_number=0;
+
+  const char *addr = luaL_checkstring(L,1);
+  const int port = luaL_checkinteger(L,2);
+  if (3 == lua_gettop(L))
+    mode = luaL_checkinteger(L, 3);
+
+  gsm_tcp_initialize_meta(L);
+
+  if (AT_OK != gsm_tcp_enable()) {
+    return luaL_error(L, "Cannot enable GPRS PDP\n");
+  }
+  con = (next_connection_number++)%8;
+  /* Connect */
+  rc = gsm_cmd_fmt("AT+CIPSTART=%d,\"%s\",\"%s\",%d",con,(TCP==mode)?"TCP":"UDP", addr, port);
+  rc = gsm_wait("CONNECT OK", 2*TIMEOUT_HTTP, NULL);
+  if (AT_OK != rc) {
+    printf("Connection failed\n");
+    return 0;
+  }
+
+  /* Create Socket object */
+  socket *s = (socket*) lua_newuserdata(L, sizeof(socket));
+  luaL_getmetatable(L, "socket_meta");
+  lua_setmetatable(L, -2);
+
+  printf("Connected\n");
+  s->con = con;
+  s->state = CONNECTED;
+  return 1; // lua_newuserdata pushed alredy to stack
+}
+
+typedef struct receive_buf r_buf;
+struct receive_buf {
+  r_buf *next;
+  char data[0];
+};
+r_buf *receive_buf[8]; //8 connections;
+
+static int gsm_tcp_read(lua_State *L)
+{
+  r_buf *p;
+  socket *s = (socket*)luaL_checkudata(L, 1, "socket_meta");
+  if (receive_buf[s->con]) {
+    lua_pushstring(L, receive_buf[s->con]->data); //TODO: Not thread safe
+    p = receive_buf[s->con]->next;
+    free(receive_buf[s->con]);
+    receive_buf[s->con] = p;
+    return 1;
+  }
+  return 0;
+}
+
+static void socket_receive(char *line)
+{
+  int size,con;
+  r_buf *p,*b;
+  if(2 == sscanf(line, "+RECEIVE,%d,%d", &con, &size)) {
+    gsm_set_raw_mode();
+    b=(r_buf*)malloc(sizeof(r_buf)+size);
+    if (!b) {
+      printf("No enough memory\n");
+      goto RECV_END;
+    }
+    b->next = NULL;
+    if (size == gsm_read_raw(b->data, size)) {
+      printf("GSM: Received %d bytes\n", size);
+      if (NULL == receive_buf[con]) {
+        receive_buf[con] = b;
+      } else {
+        p = receive_buf[con];
+        while(p->next) //Find pointer that points to NULL
+          p = p->next;
+        p->next = b;
+      }
+    } else {
+      printf("Read failed\n");
+      free(b);
+    }
+  }
+RECV_END:
+  gsm_disable_raw_mode();
+  printf("done\n");
+}
+
+static int gsm_tcp_write(lua_State *L)
+{
+  socket *s = (socket*)luaL_checkudata(L, 1, "socket_meta");
+  size_t size;
+  const char *str = luaL_checklstring(L, 2, &size);
+  char cmd[64];
+
+  if(DISCONNECTED == s->state)
+    return luaL_error(L, "Socket disconnected");
+  gsm_set_raw_mode();
+  snprintf(cmd, 64, "AT+CIPSEND=%d,%d" GSM_CMD_LINE_END, s->con, size);
+  gsm_uart_write(cmd);
+  if (AT_OK != gsm_wait(">", TIMEOUT_MS, NULL) ) {
+    s->state = DISCONNECTED;
+    printf("Failed to write socket\n");
+    return 0;
+  }
+  gsm_uart_write(str);
+  gsm_disable_raw_mode();
+  if (AT_TIMEOUT == gsm_wait("SEND OK", TIMEOUT_HTTP, NULL)) {
+    printf("GSM:Timeout sending socket data\n");
+    return 0;
+  }
+  lua_pushinteger(L, size);
+  return 1;
+}
+
+static int gsm_tcp_close(lua_State *L)
+{
+  r_buf *p,*q;
+  socket *s = (socket*)luaL_checkudata(L, 1, "socket_meta");
+  gsm_cmd_wait_fmt("CLOSE OK", TIMEOUT_MS, "AT+CIPCLOSE=%d", TIMEOUT_MS, s->con);
+  s->state = DISCONNECTED;
+  /* Empty receive buffers */
+  p = receive_buf[s->con];
+  receive_buf[s->con] = NULL;
+  while(p) {
+    q = p->next;
+    free(p);
+    p = q;
+  }
+  return 0;
+}
+
+
+/******** Export Lua GSM library *********/
 
 #define MIN_OPT_LEVEL 2
 #include "lrodefs.h"
 
+/* Functions, Map name to func.*/
+#define F(name,func) { LSTRKEY(#name), LFUNCVAL(func) }
+
+const LUA_REG_TYPE socket_map[] =
+{
+  F(read, gsm_tcp_read),
+  F(write, gsm_tcp_write),
+  F(connect, gsm_tcp_connect),
+  F(close, gsm_tcp_close),
+};
+
 const LUA_REG_TYPE gsm_map[] =
 {
-#if LUA_OPTIMIZE_MEMORY > 0
-  /* Functions, Map name to func (I was lazy)*/
-#define F(name,func) { LSTRKEY(#name), LFUNCVAL(func) }
-  F(set_power_state, gsm_lua_set_power_state) ,
+  F(set_power_state, gsm_lua_set_power_state),
   F(is_ready, gsm_is_ready),
   F(flag_is_set, gsm_flag_is_set),
   F(state, gsm_state),
@@ -973,10 +1234,10 @@ const LUA_REG_TYPE gsm_map[] =
   F(delete_sms, gsm_delete_sms),
   F(cmd, gsm_send_cmd),
   F(wait, gsm_lua_wait),
-  F(gprs_enable, gsm_gprs_enable),
   F(power_on, gsm_power_on),
   F(power_off, gsm_power_off),
   F(get_caller, gsm_get_caller),
+  F(set_apn, gsm_set_apn),
 
   /* CONSTANTS */
 #define MAP(a) { LSTRKEY(#a), LNUMVAL(a) }
@@ -996,7 +1257,9 @@ const LUA_REG_TYPE gsm_map[] =
   { LSTRKEY("FAIL"), LNUMVAL(AT_FAIL) },
   { LSTRKEY("ERROR"), LNUMVAL(AT_ERROR) },
   { LSTRKEY("TIMEOUT"), LNUMVAL(AT_TIMEOUT) },
-#endif
+
+  /* SOCKET MAP */
+  { LSTRKEY("socket"), LROVAL(socket_map) },
   { LNILKEY, LNILVAL }
 };
 
