@@ -70,7 +70,7 @@ function send_event(event)
 end
 
 
---[[--
+--[[
 function ping_server()
    local response = http.get(server.url .. 'ping')
    if not response.is_success then
@@ -82,7 +82,7 @@ function ping_server()
    end
    return nil
 end
-   --]]
+--]]
 
 --[[
 -- Unit tests, uncomment to enable
@@ -105,8 +105,8 @@ function tracker_handler()
    tmr.setclock(timer, 2e3) -- 2kHz is known to work (on ruuviA), allow intervalls from 0s to 32s
    local counter = tmr.start(timer)
    
-   -- Wait for GPRS to start
-   while not gsm.flag_is_set(gsm.GPRS_READY) do
+   -- Wait for GSM to start
+   while not gsm.is_ready() do
        coroutine.yield()
    end
 
