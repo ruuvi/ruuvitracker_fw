@@ -13,11 +13,14 @@ enum Power_mode { POWER_OFF=0, POWER_ON };
 enum Reply { AT_OK=0, AT_FAIL, AT_ERROR, AT_TIMEOUT };
 
 /* C-API */
-int gsm_cmd(const char *cmd);                               /* Send AT command to modem. Returns AT_OK, AT_FAIL or AT_ERROR */
-int gsm_cmd_fmt(const char *fmt, ...);                      /* Send formatted string command to modem. */
+int gsm_cmd(const char *cmd);                                            /* Send AT command to modem. Returns AT_OK, AT_FAIL or AT_ERROR */
+int gsm_cmd_fmt(const char *fmt, ...);                                   /* Send formatted string command to modem. */
 int gsm_cmd_wait(const char *cmd, const char *response, int timeout);    /* Send string and wait for a specific response */
-int gsm_cmd_wait_fmt(const char *fmt, const char *response, int timeout, ...);
-int gsm_wait(const char *pattern, int timeout, char *line); /* wait for a pattern to appear */
+int gsm_cmd_wait_fmt(const char *response, int timeout, char *fmt, ...); /* Send formatted string and wait for response */
+int gsm_wait(const char *pattern, int timeout);                          /* wait for a pattern to appear */
+int gsm_wait_cpy(const char *pattern, int timeout, char *buf, size_t buf_size); /* Wait and copy rest of the line to a buffer */
+
+
 void gsm_uart_write(const char *line);
 void gsm_set_power_state(enum Power_mode mode);
 int gsm_is_gps_ready();         /* Check if GPS flag is set in GSM */

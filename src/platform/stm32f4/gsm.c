@@ -11,7 +11,6 @@
 #include "lua.h"
 #include "lualib.h"
 #include "lauxlib.h"
-#include "platform.h"
 #include "lrotable.h"
 #include "stm32f4xx.h"
 #include "stm32f4xx_conf.h"
@@ -44,7 +43,7 @@
 #define GSM_CMD_LINE_END "\r\n"
 
 #define TIMEOUT_MS   5000        /* Default timeout 5s */
-#define TIMEOUT_HTTP 15000      /* Http timeout, 15s */
+#define TIMEOUT_HTTP 20000      /* Http timeout, 20s */
 
 enum State {
   STATE_UNKNOWN = 0,
@@ -101,6 +100,7 @@ static void parse_network(char *line);
 static void parse_sapbr(char *line);
 static void parse_sms_in(char *line);
 static void socket_receive(char *line);
+static void pdp_off(char *line);
 
 typedef struct Message Message;
 struct Message {
@@ -112,24 +112,24 @@ struct Message {
 /* Messages from modem */
 static Message urc_messages[] = {
   /* Unsolicited Result Codes (URC messages) */
-  { "RDY",                  .next_state=STATE_BOOTING },
-  { "+CPIN: NOT INSERTED",  .next_state=STATE_ERROR, .func = no_sim },
-  { "+CPIN: READY",         .next_state=STATE_WAIT_NETWORK, .func = sim_inserted },
-  { "+CPIN: SIM PIN",       .next_state=STATE_ASK_PIN, .func = sim_inserted },
-  { "+CFUN:",               .func = parse_cfun },
-  { "Call Ready",           .next_state=STATE_READY },
-  { "GPS Ready",            .func = gpsready },
-  { "NORMAL POWER DOWN",    .next_state=STATE_OFF },
-  { "+COPS:",               .func = parse_network },
-  { "+SAPBR:",              .func = parse_sapbr },
-  { "+PDP: DEACT", }, //TODO
-  { "+RECEIVE",             .func = socket_receive },
+  { "RDY",                    .next_state=STATE_BOOTING },
+  { "NORMAL POWER DOWN",      .next_state=STATE_OFF },
+  { "^\\+CPIN: NOT INSERTED", .next_state=STATE_ERROR,        .func = no_sim },
+  { "\\+CPIN: READY",         .next_state=STATE_WAIT_NETWORK, .func = sim_inserted },
+  { "\\+CPIN: SIM PIN",       .next_state=STATE_ASK_PIN,      .func = sim_inserted },
+  { "\\+CFUN:",                                               .func = parse_cfun },
+  { "Call Ready",             .next_state=STATE_READY },
+  { "GPS Ready",       .func = gpsready },
+  { "\\+COPS:",        .func = parse_network },
+  { "\\+SAPBR:",       .func = parse_sapbr },
+  { "\\+PDP: DEACT",   .func = pdp_off },
+  { "\\+RECEIVE",      .func = socket_receive },
   /* Return codes */
-  { "OK",   .func = handle_ok },
-  { "FAIL", .func = handle_fail },
-  { "ERROR",.func = handle_error },
-  { "+CME ERROR", .func = handle_error },
-  { "+CMS ERROR" },                       /* TODO: handle */
+  { "OK",           .func = handle_ok },
+  { "FAIL",         .func = handle_fail },
+  { "ERROR",        .func = handle_error },
+  { "\\+CME ERROR", .func = handle_error },
+  { "\\+CMS ERROR", .func = handle_error },                       /* TODO: handle */
   /* During Call */
   { "NO CARRIER",   .func = call_ended }, /* This is general end-of-call */
   { "NO DIALTONE",  .func = call_ended },
@@ -137,7 +137,7 @@ static Message urc_messages[] = {
   { "NO ANSWER",    .func = handle_fail },
   { "RING",         .func = incoming_call },
   /* SMS */
-  { "+CMTI:",       .func = parse_sms_in },
+  { "\\+CMTI:",       .func = parse_sms_in },
   { NULL } /* Table must end with NULL */
 };
 
@@ -154,6 +154,11 @@ int gsm_int_sms_get_flag  ( elua_int_resnum resnum, int clear )
 {
 //TODO: implement
   return 0;
+}
+
+static void pdp_off(char *line)
+{
+  gsm.flags &= ~TCP_ENABLED;
 }
 
 static void incoming_call(char *line)
@@ -254,6 +259,7 @@ static void handle_error(char *line)
 {
   gsm.reply = AT_ERROR;
   gsm.waiting_reply = 0;
+  printf("GSM ERROR: %s\n", line);
 }
 
 
@@ -334,21 +340,25 @@ int gsm_is_raw_mode()
   return gsm.raw_mode;
 }
 
-/* Wait for specific pattern, copy rest of line to buffer, if given*/
-int gsm_wait(const char *pattern, int timeout, char *line)
+/* Wait for specific pattern */
+int gsm_wait_cpy(const char *pattern, int timeout, char *line, size_t buf_size)
 {
-  const char *p = pattern;
+  char buf[256];
   int c, ret;
   int i;
-  unsigned int t = systick_get_raw();
+  unsigned int t;
+
+  t = systick_get_raw();
   t+=timeout*systick_get_hz()/1000;
 
   int was_raw_mode = gsm_is_raw_mode();
   gsm_set_raw_mode();
 
+  i = 0;
   ret = AT_OK;
-  while(*p) {
+  while(1) {
     c = platform_s_uart_recv(GSM_UART_ID, 0);
+    /* Nothing received */
     if (-1 == c) {
       if (t < systick_get_raw()) {
         ret = AT_TIMEOUT;
@@ -358,21 +368,30 @@ int gsm_wait(const char *pattern, int timeout, char *line)
       }
       continue;
     }
-    if (c == *p) { //Match
-      p++;
-    } else { //No match, go back to start
-      p = pattern;
+    buf[i++] = c;
+    buf[i] = 0;
+    if (NULL == slre_match(0, pattern, buf, i)) { //Match
+      break;
     }
+    if (i == 256) //Buffer full, start new
+      i = 0;
+    if (c == '\n') //End of line, start new buffer at next char
+      i = 0;
   }
+
 
   if (line) {
-       strcpy(line, pattern);
-       i = strlen(line);
-       while ('\n' != (c = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT))) {
-	    line[i++] = c;
-       }
+    strcpy(line, buf);
+    i = strlen(line);
+    while ('\n' != (c = platform_s_uart_recv(GSM_UART_ID, 0))) {
+      if(-1 != c)
+        line[i++] = c;
+      if (systick_get_raw() > t) {
+        ret = AT_TIMEOUT;
+        break;
+      }
+    }
   }
-
 WAIT_END:
   if (!was_raw_mode)
     gsm_disable_raw_mode();
@@ -380,12 +399,18 @@ WAIT_END:
   return ret;
 }
 
+int gsm_wait(const char *pattern, int timeout)
+{
+  return gsm_wait_cpy(pattern, timeout, NULL, 0);
+}
+
 int gsm_cmd_wait(const char *cmd, const char *response, int timeout)
 {
   int r;
   gsm_set_raw_mode();
   gsm_uart_write(cmd);
-  r = gsm_wait(response, timeout, NULL);
+  gsm_uart_write(GSM_CMD_LINE_END);
+  r = gsm_wait(response, timeout);
   gsm_disable_raw_mode();
   return r;
 }
@@ -402,16 +427,24 @@ int gsm_cmd_wait_fmt(const char *response, int timeout, char *fmt, ...)
 /* Read line from GSM serial port to buffer */
 int gsm_read_line(char *buf, int max_len)
 {
-  int i,c;
+  int i,c,t;
   int was_raw = gsm_is_raw_mode();
   gsm_set_raw_mode();
-  for(i=0;i<(max_len-1);i++) {
-    c = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT);
-    buf[i] = (char)c;
-    if ('\n' == c)
+  t = systick_get_raw();
+  t+=TIMEOUT_MS*systick_get_hz()/1000;
+  for(i=0;i<(max_len-1);) {
+    c = platform_s_uart_recv(GSM_UART_ID, 0);
+    if ('\n' == c) {
       break;
+    } else if (-1 != c) {
+      buf[i++] = c;
+    } else if (systick_get_raw() > t) {
+      break;
+    } else {
+      delay_ms(1);
+    }
   }
-  buf[++i]=0;
+  buf[i]=0;
   if (!was_raw)
     gsm_disable_raw_mode();
   return i;
@@ -419,11 +452,20 @@ int gsm_read_line(char *buf, int max_len)
 
 int gsm_read_raw(char *buf, int max_len)
 {
-  int i;
+  int i,c,t;
   int was_raw = gsm_is_raw_mode();
   gsm_set_raw_mode();
-  for(i=0;i<max_len;i++) {
-    buf[i] = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT);
+  t = systick_get_raw();
+  t+=TIMEOUT_MS*systick_get_hz()/1000;
+  for(i=0;i<max_len;) {
+    c = platform_s_uart_recv(GSM_UART_ID, 0);
+    if (-1 != c) {
+      buf[i++] = c;
+    } else if (systick_get_raw() > t) {
+      break;
+    } else {
+      delay_ms(1);
+    }
   }
   if (!was_raw)
     gsm_disable_raw_mode();
@@ -516,7 +558,7 @@ static Message *lookup_urc_message(const char *line)
 {
   int n;
   for(n=0; urc_messages[n].msg; n++) {
-    if (0 == strncmp(line, urc_messages[n].msg, strlen(urc_messages[n].msg))) {
+    if (0 == slre_match(0, urc_messages[n].msg, line, strlen(line))) {
       return &urc_messages[n];
     }
   }
@@ -622,10 +664,13 @@ int gsm_gprs_enable()
   if (gsm.flags&GPRS_READY)
     return 0;
 
-  rc = 0;
-  rc += gsm_cmd("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");
-  rc += gsm_cmd_fmt("AT+SAPBR=3,1,\"APN\",\"%s\"", gsm.ap_name);
-  rc += gsm_cmd("AT+SAPBR=1,1");
+  rc = gsm_cmd("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");
+  if (rc)
+    return rc;
+  rc = gsm_cmd_fmt("AT+SAPBR=3,1,\"APN\",\"%s\"", gsm.ap_name);
+  if (rc)
+    return rc;
+  rc = gsm_cmd("AT+SAPBR=1,1");
 
   if (AT_OK == rc)
     gsm.flags |= GPRS_READY;
@@ -730,7 +775,7 @@ static int gsm_lua_wait(lua_State *L)
   if (2 <= lua_gettop(L)) {
        timeout = luaL_checkinteger(L, 2);
   }
-  ret = gsm_wait(text, timeout, line);
+  ret = gsm_wait_cpy(text, timeout, line, sizeof(line));
   lua_pushinteger(L, ret);
   lua_pushstring(L, line);
   return 2;
@@ -801,7 +846,7 @@ static int gsm_send_sms(lua_State *L)
   gsm_uart_write(number);
 
   gsm_uart_write("\"\r");
-  gsm_wait(">", TIMEOUT_MS, NULL);	 /* Send SMS cmd and wait for '>' to appear */
+  gsm_wait(">", TIMEOUT_MS);	 /* Send SMS cmd and wait for '>' to appear */
   gsm_uart_write(text);
   ret = gsm_cmd(ctrlZ);		/* CTRL-Z ends message. Wait for 'OK' */
   lua_pushinteger(L, ret);
@@ -818,7 +863,7 @@ static int gsm_read_sms(lua_State *L)
   gsm_set_raw_mode();
   snprintf(tmp, 161, "AT+CMGR=%d" GSM_CMD_LINE_END, index);
   gsm_uart_write(tmp);
-  r = gsm_wait("+CMGR:", TIMEOUT_MS, tmp);
+  r = gsm_wait_cpy("\\+CMGR:", TIMEOUT_MS, tmp, sizeof(tmp));
   if (AT_OK != r) {
     printf("GSM: timeout\n");
     gsm_disable_raw_mode();
@@ -840,7 +885,7 @@ static int gsm_read_sms(lua_State *L)
       break;
     strcat(msg, tmp);
   } while(1);
-  gsm_wait("OK", TIMEOUT_MS, tmp);       /* Read response to clear buffer */
+  gsm_wait("OK", TIMEOUT_MS);
   gsm_disable_raw_mode();
 
   /* Response table */
@@ -873,18 +918,20 @@ typedef enum method_t { GET, POST } method_t; /* HTTP methods */
 static int gsm_http_init(const char *url)
 {
   int ret;
-  char url_cmd[256];
 
-  gsm_gprs_enable();
+  if (!(gsm.flags&GPRS_READY)) {
+    ret = gsm_gprs_enable();
+    if (ret != AT_OK) 
+      return -1;
+  }
 
-  snprintf(url_cmd, 256, "AT+HTTPPARA=\"URL\",\"%s\"", url);
   ret = gsm_cmd("AT+HTTPINIT");
   if (ret != AT_OK)
     return -1;
   ret = gsm_cmd("AT+HTTPPARA=\"CID\",\"1\"");
   if (ret != AT_OK)
     return -1;
-  ret = gsm_cmd(url_cmd);
+  ret = gsm_cmd_fmt("AT+HTTPPARA=\"URL\",\"%s\"", url);
   if (ret != AT_OK)
     return -1;
   ret = gsm_cmd("AT+HTTPPARA=\"UA\",\"RuuviTracker/SIM908\"");
@@ -896,39 +943,39 @@ static int gsm_http_init(const char *url)
   return 0;
 }
 
+static void gsm_http_clean()
+{
+  int n;
+  for(n=0;n<10;n++) {
+    if(AT_OK == gsm_cmd("AT+HTTPTERM"))
+      break;
+    delay_ms(1000);
+  }
+}
+
 static int gsm_http_send_content_type(const char *content_type)
 {
-  char cmd[256];
-  snprintf(cmd,256,"AT+HTTPPARA=\"CONTENT\",\"%s\"", content_type);
-  if (gsm_cmd(cmd) != AT_OK)
-    return -1;
-  return 0;
+  return gsm_cmd_fmt("AT+HTTPPARA=\"CONTENT\",\"%s\"", content_type);
 }
 
 static int gsm_http_send_data(const char *data)
 {
-  char cmd[256];
-  snprintf(cmd, 256, "AT+HTTPDATA=%d,1000" GSM_CMD_LINE_END, strlen(data));
-  gsm_uart_write(cmd);
-  if (gsm_wait("DOWNLOAD", TIMEOUT_MS, NULL) == AT_TIMEOUT) {
-    gsm.reply = AT_TIMEOUT;
-    return -1;
+  int r;
+  r = gsm_cmd_wait_fmt("DOWNLOAD", TIMEOUT_MS, "AT+HTTPDATA=%d,1000", strlen(data));
+  if (AT_OK != r) {
+    return r;
   }
   gsm_uart_write(data);
-  if (gsm_cmd(GSM_CMD_LINE_END) != AT_OK)  /* Send empty command to wait for OK */
-    return -1;
-  return 0;
+  return gsm_cmd(GSM_CMD_LINE_END);
 }
 
 static int gsm_http_handle(lua_State *L, method_t method,
                     const char *data, const char *content_type)
 {
-  int i,status,len,ret;
+  int status,len,ret;
   char resp[64];
   const char *url = luaL_checkstring(L, 1);
-  const char *p,*httpread_pattern = "+HTTPREAD";
   char *buf=0;
-  char c;
 
   if (gsm_http_init(url) != 0) {
     printf("GSM: Failed to initialize HTTP\n");
@@ -958,7 +1005,7 @@ static int gsm_http_handle(lua_State *L, method_t method,
     goto HTTP_END;
   }
 
-  if (gsm_wait("+HTTPACTION", TIMEOUT_HTTP, resp) == AT_TIMEOUT) {
+  if (gsm_wait_cpy("\\+HTTPACTION", TIMEOUT_HTTP, resp, sizeof(resp)) == AT_TIMEOUT) {
     printf("GSM: HTTP Timeout\n");
     goto HTTP_END;
   }
@@ -972,34 +1019,27 @@ static int gsm_http_handle(lua_State *L, method_t method,
   if (len < 0)
     goto HTTP_END;
 
-  if (NULL == (buf = malloc(len))) {
+  if (NULL == (buf = malloc(len+1))) {
     printf("GSM: Out of memory\n");
     goto HTTP_END;
   }
   
   //Now read all bytes. block others from reading.
   gsm_set_raw_mode();
-  gsm_uart_write("AT+HTTPREAD" GSM_CMD_LINE_END); //Wait for header
-  p = httpread_pattern;
-  while(*p) {           /* Wait for "+HTTPREAD:<data_len>" */
-    c = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT);
-    if (c == *p) { //Match
-      p++;
-    } else { //No match, go back to start
-      p = httpread_pattern;
-    }
-  }
-  while ('\n' != platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT))
-    ;;                          /* Wait end of line */
+  gsm_uart_write("AT+HTTPREAD" GSM_CMD_LINE_END); //Read cmd
+  gsm_wait_cpy("\\+HTTPREAD", TIMEOUT_MS, resp, sizeof(resp)); //Wait for header
   /* Rest of bytes are data */
-  for(i=0;i<len;i++) {
-    buf[i] = platform_s_uart_recv(GSM_UART_ID, PLATFORM_TIMER_INF_TIMEOUT);
+  if (len != gsm_read_raw(buf, len)) {
+    printf("GSM: Timeout waiting for HTTP DATA\n");
+    free(buf);
+    buf = 0;
+    goto HTTP_END;
   }
-  buf[i]=0;
-  gsm_disable_raw_mode();
+  buf[len]=0;
 
 HTTP_END:
-  gsm_cmd("AT+HTTPTERM");
+  gsm_disable_raw_mode();
+  gsm_http_clean();
 
   /* Create response structure */
   lua_newtable(L);
@@ -1048,6 +1088,8 @@ static void gsm_tcp_initialize_meta(lua_State *L)
   lua_pushstring(L, "socket");
   lua_gettable(L, -2);
   lua_setfield(L, index, "__index"); /* socket_meta.__index = gsm.socket */
+  lua_pushstring(L, "__gc");         /* Get gsm.socket.__gc */
+  lua_setfield(L, index, "__gc");    /* socket.meta.__gc = gsm.socket.__gc */
 }
 
 static int gsm_tcp_enable()
@@ -1060,14 +1102,29 @@ static int gsm_tcp_enable()
     return 0;
 
   rc = gsm_cmd("AT+CIPMUX=1");  /* Multi IP */
+  if (rc)
+    return rc;
   rc = gsm_cmd("AT+CIPSPRT=1"); /* Report '>' */
+  if (rc)
+    return rc;
   rc = gsm_cmd("AT+CGATT?");
+  if (rc)
+    return rc;
   rc = gsm_cmd_fmt("AT+CSTT=\"%s\"", gsm.ap_name);
+  if (rc)
+    return rc;
   rc = gsm_cmd("AT+CIICR");
-  gsm_cmd("AT+CIFSR"); //This does not respond 'OK' but is required to change state
+  if (rc)
+    return rc;
+  rc = gsm_cmd_wait("AT+CIFSR", "\\d+.\\d+.\\d+.\\d", TIMEOUT_MS);
   if (!rc)
     gsm.flags |= TCP_ENABLED;
   return rc;
+}
+
+static void gsm_tcp_end()
+{
+  gsm_cmd_wait("AT+CIPSHUT", "SHUT OK", TIMEOUT_MS);
 }
 
 enum MODE { TCP, UDP };
@@ -1085,12 +1142,14 @@ static int gsm_tcp_connect(lua_State *L)
   gsm_tcp_initialize_meta(L);
 
   if (AT_OK != gsm_tcp_enable()) {
-    return luaL_error(L, "Cannot enable GPRS PDP\n");
+    printf("GSM: Cannot enable GPRS PDP\n");
+    gsm_tcp_end();
+    return 0;
   }
   con = (next_connection_number++)%8;
   /* Connect */
   rc = gsm_cmd_fmt("AT+CIPSTART=%d,\"%s\",\"%s\",%d",con,(TCP==mode)?"TCP":"UDP", addr, port);
-  rc = gsm_wait("CONNECT OK", 2*TIMEOUT_HTTP, NULL);
+  rc = gsm_wait("CONNECT OK", 2*TIMEOUT_HTTP);
   if (AT_OK != rc) {
     printf("Connection failed\n");
     return 0;
@@ -1134,13 +1193,14 @@ static void socket_receive(char *line)
   r_buf *p,*b;
   if(2 == sscanf(line, "+RECEIVE,%d,%d", &con, &size)) {
     gsm_set_raw_mode();
-    b=(r_buf*)malloc(sizeof(r_buf)+size);
+    b=(r_buf*)malloc(sizeof(r_buf)+size+1);
     if (!b) {
       printf("No enough memory\n");
       goto RECV_END;
     }
     b->next = NULL;
     if (size == gsm_read_raw(b->data, size)) {
+      b->data[size] = 0; //Mark end of string
       printf("GSM: Received %d bytes\n", size);
       if (NULL == receive_buf[con]) {
         receive_buf[con] = b;
@@ -1172,14 +1232,14 @@ static int gsm_tcp_write(lua_State *L)
   gsm_set_raw_mode();
   snprintf(cmd, 64, "AT+CIPSEND=%d,%d" GSM_CMD_LINE_END, s->con, size);
   gsm_uart_write(cmd);
-  if (AT_OK != gsm_wait(">", TIMEOUT_MS, NULL) ) {
+  if (AT_OK != gsm_wait(">", TIMEOUT_MS) ) {
     s->state = DISCONNECTED;
     printf("Failed to write socket\n");
     return 0;
   }
   gsm_uart_write(str);
   gsm_disable_raw_mode();
-  if (AT_TIMEOUT == gsm_wait("SEND OK", TIMEOUT_HTTP, NULL)) {
+  if (AT_TIMEOUT == gsm_wait("SEND OK", TIMEOUT_HTTP)) {
     printf("GSM:Timeout sending socket data\n");
     return 0;
   }
@@ -1191,7 +1251,7 @@ static int gsm_tcp_close(lua_State *L)
 {
   r_buf *p,*q;
   socket *s = (socket*)luaL_checkudata(L, 1, "socket_meta");
-  gsm_cmd_wait_fmt("CLOSE OK", TIMEOUT_MS, "AT+CIPCLOSE=%d", TIMEOUT_MS, s->con);
+  gsm_cmd_wait_fmt("CLOSE OK", TIMEOUT_MS, "AT+CIPCLOSE=%d", s->con);
   s->state = DISCONNECTED;
   /* Empty receive buffers */
   p = receive_buf[s->con];
@@ -1201,6 +1261,7 @@ static int gsm_tcp_close(lua_State *L)
     free(p);
     p = q;
   }
+  printf("GSM: Closed socket %d\n", s->con);
   return 0;
 }
 
@@ -1219,6 +1280,7 @@ const LUA_REG_TYPE socket_map[] =
   F(write, gsm_tcp_write),
   F(connect, gsm_tcp_connect),
   F(close, gsm_tcp_close),
+  F(__gc, gsm_tcp_close),       /* Garbage collection event, close this socket */
 };
 
 const LUA_REG_TYPE gsm_map[] =
@@ -1253,6 +1315,7 @@ const LUA_REG_TYPE gsm_map[] =
   MAP( SIM_INSERTED ),
   MAP( GPRS_READY ),
   MAP( INCOMING_CALL ),
+  MAP( CALL ),
   { LSTRKEY("OK"), LNUMVAL(AT_OK) },
   { LSTRKEY("FAIL"), LNUMVAL(AT_FAIL) },
   { LSTRKEY("ERROR"), LNUMVAL(AT_ERROR) },
