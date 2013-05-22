@@ -39,8 +39,11 @@ static int idleloop( lua_State *L) {
     return 0;
   }
   for(;;) {
-    lua_pushvalue(L,-1); //Get copy function to stack
-    lua_pcall(L, 0, 0, 0); //Call the function
+    lua_pushvalue(L,-1); //Get copy of a function to stack
+    if (lua_pcall(L, 0, 0, 0)) { //Call the function
+      return luaL_error(L, "error running idleloop: %s",
+                        lua_tostring(L, -1));
+    }
 
     NVIC_SystemLPConfig(NVIC_LP_SLEEPONEXIT, ENABLE); //Enable SleepOnExit mode for interrupt
     tick = systick_get_raw();
