@@ -167,7 +167,7 @@ static void NVIC_Configuration(void)
 #ifdef BUILD_ADC
   nvic_init_structure_adc.NVIC_IRQChannel = DMA2_Stream0_IRQn;
   nvic_init_structure_adc.NVIC_IRQChannelPreemptionPriority = 1;
-  nvic_init_structure_adc.NVIC_IRQChannelSubPriority = 1;
+  nvic_init_structure_adc.NVIC_IRQChannelSubPriority = 0;
   nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE;
   NVIC_Init(&nvic_init_structure_adc);
 #endif
