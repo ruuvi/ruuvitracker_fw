@@ -257,6 +257,7 @@ static void handle_fail(char *line)
 {
   gsm.reply = AT_FAIL;
   gsm.waiting_reply = 0;
+  printf("GSM: Fail\n");
 }
 
 static void handle_error(char *line)
@@ -290,12 +291,15 @@ int gsm_cmd(const char *cmd)
   while(gsm.waiting_reply) {
     if (t < systick_get_raw()) {
       /* Timeout */
+      printf("GSM: '%s'  TIMEOUT\n", cmd);
       gsm.waiting_reply = 0;
       return AT_TIMEOUT;
     }
     delay_ms(1);
   }
 
+  if (gsm.reply != AT_OK)
+    printf("GSM: '%s' failed (%d)\n", cmd, gsm.reply);
   return gsm.reply;
 }
 
@@ -414,6 +418,7 @@ int gsm_cmd_wait(const char *cmd, const char *response, int timeout)
   gsm_set_raw_mode();
   gsm_uart_write(cmd);
   gsm_uart_write(GSM_CMD_LINE_END);
+  printf("GSM CMD: %s\n", cmd);
   r = gsm_wait(response, timeout);
   gsm_disable_raw_mode();
   return r;
