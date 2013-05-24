@@ -500,6 +500,7 @@ static void set_hw_flow()
   if (AT_OK == gsm_cmd("AT+IFC=2,2")) {
     gsm.flags |= HW_FLOW_ENABLED;
     gsm_cmd("ATE0"); 		/* Disable ECHO */
+    gsm_cmd("AT+CSCLK=0");      /* Do not allow module to sleep */
   }
 }
 
@@ -511,7 +512,7 @@ void gsm_enable_voltage()
 
 void gsm_disable_voltage()
 {
-  platform_pio_op(ENABLE_PORT, ENABLE_PIN, PLATFORM_IO_PIN_CLEAR);
+  platform_pio_op(ENABLE_PORT, ENABLE_PIN, PLATFORM_IO_PIN_SET);
 }
 
 void gsm_toggle_power_pin()
