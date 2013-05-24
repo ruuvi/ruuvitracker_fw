@@ -8,5 +8,5 @@ src_files() {
 src_files | xargs etags
 
 src_files > cscope.files
-cscope -b -q -k
+cscope -b -k
 
