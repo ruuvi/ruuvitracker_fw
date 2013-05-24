@@ -43,7 +43,7 @@
 #define GSM_CMD_LINE_END "\r\n"
 
 #define TIMEOUT_MS   5000        /* Default timeout 5s */
-#define TIMEOUT_HTTP 20000      /* Http timeout, 20s */
+#define TIMEOUT_HTTP 35000      /* Http timeout, 30s */
 
 enum State {
   STATE_UNKNOWN = 0,
@@ -659,8 +659,10 @@ int gsm_gprs_enable()
   while(gsm.state < STATE_READY)
     delay_ms(TIMEOUT_MS);
 
-  /* Check if already enabled */
-  gsm_cmd("AT+SAPBR=2,1");
+  /* Check if already enabled, response is parsed in URC handler */
+  rc = gsm_cmd("AT+SAPBR=2,1");
+  if (rc)
+    return rc;
 
   if (gsm.flags&GPRS_READY)
     return 0;
@@ -941,17 +943,15 @@ static int gsm_http_init(const char *url)
   ret = gsm_cmd("AT+HTTPPARA=\"REDIR\",\"1\"");
   if (ret != AT_OK)
     return -1;
+  ret = gsm_cmd("AT+HTTPPARA=\"TIMEOUT\",\"30\"");
+  if (ret != AT_OK)
+    return -1;
   return 0;
 }
 
 static void gsm_http_clean()
 {
-  int n;
-  for(n=0;n<10;n++) {
-    if(AT_OK == gsm_cmd("AT+HTTPTERM"))
-      break;
-    delay_ms(1000);
-  }
+  gsm_cmd("AT+HTTPTERM");
 }
 
 static int gsm_http_send_content_type(const char *content_type)
@@ -1022,6 +1022,7 @@ static int gsm_http_handle(lua_State *L, method_t method,
 
   if (NULL == (buf = malloc(len+1))) {
     printf("GSM: Out of memory\n");
+    status = 602;               /* HTTP: Out of memory */
     goto HTTP_END;
   }
   
