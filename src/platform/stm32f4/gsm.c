@@ -15,6 +15,7 @@
 #include "stm32f4xx.h"
 #include "stm32f4xx_conf.h"
 #include "gsm.h"
+#include "ringbuff.h"
 #include <delay.h>
 #include <string.h>
 #include <stdlib.h>
@@ -101,6 +102,7 @@ static void parse_sapbr(char *line);
 static void parse_sms_in(char *line);
 static void socket_receive(char *line);
 static void pdp_off(char *line);
+static void socket_closed(char *line);
 
 typedef struct Message Message;
 struct Message {
@@ -137,7 +139,9 @@ static Message urc_messages[] = {
   { "NO ANSWER",    .func = handle_fail },
   { "RING",         .func = incoming_call },
   /* SMS */
-  { "\\+CMTI:",       .func = parse_sms_in },
+  { "\\+CMTI:",     .func = parse_sms_in },
+  /* SOCKET */
+  { "\\d, CLOSED",    .func = socket_closed },
   { NULL } /* Table must end with NULL */
 };
 
@@ -1082,8 +1086,13 @@ static int gsm_http_post(lua_State *L)
 
 typedef struct socket {
   int con;
-  enum {CONNECTED, DISCONNECTED} state;
+  enum {DISCONNECTED, CONNECTED} state;
+  struct rbuff *buf;
 } socket;
+
+/* Allocate 8 socket (SIM908 max connections) */
+#define SIM_MAX_SOCKETS 8
+socket sockets[SIM_MAX_SOCKETS];
 
 /* Initialize GSM metatable */
 static void gsm_tcp_initialize_meta(lua_State *L)
@@ -1138,9 +1147,9 @@ static void gsm_tcp_end()
 enum MODE { TCP, UDP };
 static int gsm_tcp_connect(lua_State *L)
 {
-  int rc,con;
+  int i,rc;
   int mode = TCP;
-  static int next_connection_number=0;
+  socket *s = 0;
 
   const char *addr = luaL_checkstring(L,1);
   const int port = luaL_checkinteger(L,2);
@@ -1154,42 +1163,78 @@ static int gsm_tcp_connect(lua_State *L)
     gsm_tcp_end();
     return 0;
   }
-  con = (next_connection_number++)%8;
-  /* Connect */
-  rc = gsm_cmd_fmt("AT+CIPSTART=%d,\"%s\",\"%s\",%d",con,(TCP==mode)?"TCP":"UDP", addr, port);
-  rc = gsm_wait("CONNECT OK", 2*TIMEOUT_HTTP);
-  if (AT_OK != rc) {
-    printf("Connection failed\n");
+
+  /* Find free socket */
+  for(i=0;i<SIM_MAX_SOCKETS;i++) {
+    if (sockets[i].state == DISCONNECTED) {
+      s = &sockets[i];
+      s->con = i;
+      break;
+    }
+  }
+  if (NULL == s) {
+    printf("GSM: No more free sockets\n");
     return 0;
   }
 
-  /* Create Socket object */
-  socket *s = (socket*) lua_newuserdata(L, sizeof(socket));
+  /* Connect */
+  rc = gsm_cmd_fmt("AT+CIPSTART=%d,\"%s\",\"%s\",%d",i,(TCP==mode)?"TCP":"UDP", addr, port);
+  rc = gsm_wait("CONNECT OK", 2*TIMEOUT_HTTP);
+  if (AT_OK != rc) {
+    printf("GSM: Connection failed\n");
+    return 0;
+  }
+
+  /* Push pointer to socket as a userdata, this allow us to use metatable (lightuserdata have not metatable) */
+  *((socket**)lua_newuserdata(L, sizeof(socket*))) = s;
   luaL_getmetatable(L, "socket_meta");
   lua_setmetatable(L, -2);
 
-  printf("Connected\n");
-  s->con = con;
+  /* Prepare socket */
+  s->buf = rbuff_new(100); //More memory will be allocated on receive function
   s->state = CONNECTED;
+  printf("Connected\n");
   return 1; // lua_newuserdata pushed alredy to stack
 }
 
-typedef struct receive_buf r_buf;
-struct receive_buf {
-  r_buf *next;
-  char data[0];
-};
-r_buf *receive_buf[8]; //8 connections;
+static int gsm_tcp_clean(int socket)
+{
+  sockets[socket].state = DISCONNECTED;
+  /* Empty receive buffers */
+  rbuff_delete(sockets[socket].buf);
+  return 0;
+}
 
 static int gsm_tcp_read(lua_State *L)
 {
-  r_buf *p;
-  socket *s = (socket*)luaL_checkudata(L, 1, "socket_meta");
-  if (receive_buf[s->con]) {
-    lua_pushstring(L, receive_buf[s->con]->data); //TODO: Not thread safe
-    p = receive_buf[s->con]->next;
-    free(receive_buf[s->con]);
-    receive_buf[s->con] = p;
+  int size,i;
+  char *p;
+  socket *s = *(socket**)luaL_checkudata(L, 1, "socket_meta");
+
+  if (!rbuff_is_empty(s->buf)) {
+    if (lua_gettop(L)>=2) {     /* Size given */
+      size=luaL_checkint(L,2);
+      p = malloc(size);
+      if (NULL == p) {
+        printf("GSM: Out of memory\n");
+        return 0;
+      }
+      i=0;
+      while(size) {
+        if(rbuff_is_empty(s->buf)) {
+          delay_ms(100);
+          continue;
+        }
+        p[i++] = rbuff_pop(s->buf);
+        size--;
+      }
+      lua_pushlstring(L, p, i);
+      free(p);
+    } else {                    /* No size parameter, read all */
+      size = rbuff_len(s->buf);
+      p = rbuff_get_raw(s->buf);
+      lua_pushlstring(L, p, size);
+    }
     return 1;
   }
   return 0;
@@ -1197,40 +1242,35 @@ static int gsm_tcp_read(lua_State *L)
 
 static void socket_receive(char *line)
 {
-  int size,con;
-  r_buf *p,*b;
+  int n,size,con;
+  char c;
+  socket *s;
+
   if(2 == sscanf(line, "+RECEIVE,%d,%d", &con, &size)) {
     gsm_set_raw_mode();
-    b=(r_buf*)malloc(sizeof(r_buf)+size+1);
-    if (!b) {
-      printf("No enough memory\n");
-      goto RECV_END;
-    }
-    b->next = NULL;
-    if (size == gsm_read_raw(b->data, size)) {
-      b->data[size] = 0; //Mark end of string
-      printf("GSM: Received %d bytes\n", size);
-      if (NULL == receive_buf[con]) {
-        receive_buf[con] = b;
-      } else {
-        p = receive_buf[con];
-        while(p->next) //Find pointer that points to NULL
-          p = p->next;
-        p->next = b;
+    s = &sockets[con];
+
+    if ((s->buf->size - rbuff_len(s->buf)) > size) { /* Need more space */
+      if (!rbuff_grow(s->buf, size + (s->buf->size - rbuff_len(s->buf)))) {
+        printf("GSM: Failed to receive socket. Not enough memory\n");
+        goto RECV_END;
       }
-    } else {
-      printf("Read failed\n");
-      free(b);
+    }
+    for (n=0;n<size;n++) {
+      if (0 == gsm_read_raw(&c, 1)) {
+        printf("GSM: Socket read failed\n");
+        goto RECV_END;
+      }
+      rbuff_push(s->buf, c);
     }
   }
 RECV_END:
   gsm_disable_raw_mode();
-  printf("done\n");
 }
 
 static int gsm_tcp_write(lua_State *L)
 {
-  socket *s = (socket*)luaL_checkudata(L, 1, "socket_meta");
+  socket *s = *(socket**)luaL_checkudata(L, 1, "socket_meta");
   size_t size;
   const char *str = luaL_checklstring(L, 2, &size);
   char cmd[64];
@@ -1241,7 +1281,6 @@ static int gsm_tcp_write(lua_State *L)
   snprintf(cmd, 64, "AT+CIPSEND=%d,%d" GSM_CMD_LINE_END, s->con, size);
   gsm_uart_write(cmd);
   if (AT_OK != gsm_wait(">", TIMEOUT_MS) ) {
-    s->state = DISCONNECTED;
     printf("Failed to write socket\n");
     return 0;
   }
@@ -1257,22 +1296,23 @@ static int gsm_tcp_write(lua_State *L)
 
 static int gsm_tcp_close(lua_State *L)
 {
-  r_buf *p,*q;
-  socket *s = (socket*)luaL_checkudata(L, 1, "socket_meta");
-  gsm_cmd_wait_fmt("CLOSE OK", TIMEOUT_MS, "AT+CIPCLOSE=%d", s->con);
-  s->state = DISCONNECTED;
-  /* Empty receive buffers */
-  p = receive_buf[s->con];
-  receive_buf[s->con] = NULL;
-  while(p) {
-    q = p->next;
-    free(p);
-    p = q;
+  socket *s = *(socket**)luaL_checkudata(L, 1, "socket_meta");
+  if (s->state != DISCONNECTED) {
+    gsm_cmd_wait_fmt("CLOSE OK", TIMEOUT_MS, "AT+CIPCLOSE=0,%d", s->con);
+    s->state = DISCONNECTED;
   }
-  printf("GSM: Closed socket %d\n", s->con);
+  gsm_tcp_clean(s->con);
   return 0;
 }
 
+/* Callback from URC */
+void socket_closed(char *line)
+{
+  int s;
+  if (1 == sscanf(line,"%d", &s)) {
+    sockets[s].state = DISCONNECTED;
+  }
+}
 
 /******** Export Lua GSM library *********/
 
