@@ -637,9 +637,15 @@ void gsm_set_power_state(enum Power_mode mode)
   case POWER_OFF:
     if (1 == status_pin) {
       gsm_toggle_power_pin();
+      gsm.state = STATE_OFF;
     }
     break;
+  case CUT_OFF:
+    gsm_disable_voltage();
+    gsm.state = STATE_OFF;
+    break;
   }
+
 }
 
 /* Check if GPS flag is set */
@@ -1307,6 +1313,7 @@ const LUA_REG_TYPE gsm_map[] =
 #define MAP(a) { LSTRKEY(#a), LNUMVAL(a) }
   MAP( POWER_ON ),
   MAP( POWER_OFF ),
+  MAP( CUT_OFF ),
   MAP( STATE_OFF),
   MAP( STATE_BOOTING ),
   MAP( STATE_ASK_PIN ),
