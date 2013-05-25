@@ -89,6 +89,33 @@ int gps_has_fix(lua_State *L)
 	return 1;
 }
 
+int gps_power_on(lua_State *L)
+{
+	if(gps.state == STATE_OFF) {
+        while(gsm_is_gps_ready() != TRUE) {
+			delay_ms(100);
+        }
+		gsm_cmd("AT+CGPSPWR=1");    /* Power-on */
+		// TODO: select only a subset of sentenced to print
+		gsm_cmd("AT+CGPSOUT=255");  /* Select which GP sentences GPS should print */
+		gsm_cmd("AT+CGPSRST=1");    /* Do a GPS warm reset */
+		gps.state = STATE_ON;
+      }
+	return 0;
+}
+
+int gps_power_off(lua_State *L)
+{
+  // TODO: handle error states
+	if((gps.state == STATE_ON) || (gps.state == STATE_HAS_2D_FIX)
+		|| (gps.state == STATE_HAS_3D_FIX)) {
+		// TODO: handle other states
+		gsm_cmd("AT+CGPSPWR=0");    /* Power-off */
+		gps.state = STATE_OFF;
+	}
+	return 0;
+}
+
 int gps_set_power_state(lua_State *L)
 {
   // TODO: handle error states
@@ -414,6 +441,8 @@ const LUA_REG_TYPE gps_map[] =
 {
 #if LUA_OPTIMIZE_MEMORY > 0
   /* FUNCTIONS */
+  { LSTRKEY("power_on") , LFUNCVAL(gps_power_on) },
+  { LSTRKEY("power_off") , LFUNCVAL(gps_power_off) },
   { LSTRKEY("set_power_state") , LFUNCVAL(gps_set_power_state) },
   { LSTRKEY("has_fix") , LFUNCVAL(gps_has_fix) },
   { LSTRKEY("get_location") , LFUNCVAL(gps_get_location) },
