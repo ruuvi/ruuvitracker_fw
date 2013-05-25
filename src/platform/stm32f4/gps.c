@@ -30,11 +30,9 @@
 #include "lrodefs.h"
 
 struct gps_device {
-	enum GPS_power_mode power_mode;
 	enum GPS_state state;
 	int serial_port_validated;
 } static gps = {					/* Initial status */
-	.power_mode = GPS_POWER_OFF,
 	.state = STATE_OFF,
 	.serial_port_validated = FALSE,	/* For production tests, MCU<->GPS serial line */
 };
@@ -114,35 +112,6 @@ int gps_power_off(lua_State *L)
 	return 0;
 }
 
-int gps_set_power_state(lua_State *L)
-{
-  // TODO: handle error states
-  enum GPS_power_mode next = luaL_checkinteger(L, -1);
-  
-  switch(next) {
-    case GPS_POWER_ON:
-      if(gps.state == STATE_OFF) {
-        while(gsm_is_gps_ready() != TRUE) {
-          delay_ms(100);
-        }
-        gsm_cmd("AT+CGPSPWR=1");    /* Power-on */
-        gsm_cmd("AT+CGPSOUT=255");  /* Select which GP sentences GPS should print */
-        gsm_cmd("AT+CGPSRST=1");    /* Do a GPS warm reset */
-      }
-      break;
-    case GPS_POWER_OFF:
-      if(gps.state == STATE_ON) {
-        // TODO: handle other states
-        gsm_cmd("AT+CGPSPWR=0");    /* Power-off */
-      }
-      break;
-    default:
-      printf("GPS: Error, unknown power state!\n");
-      break;
-    }
-  return 0;
-}
-
 int gps_get_location(lua_State *L)
 {
  	lua_pushnumber(L, gps_data.lat);
@@ -179,6 +148,7 @@ int gps_get_data(lua_State *L)
 	lua_pushnumber(L, gps_data.heading);
 	lua_settable(L, -3);
 	
+	// TODO: convert to meters
 	lua_pushstring(L, "altitude");
 	lua_pushnumber(L, gps_data.altitude);
 	lua_settable(L, -3);
@@ -187,6 +157,7 @@ int gps_get_data(lua_State *L)
 	lua_pushnumber(L, gps_data.pdop);
 	lua_settable(L, -3);
 	
+	// TODO: convert to meters
 	lua_pushstring(L, "vertical_accuracy");
 	lua_pushnumber(L, gps_data.vdop);
 	lua_settable(L, -3);
@@ -509,7 +480,6 @@ const LUA_REG_TYPE gps_map[] =
   /* FUNCTIONS */
   { LSTRKEY("power_on") , LFUNCVAL(gps_power_on) },
   { LSTRKEY("power_off") , LFUNCVAL(gps_power_off) },
-  { LSTRKEY("set_power_state") , LFUNCVAL(gps_set_power_state) },
   { LSTRKEY("has_fix") , LFUNCVAL(gps_has_fix) },
   { LSTRKEY("get_location") , LFUNCVAL(gps_get_location) },
   { LSTRKEY("get_data") , LFUNCVAL(gps_get_data) },
@@ -517,8 +487,6 @@ const LUA_REG_TYPE gps_map[] =
 
   /* CONSTANTS */
 #define MAP(a) { LSTRKEY(#a), LNUMVAL(a) }
-  MAP( GPS_POWER_OFF),
-  MAP( GPS_POWER_ON),
   MAP( STATE_UNKNOWN),
   MAP( STATE_OFF),
   MAP( STATE_ON ),
