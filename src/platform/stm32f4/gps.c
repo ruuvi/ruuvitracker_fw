@@ -45,9 +45,7 @@ struct _gps_data {
     int		n_satellites;
 
     double	lat;
-    char	ns;
     double	lon;
-    char	ew;
     double	speed;
     double	heading;
     double	height;
@@ -61,9 +59,7 @@ struct _gps_data {
   .fix_type     = GPS_FIX_TYPE_NONE,  // Set initial values
   .n_satellites = 0,
   .lat          = 0.0,
-  .ns           = '-',
   .lon          = 0.0,
-  .ew           = '-',
   .speed        = 0.0,
   .heading      = 0.0,
   .height       = 0.0,
@@ -167,11 +163,11 @@ int gps_get_data(lua_State *L)
 	lua_pushinteger(L, gps_data.n_satellites);
 	lua_settable(L, -3);
 	
-	lua_pushstring(L, "lat");
+	lua_pushstring(L, "latitude");
 	lua_pushnumber(L, gps_data.lat);
 	lua_settable(L, -3);
 	
-	lua_pushstring(L, "lon");
+	lua_pushstring(L, "longitude");
 	lua_pushnumber(L, gps_data.lon);
 	lua_settable(L, -3);
 	
@@ -199,8 +195,7 @@ int gps_get_data(lua_State *L)
 	lua_pushnumber(L, gps_data.hdop);
 	lua_settable(L, -3);
 	
-	// Construct ISO compatible time string
-	// 2012-01-08T20:57:30.123+0200
+	// Construct ISO compatible time string, 2012-01-08T20:57:30.123Z
 	sprintf(timestr, "%d-%02d-%02dT%02d:%02d:%02d.%03dZ",
 		gps_data.dt.year,
 		gps_data.dt.month,
@@ -209,7 +204,6 @@ int gps_get_data(lua_State *L)
 		gps_data.dt.mm,
 		gps_data.dt.sec,
 		gps_data.dt.msec);
-	
 	lua_pushstring(L, "time");
 	lua_pushstring(L, timestr);
 	lua_settable(L, -3);
@@ -438,7 +432,13 @@ int parse_gprmc(const char *line) {
         parse_nmea_time_str(time, &gps_data.dt);
         parse_nmea_date_str(date, &gps_data.dt);
         gps_data.lat = nmeadeg2degree(lat);
+        if(strstr(ns, "S")) {
+        	gps_data.lat = -1 * gps_data.lat;
+        }
         gps_data.lon = nmeadeg2degree(lon);
+        if(strstr(ew, "W")) {
+        	gps_data.lon = -1 * gps_data.lon;
+        }
         /*
         printf("GPS: hh: %d\n", gps_data.dt.hh);
         printf("GPS: mm: %d\n", gps_data.dt.mm);
