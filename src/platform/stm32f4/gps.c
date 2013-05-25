@@ -187,7 +187,7 @@ int calculate_gps_checksum(const char *data) {
   char *checksum_index;
 
   if((checksum_index = strstr(data, "*")) == NULL) { // Find the beginning of checksum
-    printf("GPS: error, cannot find the beginning of checksum!.\n");
+    printf("GPS: error, cannot find the beginning of checksum!\n");
     printf("GPS: error, input string for checksum calculation was: %s\n", data);
     return FALSE;
   }
@@ -270,7 +270,7 @@ int parse_gpgsa(const char *line) {
     
     if(error != NULL) {
 		// TODO: add a check incomplete sentence
-        //printf("GPS: Error parsing GPGSA string %s: %s\n", line error);
+        //printf("GPS: Error parsing GPGSA string '%s': %s\n", line error);
         return -1;
     } else {
         switch(gps_fix_type) {
