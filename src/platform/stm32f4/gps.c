@@ -173,7 +173,7 @@ void gps_line_received()
       } else if(strstr(buf, "$GPZDA")) {  // Date & Time
         //parse_gpzda(buf); // Not needed ATM, GPRMC has the same data&time data
       } else {
-        printf("GPS: input line doesn't match any supported GP sentences!\n");
+        printf("GPS: input line '%s' doesn't match any supported GP sentences!\n", buf);
       }
     } else {
       printf("GPS: error, calculated checksum does not match received!\n");
@@ -187,8 +187,7 @@ int calculate_gps_checksum(const char *data) {
   char *checksum_index;
 
   if((checksum_index = strstr(data, "*")) == NULL) { // Find the beginning of checksum
-    printf("GPS: error, cannot find the beginning of checksum!\n");
-    printf("GPS: error, input string for checksum calculation was: %s\n", data);
+    printf("GPS: error, cannot find the beginning of checksum from input line '%s'\n", data);
     return FALSE;
   }
   sscanf(checksum_index + 1, "%02hhx", &received_checksum);
@@ -219,8 +218,9 @@ int parse_gpgga(const char *line) {
         printf("GPS: Error parsing GPGGA string '%s': %s\n", line, error);
         return -1;
     } else {
+		if(gps_data.n_satellites != n_sat)
+	        printf("GPS: Number of satellites in view: %d\n", gps_data.n_satellites);
         gps_data.n_satellites = n_sat;
-        printf("GPS: Number of satellites in view: %d\n", gps_data.n_satellites);
         return 0;
     }
 }
@@ -245,6 +245,7 @@ int parse_gpzda(const char *line) {
         gps_data.dt.day = day;
         gps_data.dt.month = month;
         gps_data.dt.year = year;
+        /*
         printf("GPS: hh: %d\n", gps_data.dt.hh);
         printf("GPS: mm: %d\n", gps_data.dt.mm);
         printf("GPS: sec: %d\n", gps_data.dt.sec);
@@ -252,6 +253,7 @@ int parse_gpzda(const char *line) {
         printf("GPS: day: %d\n", gps_data.dt.day);
         printf("GPS: month: %d\n", gps_data.dt.month);
         printf("GPS: year: %d\n", gps_data.dt.year);
+		*/
         return 0;
     }
 }
@@ -269,27 +271,30 @@ int parse_gpgsa(const char *line) {
                 SLRE_FLOAT, sizeof(vdop), &vdop);
     
     if(error != NULL) {
-		// TODO: add a check incomplete sentence
+		// TODO: add a check for incomplete sentence
         //printf("GPS: Error parsing GPGSA string '%s': %s\n", line error);
         return -1;
     } else {
         switch(gps_fix_type) {
         case GPS_FIX_TYPE_NONE:
+            if(gps_data.fix_type != GPS_FIX_TYPE_NONE)
+ 	           printf("GPS: No GPS fix\n");
             gps_data.fix_type = GPS_FIX_TYPE_NONE;
             gps.state = STATE_ON;
-            printf("GPS: No GPS fix\n");
             gps_data.lat = 0.0;
             gps_data.lon = 0.0;
             return -1;
             break;
         case GPS_FIX_TYPE_2D:
+            if(gps_data.fix_type != GPS_FIX_TYPE_2D)
+	            printf("GPS: fix type 2D\n");
             gps_data.fix_type = GPS_FIX_TYPE_2D;
-            printf("GPS: fix type: 2D\n");
             gps.state = STATE_HAS_2D_FIX;
             break;
         case GPS_FIX_TYPE_3D:
+            if(gps_data.fix_type != GPS_FIX_TYPE_3D)
+	            printf("GPS: fix type 3D\n");
             gps_data.fix_type = GPS_FIX_TYPE_3D;
-            printf("GPS: fix type: 3D\n");
             gps.state = STATE_HAS_3D_FIX;
             break;
         default:
@@ -332,7 +337,6 @@ int parse_gprmc(const char *line) {
         return -1;
     } else {
         if(strcmp(status, "A") != 0) {
-            printf("GPS: No GPS fix\n");
             return -1;
         }
         parse_nmea_time_str(time, &gps_data.dt);
