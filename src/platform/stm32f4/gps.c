@@ -92,25 +92,25 @@ int gps_has_fix(lua_State *L)
 int gps_power_on(lua_State *L)
 {
 	if(gps.state == STATE_OFF) {
-        while(gsm_is_gps_ready() != TRUE) {
+		while(gsm_is_gps_ready() != TRUE) {
 			delay_ms(100);
-        }
-		gsm_cmd("AT+CGPSPWR=1");    /* Power-on */
-		// TODO: select only a subset of sentenced to print
-		gsm_cmd("AT+CGPSOUT=255");  /* Select which GP sentences GPS should print */
-		gsm_cmd("AT+CGPSRST=1");    /* Do a GPS warm reset */
+		}
+		gsm_cmd("AT+CGPSPWR=1");	/* Power-on */
+		// TODO: select only a subset of sentences to print
+		gsm_cmd("AT+CGPSOUT=255");	/* Select which GP sentences GPS should print */
+		gsm_cmd("AT+CGPSRST=1");	/* Do a GPS warm reset */
 		gps.state = STATE_ON;
-      }
+	}
 	return 0;
 }
 
 int gps_power_off(lua_State *L)
 {
-  // TODO: handle error states
+	// TODO: handle error states
 	if((gps.state == STATE_ON) || (gps.state == STATE_HAS_2D_FIX)
-		|| (gps.state == STATE_HAS_3D_FIX)) {
+				|| (gps.state == STATE_HAS_3D_FIX)) {
 		// TODO: handle other states
-		gsm_cmd("AT+CGPSPWR=0");    /* Power-off */
+		gsm_cmd("AT+CGPSPWR=0");	/* Power-off */
 		gps.state = STATE_OFF;
 	}
 	return 0;
@@ -152,7 +152,63 @@ int gps_get_location(lua_State *L)
   return 2;
 }
 
-
+int gps_get_data(lua_State *L)
+{
+	char timestr[25];
+	
+	lua_newtable(L);
+	lua_pushstring(L, "fix_type");
+	lua_pushinteger(L, gps_data.fix_type);
+	lua_settable(L, -3);
+	
+	lua_pushstring(L, "satellite_count");
+	lua_pushinteger(L, gps_data.n_satellites);
+	lua_settable(L, -3);
+	
+	lua_pushstring(L, "lat");
+	lua_pushnumber(L, gps_data.lat);
+	lua_settable(L, -3);
+	
+	lua_pushstring(L, "lon");
+	lua_pushnumber(L, gps_data.lon);
+	lua_settable(L, -3);
+	
+	lua_pushstring(L, "speed");
+	lua_pushnumber(L, gps_data.speed);
+	lua_settable(L, -3);
+	
+	lua_pushstring(L, "heading");
+	lua_pushnumber(L, gps_data.heading);
+	lua_settable(L, -3);
+	
+	lua_pushstring(L, "pdop");
+	lua_pushnumber(L, gps_data.pdop);
+	lua_settable(L, -3);
+	
+	lua_pushstring(L, "vdop");
+	lua_pushnumber(L, gps_data.vdop);
+	lua_settable(L, -3);
+	
+	lua_pushstring(L, "hdop");
+	lua_pushnumber(L, gps_data.hdop);
+	lua_settable(L, -3);
+	
+	// Construct ISO compatible time string
+	// 2012-01-08T20:57:30.123+0200
+	sprintf(timestr, "%d-%02d-%02dT%02d:%02d:%02d.%dZ",
+		gps_data.dt.year,
+		gps_data.dt.month,
+		gps_data.dt.day,
+		gps_data.dt.hh,
+		gps_data.dt.mm,
+		gps_data.dt.sec,
+		gps_data.dt.msec);
+	
+	lua_pushstring(L, "time");
+	lua_pushstring(L, timestr);
+	lua_settable(L, -3);
+	return 1;
+}
 
 /* ===================Internal functions begin=============================== */
 
@@ -446,6 +502,7 @@ const LUA_REG_TYPE gps_map[] =
   { LSTRKEY("set_power_state") , LFUNCVAL(gps_set_power_state) },
   { LSTRKEY("has_fix") , LFUNCVAL(gps_has_fix) },
   { LSTRKEY("get_location") , LFUNCVAL(gps_get_location) },
+  { LSTRKEY("get_data") , LFUNCVAL(gps_get_data) },
   { LSTRKEY("is_receiving"), LFUNCVAL(gps_validate_serial_port) },
 
   /* CONSTANTS */

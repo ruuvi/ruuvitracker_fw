@@ -39,9 +39,12 @@ typedef struct _gps_datetime {
 int gps_validate_serial_port();
 
 /* LUA Application interface */
+int gps_power_on(lua_State *L);
+int gps_power_off(lua_State *L);
 int gps_set_power_state(lua_State *L);
 int gps_has_fix(lua_State *L);
 int gps_get_location(lua_State *L);
+int gps_get_data(lua_State *L);
 
 /* Internals */
 int luaopen_gps( lua_State *L );
