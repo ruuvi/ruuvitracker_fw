@@ -82,6 +82,14 @@ static int print_mem(lua_State *L)
   return 3;
 }
 
+static int standby(lua_State *L)
+{
+  PWR->CR |= PWR_CR_CWUF;
+  PWR->CR |= PWR_CR_PDDS;
+  SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+  __WFI();
+}
+
 #define MIN_OPT_LEVEL 2
 #include "lrodefs.h"
 extern const LUA_REG_TYPE sha1_map[];
@@ -94,6 +102,7 @@ const LUA_REG_TYPE ruuvi_map[] =
   { LSTRKEY("idleloop"),       LFUNCVAL(idleloop) },
   { LSTRKEY("delay_ms"),       LFUNCVAL(l_delay_ms) },
   { LSTRKEY( "malloc_stats" ), LFUNCVAL(print_mem) },
+  { LSTRKEY( "standby_mode" ), LFUNCVAL(standby) },
   /* SHA1 table ruuvi.sha1 */
   { LSTRKEY( "sha1" ),         LROVAL( sha1_map ) },
 #endif
