@@ -92,25 +92,25 @@ int gps_has_fix(lua_State *L)
 int gps_power_on(lua_State *L)
 {
 	if(gps.state == STATE_OFF) {
-        while(gsm_is_gps_ready() != TRUE) {
+		while(gsm_is_gps_ready() != TRUE) {
 			delay_ms(100);
-        }
-		gsm_cmd("AT+CGPSPWR=1");    /* Power-on */
-		// TODO: select only a subset of sentenced to print
-		gsm_cmd("AT+CGPSOUT=255");  /* Select which GP sentences GPS should print */
-		gsm_cmd("AT+CGPSRST=1");    /* Do a GPS warm reset */
+		}
+		gsm_cmd("AT+CGPSPWR=1");	/* Power-on */
+		// TODO: select only a subset of sentences to print
+		gsm_cmd("AT+CGPSOUT=255");	/* Select which GP sentences GPS should print */
+		gsm_cmd("AT+CGPSRST=1");	/* Do a GPS warm reset */
 		gps.state = STATE_ON;
-      }
+	}
 	return 0;
 }
 
 int gps_power_off(lua_State *L)
 {
-  // TODO: handle error states
+	// TODO: handle error states
 	if((gps.state == STATE_ON) || (gps.state == STATE_HAS_2D_FIX)
-		|| (gps.state == STATE_HAS_3D_FIX)) {
+				|| (gps.state == STATE_HAS_3D_FIX)) {
 		// TODO: handle other states
-		gsm_cmd("AT+CGPSPWR=0");    /* Power-off */
+		gsm_cmd("AT+CGPSPWR=0");	/* Power-off */
 		gps.state = STATE_OFF;
 	}
 	return 0;
