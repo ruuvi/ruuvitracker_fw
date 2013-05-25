@@ -18,6 +18,7 @@ event.latitude = nil
 event.longitude = nil
 event.accuracy = nil
 event.vertical_accuracy = nil
+event.positional_accuracy = nil
 event.heading = nil
 event.satellite_count = nil
 event.battery = nil
@@ -133,7 +134,7 @@ function tracker_handler()
 	    event.speed = gps_data.speed
 	    event.accuracy = gps_data.accuracy
 	    event.vertical_accuracy = gps_data.vertical_accuracy
-	    event.pdop = gps_data.pdop
+	    event.positional_accuracy = gps_data.positional_accuracy
 	    event.altitude = gps_data.altitude
 	    event.heading = gps_data.heading
 	    event.satellite_count = gps_data.satellite_count

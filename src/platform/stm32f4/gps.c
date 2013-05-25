@@ -152,8 +152,8 @@ int gps_get_data(lua_State *L)
 	lua_pushstring(L, "altitude");
 	lua_pushnumber(L, gps_data.altitude);
 	lua_settable(L, -3);
-
-	lua_pushstring(L, "pdop");
+	
+	lua_pushstring(L, "positional_accuracy");
 	lua_pushnumber(L, gps_data.pdop);
 	lua_settable(L, -3);
 	
@@ -278,7 +278,7 @@ int parse_gpgga(const char *line) {
         return -1;
     } else {
 	if(gps_data.n_satellites != n_sat) {
-	        printf("GPS: Number of satellites in view: %d\n", gps_data.n_satellites);
+	        printf("GPS: Number of satellites in view: %d\n", n_sat);
 	}
         gps_data.n_satellites = n_sat;
 	gps_data.altitude = altitude;
