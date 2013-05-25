@@ -15,16 +15,29 @@ end
 -- Power up GPS device
 print("Powering up GPS\n")
 gps.set_power_state(gps.GPS_POWER_ON)
+gsm.set_apn(config.gsm.apn)
+
+--[[
+-- Debug functions
+gps = {}
+gps.lat = 65.05
+gps.lon = 25.5
+gps.fix = false
+gps.has_fix = function()
+   return gps.fix
+end
+gps.get_location = function()
+   gps.lat = gps.lat+0.001
+   gps.lon = gps.lon+0.001
+   return gps.lat, gps.lon
+end
+--]]
 
 -- Main loop
 local function mainloop()
    if coroutine.status(tracker.handler) == 'suspended' then
       ok, msg = coroutine.resume(tracker.handler)
       if not ok then print("Error:", msg) end
-   end
-
-   if gsm.is_ready() and not gsm.flag_is_set(gsm.GPRS_READY) then
-      gsm.gprs_enable(config.gsm.apn)
    end
 
    if gps.has_fix() then  -- Show green led when GPS has fix

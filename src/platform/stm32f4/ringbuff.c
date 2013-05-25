@@ -24,6 +24,21 @@ struct rbuff *rbuff_new(int size)
   return p;
 }
 
+int rbuff_grow(struct rbuff *p, int size)
+{
+  int i=0;
+  unsigned char *data = malloc(size + p->size);
+  if(NULL == data)
+    return -1;
+  while(!rbuff_is_empty(p)) {
+    data[i++] = rbuff_pop(p);
+  }
+  free(p->data);
+  p->data = data;
+  p->bottom = 0;
+  p->top = i;
+}
+
 /* Deletes previously allocated buffer. */
 void rbuff_delete(struct rbuff *p)
 {
