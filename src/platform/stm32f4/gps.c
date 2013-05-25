@@ -30,13 +30,13 @@
 #include "lrodefs.h"
 
 struct gps_device {
-  enum GPS_power_mode power_mode;
-  enum GPS_state state;
-  int serial_port_validated;
-} static gps = {	                /* Initial status */
-  .power_mode = GPS_POWER_OFF,
-  .state = STATE_OFF,
-  .serial_port_validated = FALSE, /* For production tests, MCU<->GPS serial line */
+	enum GPS_power_mode power_mode;
+	enum GPS_state state;
+	int serial_port_validated;
+} static gps = {					/* Initial status */
+	.power_mode = GPS_POWER_OFF,
+	.state = STATE_OFF,
+	.serial_port_validated = FALSE,	/* For production tests, MCU<->GPS serial line */
 };
 
 /* Location data */
@@ -187,7 +187,8 @@ int calculate_gps_checksum(const char *data) {
   char *checksum_index;
 
   if((checksum_index = strstr(data, "*")) == NULL) { // Find the beginning of checksum
-    printf("GPS: error, cannot find the beginning of checksum!\n");
+    printf("GPS: error, cannot find the beginning of checksum!.\n");
+    printf("GPS: error, input string for checksum calculation was: %s\n", data);
     return FALSE;
   }
   sscanf(checksum_index + 1, "%02hhx", &received_checksum);
@@ -215,7 +216,7 @@ int parse_gpgga(const char *line) {
             line, strlen(line),
             SLRE_INT, sizeof(n_sat), &n_sat);
     if(error != NULL) {
-        printf("GPS: Error parsing string: %s\n", error);
+        printf("GPS: Error parsing GPGGA string '%s': %s\n", line, error);
         return -1;
     } else {
         gps_data.n_satellites = n_sat;
@@ -237,7 +238,7 @@ int parse_gpzda(const char *line) {
                 SLRE_INT, sizeof(month), &month,
                 SLRE_INT, sizeof(year), &year);
     if(error != NULL) {
-        printf("GPS: Error parsing string: %s\n", error);
+        printf("GPS: Error parsing GPZDA string '%s': %s\n", line, error);
         return -1;
     } else {
         parse_nmea_time_str(time, &gps_data.dt);
@@ -268,7 +269,8 @@ int parse_gpgsa(const char *line) {
                 SLRE_FLOAT, sizeof(vdop), &vdop);
     
     if(error != NULL) {
-        //printf("GPS: Error parsing string: %s\n", error);
+		// TODO: add a check incomplete sentence
+        //printf("GPS: Error parsing GPGSA string %s: %s\n", line error);
         return -1;
     } else {
         switch(gps_fix_type) {
@@ -326,7 +328,7 @@ int parse_gprmc(const char *line) {
                 SLRE_STRING, sizeof(date), date);
 
     if(error != NULL) {
-        printf("GPS: Error parsing string: %s\n", error);
+        printf("GPS: Error parsing GPRMC string '%s': %s\n", line, error);
         return -1;
     } else {
         if(strcmp(status, "A") != 0) {
