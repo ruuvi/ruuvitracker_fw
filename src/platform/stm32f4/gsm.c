@@ -1108,10 +1108,12 @@ static void gsm_tcp_initialize_meta(lua_State *L)
   index = lua_gettop(L);
   lua_getglobal(L, "gsm");      /* Get gsm.socket to top */
   lua_pushstring(L, "socket");
+  lua_gettable(L, -2);               /* Get gsm.socket to top of stack */
+  lua_pushvalue(L, -1);              /* Copy it */
+  lua_setfield(L, index, "__index"); /* socket_meta.__index = gsm.socket, gsm.socket popped */
+  lua_pushstring(L, "close");         /* Get gsm.socket.close */
   lua_gettable(L, -2);
-  lua_setfield(L, index, "__index"); /* socket_meta.__index = gsm.socket */
-  lua_pushstring(L, "__gc");         /* Get gsm.socket.__gc */
-  lua_setfield(L, index, "__gc");    /* socket.meta.__gc = gsm.socket.__gc */
+  lua_setfield(L, index, "__gc");    /* socket.meta.__gc = gsm.socket.close */
 }
 
 static int gsm_tcp_enable()
@@ -1333,7 +1335,6 @@ const LUA_REG_TYPE socket_map[] =
   F(write, gsm_tcp_write),
   F(connect, gsm_tcp_connect),
   F(close, gsm_tcp_close),
-  F(__gc, gsm_tcp_close),       /* Garbage collection event, close this socket */
 };
 
 const LUA_REG_TYPE gsm_map[] =
