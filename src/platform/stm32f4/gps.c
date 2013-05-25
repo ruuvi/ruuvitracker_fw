@@ -62,7 +62,7 @@ struct _gps_data {
   .lon          = 0.0,
   .speed        = 0.0,
   .heading      = 0.0,
-  .altitude       = 0.0,
+  .altitude     = 0.0,
   .pdop         = 0.0,
   .hdop         = 0.0,
   .vdop         = 0.0,
@@ -187,11 +187,11 @@ int gps_get_data(lua_State *L)
 	lua_pushnumber(L, gps_data.pdop);
 	lua_settable(L, -3);
 	
-	lua_pushstring(L, "vdop");
+	lua_pushstring(L, "vertical_accuracy");
 	lua_pushnumber(L, gps_data.vdop);
 	lua_settable(L, -3);
 	
-	lua_pushstring(L, "hdop");
+	lua_pushstring(L, "accuracy");
 	lua_pushnumber(L, gps_data.hdop);
 	lua_settable(L, -3);
 	
