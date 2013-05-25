@@ -48,7 +48,7 @@ struct _gps_data {
     double	lon;
     double	speed;
     double	heading;
-    double	height;
+    double	altitude;
 
     double	pdop;
     double	hdop;
@@ -62,7 +62,7 @@ struct _gps_data {
   .lon          = 0.0,
   .speed        = 0.0,
   .heading      = 0.0,
-  .height       = 0.0,
+  .altitude       = 0.0,
   .pdop         = 0.0,
   .hdop         = 0.0,
   .vdop         = 0.0,
@@ -179,8 +179,8 @@ int gps_get_data(lua_State *L)
 	lua_pushnumber(L, gps_data.heading);
 	lua_settable(L, -3);
 	
-	lua_pushstring(L, "height");
-	lua_pushnumber(L, gps_data.height);
+	lua_pushstring(L, "altitude");
+	lua_pushnumber(L, gps_data.altitude);
 	lua_settable(L, -3);
 
 	lua_pushstring(L, "pdop");
@@ -295,13 +295,13 @@ int calculate_gps_checksum(const char *data) {
 
 int parse_gpgga(const char *line) {
     int n_sat = 0;
-	double height = 0.0;
+	double altitude = 0.0;
     const char *error;
 
     error = slre_match(0, "^\\$GPGGA,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,([^,]*),[^,]*,([^,]*),[^,]*",
             line, strlen(line),
             SLRE_INT, sizeof(n_sat), &n_sat,
-            SLRE_FLOAT, sizeof(height), &height);
+            SLRE_FLOAT, sizeof(altitude), &altitude);
     if(error != NULL) {
         //printf("GPS: Error parsing GPGGA string '%s': %s\n", line, error);
         return -1;
@@ -310,7 +310,7 @@ int parse_gpgga(const char *line) {
 	        printf("GPS: Number of satellites in view: %d\n", gps_data.n_satellites);
 	}
         gps_data.n_satellites = n_sat;
-	gps_data.height = height;
+	gps_data.altitude = altitude;
         return 0;
     }
 }
