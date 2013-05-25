@@ -37,6 +37,7 @@ int rbuff_grow(struct rbuff *p, int size)
   p->data = data;
   p->bottom = 0;
   p->top = i;
+  return 0;
 }
 
 /* Deletes previously allocated buffer. */
