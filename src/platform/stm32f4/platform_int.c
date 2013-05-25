@@ -38,10 +38,7 @@ void NMI_Handler(void)
   */
 void HardFault_Handler(void)
 {
-  /* Go to infinite loop when Hard Fault exception occurs */
-  while (1)
-  {
-  }
+  NVIC_SystemReset();
 }
 
 /**
@@ -51,10 +48,7 @@ void HardFault_Handler(void)
   */
 void MemManage_Handler(void)
 {
-  /* Go to infinite loop when Memory Manage exception occurs */
-  while (1)
-  {
-  }
+  NVIC_SystemReset();
 }
 
 /**
@@ -64,10 +58,7 @@ void MemManage_Handler(void)
   */
 void BusFault_Handler(void)
 {
-  /* Go to infinite loop when Bus Fault exception occurs */
-  while (1)
-  {
-  }
+  NVIC_SystemReset();
 }
 
 /**
@@ -77,10 +68,7 @@ void BusFault_Handler(void)
   */
 void UsageFault_Handler(void)
 {
-  /* Go to infinite loop when Usage Fault exception occurs */
-  while (1)
-  {
-  }
+  NVIC_SystemReset();
 }
 
 /**
@@ -488,7 +476,7 @@ void platform_int_init()
   
   // Enable all USART interrupts in the NVIC
   nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 1;
-  nvic_init_structure.NVIC_IRQChannelSubPriority = 2;
+  nvic_init_structure.NVIC_IRQChannelSubPriority = 0;
   nvic_init_structure.NVIC_IRQChannelCmd = ENABLE;
 
   for( i = 0; i < sizeof( uart_irq_table ) / sizeof( u8 ); i ++ )
@@ -501,6 +489,7 @@ void platform_int_init()
   for( i = 0; i < sizeof( exti_irq_table ) / sizeof( u8 ); i ++ )
   {
     nvic_init_structure.NVIC_IRQChannel = exti_irq_table[ i ];
+    nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 3;
     NVIC_Init( &nvic_init_structure );
   }
 
@@ -508,7 +497,7 @@ void platform_int_init()
   for( i = 0; i < sizeof( timer_irq_table ) / sizeof( u8 ); i ++ )
   {
     nvic_init_structure.NVIC_IRQChannel = timer_irq_table[ i ];
-      nvic_init_structure.NVIC_IRQChannelSubPriority = 3;
+      nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 2;
     NVIC_Init( &nvic_init_structure );
   }
 #endif
@@ -516,8 +505,8 @@ void platform_int_init()
   /* Initialize TIMER 14 for the handler loop */
   platform_timer_set_clock( 11, 500000 ); //TIM14 = id 11
   TIM_ITConfig(TIM14, TIM_IT_Update, ENABLE);
-  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 2;
-  nvic_init_structure.NVIC_IRQChannelSubPriority = 1;
+  nvic_init_structure.NVIC_IRQChannelPreemptionPriority = 7;
+  nvic_init_structure.NVIC_IRQChannelSubPriority = 0;
   nvic_init_structure.NVIC_IRQChannel = TIM8_TRG_COM_TIM14_IRQn;
   NVIC_Init(&nvic_init_structure);
 

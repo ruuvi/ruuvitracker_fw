@@ -15,7 +15,9 @@ unsigned char rbuff_pop(struct rbuff *p);
 unsigned char rbuff_peek(struct rbuff *p);
 int rbuff_is_empty(struct rbuff *p);
 int rbuff_is_full(struct rbuff *p);
+int rbuff_len(struct rbuff *p);
 char *rbuff_get_raw(struct rbuff *p);
 void rbuff_remove(struct rbuff *p, int n);
+int rbuff_grow(struct rbuff *p, int size);
 
 #endif	/* RINGBUFF_H */

@@ -17,6 +17,7 @@
 #include <string.h>
 #include "stm32f4xx.h"
 #include <delay.h>
+#include "dlmalloc.h"
 
 
 /* C-interface for Ruuvitracker codes in Lua */
@@ -38,8 +39,11 @@ static int idleloop( lua_State *L) {
     return 0;
   }
   for(;;) {
-    lua_pushvalue(L,-1); //Get copy function to stack
-    lua_pcall(L, 0, 0, 0); //Call the function
+    lua_pushvalue(L,-1); //Get copy of a function to stack
+    if (lua_pcall(L, 0, 0, 0)) { //Call the function
+      return luaL_error(L, "error running idleloop: %s",
+                        lua_tostring(L, -1));
+    }
 
     NVIC_SystemLPConfig(NVIC_LP_SLEEPONEXIT, ENABLE); //Enable SleepOnExit mode for interrupt
     tick = systick_get_raw();
@@ -68,6 +72,16 @@ static int l_delay_ms(lua_State *L)
   return 0;
 }
 
+extern char end[];
+static int print_mem(lua_State *L)
+{
+  struct mallinfo mi = dlmallinfo();;
+  lua_pushinteger(L, mi.fordblks);
+  lua_pushinteger(L, mi.uordblks);
+  lua_pushinteger(L, mi.usmblks);
+  return 3;
+}
+
 #define MIN_OPT_LEVEL 2
 #include "lrodefs.h"
 extern const LUA_REG_TYPE sha1_map[];
@@ -75,11 +89,13 @@ extern const LUA_REG_TYPE sha1_map[];
 const LUA_REG_TYPE ruuvi_map[] =
 {
 #if LUA_OPTIMIZE_MEMORY > 0
-  { LSTRKEY("hello") , LFUNCVAL(hello) },
-  { LSTRKEY("reset") , LFUNCVAL(reset) },
-  { LSTRKEY("idleloop"), LFUNCVAL(idleloop) },
-  { LSTRKEY("delay_ms"), LFUNCVAL(l_delay_ms) },
-  { LSTRKEY( "sha1" ), LROVAL( sha1_map ) },
+  { LSTRKEY("hello") ,         LFUNCVAL(hello) },
+  { LSTRKEY("reset") ,         LFUNCVAL(reset) },
+  { LSTRKEY("idleloop"),       LFUNCVAL(idleloop) },
+  { LSTRKEY("delay_ms"),       LFUNCVAL(l_delay_ms) },
+  { LSTRKEY( "malloc_stats" ), LFUNCVAL(print_mem) },
+  /* SHA1 table ruuvi.sha1 */
+  { LSTRKEY( "sha1" ),         LROVAL( sha1_map ) },
 #endif
   { LNILKEY, LNILVAL }
 };
