@@ -195,7 +195,7 @@ int gps_get_data(lua_State *L)
 	
 	// Construct ISO compatible time string
 	// 2012-01-08T20:57:30.123+0200
-	sprintf(timestr, "%d-%02d-%02dT%02d:%02d:%02d:%dZ",
+	sprintf(timestr, "%d-%02d-%02dT%02d:%02d:%02d.%dZ",
 		gps_data.dt.year,
 		gps_data.dt.month,
 		gps_data.dt.day,
