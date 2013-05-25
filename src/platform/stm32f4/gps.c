@@ -41,19 +41,20 @@ struct gps_device {
 
 /* Location data */
 struct _gps_data {
-    int     fix_type;
-    int     n_satellites;
+    int		fix_type;
+    int		n_satellites;
 
-    double  lat;
-    char    ns;
-    double  lon;
-    char    ew;
-    double  speed;
-    double  heading;
+    double	lat;
+    char	ns;
+    double	lon;
+    char	ew;
+    double	speed;
+    double	heading;
+    double	height;
 
-    double  pdop;
-    double  hdop;
-    double  vdop;
+    double	pdop;
+    double	hdop;
+    double	vdop;
 
     gps_datetime dt;
 } static gps_data = {
@@ -65,6 +66,7 @@ struct _gps_data {
   .ew           = '-',
   .speed        = 0.0,
   .heading      = 0.0,
+  .height       = 0.0,
   .pdop         = 0.0,
   .hdop         = 0.0,
   .vdop         = 0.0,
@@ -181,6 +183,10 @@ int gps_get_data(lua_State *L)
 	lua_pushnumber(L, gps_data.heading);
 	lua_settable(L, -3);
 	
+	lua_pushstring(L, "height");
+	lua_pushnumber(L, gps_data.height);
+	lua_settable(L, -3);
+
 	lua_pushstring(L, "pdop");
 	lua_pushnumber(L, gps_data.pdop);
 	lua_settable(L, -3);
@@ -195,7 +201,7 @@ int gps_get_data(lua_State *L)
 	
 	// Construct ISO compatible time string
 	// 2012-01-08T20:57:30.123+0200
-	sprintf(timestr, "%d-%02d-%02dT%02d:%02d:%02d.%dZ",
+	sprintf(timestr, "%d-%02d-%02dT%02d:%02d:%02d.%03dZ",
 		gps_data.dt.year,
 		gps_data.dt.month,
 		gps_data.dt.day,
@@ -295,18 +301,22 @@ int calculate_gps_checksum(const char *data) {
 
 int parse_gpgga(const char *line) {
     int n_sat = 0;
+	double height = 0.0;
     const char *error;
-    
-    error = slre_match(0, "^\\$GPGGA,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,([^,]*),[^,]*,[^,]*,[^,]*",
+
+    error = slre_match(0, "^\\$GPGGA,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,([^,]*),[^,]*,([^,]*),[^,]*",
             line, strlen(line),
-            SLRE_INT, sizeof(n_sat), &n_sat);
+            SLRE_INT, sizeof(n_sat), &n_sat,
+            SLRE_FLOAT, sizeof(height), &height);
     if(error != NULL) {
-        printf("GPS: Error parsing GPGGA string '%s': %s\n", line, error);
+        //printf("GPS: Error parsing GPGGA string '%s': %s\n", line, error);
         return -1;
     } else {
-		if(gps_data.n_satellites != n_sat)
+	if(gps_data.n_satellites != n_sat) {
 	        printf("GPS: Number of satellites in view: %d\n", gps_data.n_satellites);
+	}
         gps_data.n_satellites = n_sat;
+	gps_data.height = height;
         return 0;
     }
 }
