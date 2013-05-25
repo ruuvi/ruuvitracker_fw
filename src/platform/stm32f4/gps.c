@@ -156,6 +156,9 @@ void gps_line_received()
   }
   buf[i] = 0;
   if(i > 0) {
+  	if(strstr(buf, "IIII")) {
+  		return;				// GPS module outputs a 'IIII' as the first string, skip it
+  	}
     if(calculate_gps_checksum(buf)) {
       gps.serial_port_validated = TRUE;
       if(strstr(buf, "$GPRMC")) {
