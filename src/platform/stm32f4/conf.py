@@ -46,7 +46,7 @@ comp.Append(CPPPATH = [STDPeriphdir+"/inc" , CMSISdir+"/Include", CMSISdir+"/Dev
 
 # Files to compile from ST's libraries
 STD_files = "stm32f4xx_adc.c stm32f4xx_dac.c stm32f4xx_dma.c stm32f4xx_exti.c stm32f4xx_gpio.c stm32f4xx_i2c.c stm32f4xx_rcc.c " \
-    + "stm32f4xx_usart.c stm32f4xx_spi.c stm32f4xx_tim.c misc.c stm32f4xx_syscfg.c"
+    + "stm32f4xx_usart.c stm32f4xx_spi.c stm32f4xx_tim.c misc.c stm32f4xx_syscfg.c stm32f4xx_pwr.c stm32f4xx_rtc.c"
 USBotg_files = "usb_dcd.c usb_dcd_int.c usb_core.c"
 USBcore_files = "usbd_req.c usbd_core.c usbd_ioreq.c"
 USBclass_files =USBdev+"/Class/cdc/src/usbd_cdc_core.c"

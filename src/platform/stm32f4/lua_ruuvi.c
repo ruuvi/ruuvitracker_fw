@@ -84,10 +84,8 @@ static int print_mem(lua_State *L)
 
 static int standby(lua_State *L)
 {
-  PWR->CR |= PWR_CR_CWUF;
-  PWR->CR |= PWR_CR_PDDS;
-  SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
-  __WFI();
+  PWR_EnterSTANDBYMode();
+  return 0;
 }
 
 #define MIN_OPT_LEVEL 2
