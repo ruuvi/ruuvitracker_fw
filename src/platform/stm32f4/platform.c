@@ -166,7 +166,7 @@ static void NVIC_Configuration(void)
 
 #ifdef BUILD_ADC
   nvic_init_structure_adc.NVIC_IRQChannel = DMA2_Stream0_IRQn;
-  nvic_init_structure_adc.NVIC_IRQChannelPreemptionPriority = 1;
+  nvic_init_structure_adc.NVIC_IRQChannelPreemptionPriority = 2;
   nvic_init_structure_adc.NVIC_IRQChannelSubPriority = 0;
   nvic_init_structure_adc.NVIC_IRQChannelCmd = DISABLE;
   NVIC_Init(&nvic_init_structure_adc);
@@ -1038,6 +1038,7 @@ u32 platform_s_cpu_get_frequency()
 
 #ifdef BUILD_ADC
 
+/*
 static const u16 adc_gpio_pins[] = { GPIO_Pin_0,  GPIO_Pin_1,  GPIO_Pin_2,  GPIO_Pin_3,
                                      GPIO_Pin_4,  GPIO_Pin_5,  GPIO_Pin_6,  GPIO_Pin_7,
                                      GPIO_Pin_0,  GPIO_Pin_1,  GPIO_Pin_0,  GPIO_Pin_1,
@@ -1047,6 +1048,15 @@ static GPIO_TypeDef * const adc_gpio_port[] = { GPIOA, GPIOA, GPIOA, GPIOA,
                                                GPIOA, GPIOA, GPIOA, GPIOA,
                                                GPIOB, GPIOB, GPIOC, GPIOC,
                                                GPIOC, GPIOC, GPIOC, GPIOC };
+
+static const u16 adc_gpio_pins[] = { GPIO_Pin_0, GPIO_Pin_0 };
+static GPIO_TypeDef * const adc_gpio_port[] = { GPIOB, GPIOC };
+*/
+
+
+static const u16 adc_gpio_pins[] = { GPIO_Pin_0 };
+static GPIO_TypeDef * const adc_gpio_port[] = { GPIOB };
+
 
 /* ADC EXTEN mask */
 #define CR2_EXTEN_RESET           ((uint32_t)0xCFFFFFFF)
