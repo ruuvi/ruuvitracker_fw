@@ -236,6 +236,14 @@ static void pios_init()
   GPIO_PinAFConfig(GPIOE, GPIO_PinSource6, GPIO_AF_TRACE);
 #endif
 
+#if defined(ELUA_BOARD_RUUVIB1)
+  /* Different pin mappings on Ruuvi */
+  /* PB2, OTG current limit, output */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
+  GPIO_Init(GPIOB, &GPIO_InitStructure);
+  GPIO_SetBits(GPIOB, GPIO_Pin_2); /* Force 500mA USB source detection. */
+#endif
 }
 
 pio_type platform_pio_op( unsigned port, pio_type pinmask, int op )
