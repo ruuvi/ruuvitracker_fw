@@ -61,7 +61,7 @@
   * @{
   */ 
 #define USBD_LANGID_STRING              0x409
-#define USBD_MANUFACTURER_STRING        "http://RuuviTracker.fi"
+#define USBD_MANUFACTURER_STRING        "RuuviTracker"
 
 #define USBD_PRODUCT_HS_STRING          "RuuviTracker serial port"
 #define USBD_SERIALNUMBER_HS_STRING     "00000000050B"
