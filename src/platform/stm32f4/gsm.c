@@ -937,11 +937,8 @@ static int gsm_http_init(const char *url)
 {
   int ret;
 
-  if (!(gsm.flags&GPRS_READY)) {
-    ret = gsm_gprs_enable();
-    if (ret != AT_OK) 
-      return -1;
-  }
+  if (AT_OK != gsm_gprs_enable())
+    return -1;
 
   ret = gsm_cmd("AT+HTTPINIT");
   if (ret != AT_OK)
@@ -966,7 +963,9 @@ static int gsm_http_init(const char *url)
 
 static void gsm_http_clean()
 {
-  gsm_cmd("AT+HTTPTERM");
+  if (AT_OK != gsm_cmd("AT+HTTPTERM")) {
+    gsm_gprs_disable();         /* This should get it to respond */
+  }
 }
 
 static int gsm_http_send_content_type(const char *content_type)
@@ -988,7 +987,7 @@ static int gsm_http_send_data(const char *data)
 static int gsm_http_handle(lua_State *L, method_t method,
                     const char *data, const char *content_type)
 {
-  int status,len,ret;
+  int status=0,len,ret;
   char resp[64];
   const char *url = luaL_checkstring(L, 1);
   char *buf=0;
