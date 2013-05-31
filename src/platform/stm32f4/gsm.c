@@ -275,6 +275,7 @@ static void handle_error(char *line)
  */
 int gsm_cmd(const char *cmd)
 {
+  int retry;
   unsigned int t;
 
   /* Flush buffers */
@@ -282,24 +283,35 @@ int gsm_cmd(const char *cmd)
   while(-1 != platform_s_uart_recv(GSM_UART_ID, 0))
     ;;
 
-  t = systick_get_raw();                  /* Get System timer current value */
-  t += TIMEOUT_MS*systick_get_hz()/1000;
   gsm.waiting_reply = 1;
-  gsm_uart_write(cmd);
-  gsm_uart_write(GSM_CMD_LINE_END);
+  for(retry=0;retry<3;retry++) {
+    t = systick_get_raw();                  /* Get System timer current value */
+    t += TIMEOUT_MS*systick_get_hz()/1000;
 
-  while(gsm.waiting_reply) {
-    if (t < systick_get_raw()) {
-      /* Timeout */
-      printf("GSM: '%s'  TIMEOUT\n", cmd);
-      gsm.waiting_reply = 0;
-      return AT_TIMEOUT;
+    gsm_uart_write(cmd);
+    gsm_uart_write(GSM_CMD_LINE_END);
+
+    while(gsm.waiting_reply) {
+      if (t < systick_get_raw()) {
+        /* Timeout */
+        gsm.reply = AT_TIMEOUT;
+        break;
+      }
+      delay_ms(1);
     }
-    delay_ms(1);
+    if (gsm.reply != AT_TIMEOUT)
+      break;
   }
+  gsm.waiting_reply = 0;
 
   if (gsm.reply != AT_OK)
     printf("GSM: '%s' failed (%d)\n", cmd, gsm.reply);
+
+  if (retry == 3) {             /* Modem not responding */
+    printf("GSM: Modem not responding, RESETING\n");
+    gsm_reset_modem();
+    return AT_TIMEOUT;
+  }
   return gsm.reply;
 }
 
@@ -647,15 +659,24 @@ void gsm_set_power_state(enum Power_mode mode)
     if (1 == status_pin) {
       gsm_toggle_power_pin();
       gsm.state = STATE_OFF;
+      gsm.flags = 0;
     }
     break;
   case CUT_OFF:
     gsm_disable_voltage();
     gsm.state = STATE_OFF;
+    gsm.flags = 0;
     break;
   }
-
 }
+
+void gsm_reset_modem()
+{
+  gsm_set_power_state(POWER_OFF);
+  delay_ms(2000);
+  gsm_set_power_state(POWER_ON);
+}
+
 
 /* Check if GPS flag is set */
 int gsm_is_gps_ready()
@@ -724,6 +745,12 @@ static int gsm_power_on(lua_State *L)
 static int gsm_power_off(lua_State *L)
 {
   gsm_set_power_state(POWER_OFF);
+  return 0;
+}
+
+static int gsm_reset_modemL(lua_State *L)
+{
+  gsm_reset_modem();
   return 0;
 }
 
@@ -1339,6 +1366,7 @@ const LUA_REG_TYPE socket_map[] =
 const LUA_REG_TYPE gsm_map[] =
 {
   F(set_power_state, gsm_lua_set_power_state),
+  F(reset, gsm_reset_modemL),
   F(is_ready, gsm_is_ready),
   F(flag_is_set, gsm_flag_is_set),
   F(state, gsm_state),

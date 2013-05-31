@@ -23,6 +23,7 @@ int gsm_wait_cpy(const char *pattern, int timeout, char *buf, size_t buf_size); 
 
 void gsm_uart_write(const char *line);
 void gsm_set_power_state(enum Power_mode mode);
+void gsm_reset_modem();
 int gsm_is_gps_ready();         /* Check if GPS flag is set in GSM */
 int gsm_read_line(char *buf, int max_len);
 int gsm_read_raw(char *buf, int max_len);
