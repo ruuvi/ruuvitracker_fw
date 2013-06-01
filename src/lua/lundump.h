@@ -16,29 +16,29 @@ typedef uint32_t strsize_t;
 
 /* info about target machine for cross-compilation */
 typedef struct {
- int little_endian;
- int sizeof_int;
- int sizeof_strsize_t;
- int sizeof_lua_Number;
- int lua_Number_integral;
- int is_arm_fpa;
+	int little_endian;
+	int sizeof_int;
+	int sizeof_strsize_t;
+	int sizeof_lua_Number;
+	int lua_Number_integral;
+	int is_arm_fpa;
 } DumpTargetInfo;
 
 /* load one chunk; from lundump.c */
-LUAI_FUNC Proto* luaU_undump (lua_State* L, ZIO* Z, Mbuffer* buff, const char* name);
+LUAI_FUNC Proto *luaU_undump (lua_State *L, ZIO *Z, Mbuffer *buff, const char *name);
 
 /* make header; from lundump.c */
-LUAI_FUNC void luaU_header (char* h);
+LUAI_FUNC void luaU_header (char *h);
 
 /* dump one chunk to a different target; from ldump.c */
-int luaU_dump_crosscompile (lua_State* L, const Proto* f, lua_Writer w, void* data, int strip, DumpTargetInfo target);
+int luaU_dump_crosscompile (lua_State *L, const Proto *f, lua_Writer w, void *data, int strip, DumpTargetInfo target);
 
 /* dump one chunk; from ldump.c */
-LUAI_FUNC int luaU_dump (lua_State* L, const Proto* f, lua_Writer w, void* data, int strip);
+LUAI_FUNC int luaU_dump (lua_State *L, const Proto *f, lua_Writer w, void *data, int strip);
 
 #ifdef luac_c
 /* print one chunk; from print.c */
-LUAI_FUNC void luaU_print (const Proto* f, int full);
+LUAI_FUNC void luaU_print (const Proto *f, int full);
 #endif
 
 /* for header of binary files -- this is Lua 5.1 */

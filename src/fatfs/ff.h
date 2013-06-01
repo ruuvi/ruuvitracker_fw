@@ -334,16 +334,16 @@ typedef struct _FATFS_ {
 /* Directory object structure */
 
 typedef struct _DIR_ {
-	FATFS*	fs;			/* Pointer to the owner file system object */
+	FATFS	*fs;			/* Pointer to the owner file system object */
 	WORD	id;			/* Owner file system mount ID */
 	WORD	index;		/* Current read/write index number */
 	DWORD	sclust;		/* Table start cluster (0:Static table) */
 	DWORD	clust;		/* Current cluster */
 	DWORD	sect;		/* Current sector */
-	BYTE*	dir;		/* Pointer to the current SFN entry in the win[] */
-	BYTE*	fn;			/* Pointer to the SFN (in/out) {file[8],ext[3],status[1]} */
+	BYTE	*dir;		/* Pointer to the current SFN entry in the win[] */
+	BYTE	*fn;			/* Pointer to the SFN (in/out) {file[8],ext[3],status[1]} */
 #if _USE_LFN
-	WCHAR*	lfn;		/* Pointer to the LFN working buffer */
+	WCHAR	*lfn;		/* Pointer to the LFN working buffer */
 	WORD	lfn_idx;	/* Last matched LFN index number (0xFFFF:No LFN) */
 #endif
 } DIR;
@@ -353,7 +353,7 @@ typedef struct _DIR_ {
 /* File object structure */
 
 typedef struct _FIL_ {
-	FATFS*	fs;			/* Pointer to the owner file system object */
+	FATFS	*fs;			/* Pointer to the owner file system object */
 	WORD	id;			/* Owner file system mount ID */
 	BYTE	flag;		/* File status flags */
 	BYTE	csect;		/* Sector address in the cluster */
@@ -364,7 +364,7 @@ typedef struct _FIL_ {
 	DWORD	dsect;		/* Current data sector */
 #if !_FS_READONLY
 	DWORD	dir_sect;	/* Sector containing the directory entry */
-	BYTE*	dir_ptr;	/* Ponter to the directory entry in the window */
+	BYTE	*dir_ptr;	/* Ponter to the directory entry in the window */
 #endif
 #if !_FS_TINY
 	BYTE	buf[_MAX_SS];/* File R/W buffer */
@@ -382,7 +382,7 @@ typedef struct _FILINFO_ {
 	BYTE	fattrib;	/* Attribute */
 	char	fname[13];	/* Short file name (8.3 format) */
 #if _USE_LFN
-	XCHAR*	lfname;		/* Pointer to the LFN buffer */
+	XCHAR	*lfname;		/* Pointer to the LFN buffer */
 	int 	lfsize;		/* Size of LFN buffer [chrs] */
 #endif
 } FILINFO;
@@ -392,22 +392,22 @@ typedef struct _FILINFO_ {
 /* File function return code (FRESULT) */
 
 typedef enum {
-	FR_OK = 0,			/* 0 */
-	FR_DISK_ERR,		/* 1 */
-	FR_INT_ERR,			/* 2 */
-	FR_NOT_READY,		/* 3 */
-	FR_NO_FILE,			/* 4 */
-	FR_NO_PATH,			/* 5 */
-	FR_INVALID_NAME,	/* 6 */
-	FR_DENIED,			/* 7 */
-	FR_EXIST,			/* 8 */
-	FR_INVALID_OBJECT,	/* 9 */
-	FR_WRITE_PROTECTED,	/* 10 */
-	FR_INVALID_DRIVE,	/* 11 */
-	FR_NOT_ENABLED,		/* 12 */
-	FR_NO_FILESYSTEM,	/* 13 */
-	FR_MKFS_ABORTED,	/* 14 */
-	FR_TIMEOUT			/* 15 */
+        FR_OK = 0,			/* 0 */
+        FR_DISK_ERR,		/* 1 */
+        FR_INT_ERR,			/* 2 */
+        FR_NOT_READY,		/* 3 */
+        FR_NO_FILE,			/* 4 */
+        FR_NO_PATH,			/* 5 */
+        FR_INVALID_NAME,	/* 6 */
+        FR_DENIED,			/* 7 */
+        FR_EXIST,			/* 8 */
+        FR_INVALID_OBJECT,	/* 9 */
+        FR_WRITE_PROTECTED,	/* 10 */
+        FR_INVALID_DRIVE,	/* 11 */
+        FR_NOT_ENABLED,		/* 12 */
+        FR_NO_FILESYSTEM,	/* 13 */
+        FR_MKFS_ABORTED,	/* 14 */
+        FR_TIMEOUT			/* 15 */
 } FRESULT;
 
 
@@ -415,33 +415,33 @@ typedef enum {
 /*--------------------------------------------------------------*/
 /* FatFs module application interface                           */
 
-FRESULT f_mount (BYTE, FATFS*);						/* Mount/Unmount a logical drive */
-FRESULT f_open (FIL*, const XCHAR*, BYTE);			/* Open or create a file */
-FRESULT f_read (FIL*, void*, UINT, UINT*);			/* Read data from a file */
-FRESULT f_write (FIL*, const void*, UINT, UINT*);	/* Write data to a file */
-FRESULT f_lseek (FIL*, DWORD);						/* Move file pointer of a file object */
-FRESULT f_close (FIL*);								/* Close an open file object */
-FRESULT f_opendir (DIR*, const XCHAR*);				/* Open an existing directory */
-FRESULT f_readdir (DIR*, FILINFO*);					/* Read a directory item */
-FRESULT f_stat (const XCHAR*, FILINFO*);			/* Get file status */
-FRESULT f_getfree (const XCHAR*, DWORD*, FATFS**);	/* Get number of free clusters on the drive */
-FRESULT f_truncate (FIL*);							/* Truncate file */
-FRESULT f_sync (FIL*);								/* Flush cached data of a writing file */
-FRESULT f_unlink (const XCHAR*);					/* Delete an existing file or directory */
-FRESULT	f_mkdir (const XCHAR*);						/* Create a new directory */
-FRESULT f_chmod (const XCHAR*, BYTE, BYTE);			/* Change attriburte of the file/dir */
-FRESULT f_utime (const XCHAR*, const FILINFO*);		/* Change timestamp of the file/dir */
-FRESULT f_rename (const XCHAR*, const XCHAR*);		/* Rename/Move a file or directory */
-FRESULT f_forward (FIL*, UINT(*)(const BYTE*,UINT), UINT, UINT*);	/* Forward data to the stream */
+FRESULT f_mount (BYTE, FATFS *);						/* Mount/Unmount a logical drive */
+FRESULT f_open (FIL *, const XCHAR *, BYTE);			/* Open or create a file */
+FRESULT f_read (FIL *, void *, UINT, UINT *);			/* Read data from a file */
+FRESULT f_write (FIL *, const void *, UINT, UINT *);	/* Write data to a file */
+FRESULT f_lseek (FIL *, DWORD);						/* Move file pointer of a file object */
+FRESULT f_close (FIL *);								/* Close an open file object */
+FRESULT f_opendir (DIR *, const XCHAR *);				/* Open an existing directory */
+FRESULT f_readdir (DIR *, FILINFO *);					/* Read a directory item */
+FRESULT f_stat (const XCHAR *, FILINFO *);			/* Get file status */
+FRESULT f_getfree (const XCHAR *, DWORD *, FATFS **);	/* Get number of free clusters on the drive */
+FRESULT f_truncate (FIL *);							/* Truncate file */
+FRESULT f_sync (FIL *);								/* Flush cached data of a writing file */
+FRESULT f_unlink (const XCHAR *);					/* Delete an existing file or directory */
+FRESULT	f_mkdir (const XCHAR *);						/* Create a new directory */
+FRESULT f_chmod (const XCHAR *, BYTE, BYTE);			/* Change attriburte of the file/dir */
+FRESULT f_utime (const XCHAR *, const FILINFO *);		/* Change timestamp of the file/dir */
+FRESULT f_rename (const XCHAR *, const XCHAR *);		/* Rename/Move a file or directory */
+FRESULT f_forward (FIL *, UINT( *)(const BYTE *,UINT), UINT, UINT *);	/* Forward data to the stream */
 FRESULT f_mkfs (BYTE, BYTE, WORD);					/* Create a file system on the drive */
-FRESULT f_chdir (const XCHAR*);						/* Change current directory */
+FRESULT f_chdir (const XCHAR *);						/* Change current directory */
 FRESULT f_chdrive (BYTE);							/* Change current drive */
 
 #if _USE_STRFUNC
-int f_putc (int, FIL*);								/* Put a character to the file */
-int f_puts (const char*, FIL*);						/* Put a string to the file */
-int f_printf (FIL*, const char*, ...);				/* Put a formatted string to the file */
-char* f_gets (char*, int, FIL*);					/* Get a string from the file */
+int f_putc (int, FIL *);								/* Put a character to the file */
+int f_puts (const char *, FIL *);						/* Put a string to the file */
+int f_printf (FIL *, const char *, ...);				/* Put a formatted string to the file */
+char *f_gets (char *, int, FIL *);					/* Get a string from the file */
 #define f_eof(fp) (((fp)->fptr == (fp)->fsize) ? 1 : 0)
 #define f_error(fp) (((fp)->flag & FA__ERROR) ? 1 : 0)
 #ifndef EOF
@@ -457,7 +457,7 @@ char* f_gets (char*, int, FIL*);					/* Get a string from the file */
 /* Real time clock */
 #if !_FS_READONLY
 DWORD get_fattime (void);	/* 31-25: Year(0-127 org.1980), 24-21: Month(1-12), 20-16: Day(1-31) */
-							/* 15-11: Hour(0-23), 10-5: Minute(0-59), 4-0: Second(0-29 *2) */
+/* 15-11: Hour(0-23), 10-5: Minute(0-59), 4-0: Second(0-29 *2) */
 #endif
 
 /* Unicode - OEM code conversion */
@@ -468,7 +468,7 @@ WCHAR ff_wtoupper (WCHAR);
 
 /* Sync functions */
 #if _FS_REENTRANT
-BOOL ff_cre_syncobj(BYTE, _SYNC_t*);
+BOOL ff_cre_syncobj(BYTE, _SYNC_t *);
 BOOL ff_del_syncobj(_SYNC_t);
 BOOL ff_req_grant(_SYNC_t);
 void ff_rel_grant(_SYNC_t);

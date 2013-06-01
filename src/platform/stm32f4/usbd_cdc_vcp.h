@@ -16,8 +16,8 @@
   *
   *        http://www.st.com/software_license_agreement_liberty_v2
   *
-  * Unless required by applicable law or agreed to in writing, software 
-  * distributed under the License is distributed on an "AS IS" BASIS, 
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   * See the License for the specific language governing permissions and
   * limitations under the License.
@@ -35,16 +35,15 @@
 
 
 /* Exported typedef ------------------------------------------------------------*/
-/* The following structures groups all needed parameters to be configured for the 
+/* The following structures groups all needed parameters to be configured for the
    ComPort. These parameters can modified on the fly by the host through CDC class
    command class requests. */
-typedef struct
-{
-  uint32_t bitrate;
-  uint8_t  format;
-  uint8_t  paritytype;
-  uint8_t  datatype;
-}LINE_CODING;
+typedef struct {
+	uint32_t bitrate;
+	uint8_t  format;
+	uint8_t  paritytype;
+	uint8_t  datatype;
+} LINE_CODING;
 
 /* Exported constants --------------------------------------------------------*/
 /* The following define is used to route the USART IRQ handler to be used.
@@ -57,8 +56,8 @@ typedef struct
 /* Exported functions ------------------------------------------------------- */
 
 // seen from Microcontroller's side: send=to Host, receive=from Host
-uint32_t VCP_SendRaw(uint8_t* Buf, uint32_t Len);
-uint32_t VCP_SendString(char* String);
+uint32_t VCP_SendRaw(uint8_t *Buf, uint32_t Len);
+uint32_t VCP_SendString(char *String);
 uint32_t VCP_SendChar(char c);
 uint32_t VCP_HasReceived(void);
 uint8_t VCP_GetReceived(void);

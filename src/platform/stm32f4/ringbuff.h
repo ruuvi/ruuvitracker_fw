@@ -2,10 +2,10 @@
 #define RINGBUFF_H
 
 struct rbuff {
-  unsigned char *data;
-  volatile int top;
-  volatile int bottom;
-  int size;
+	unsigned char *data;
+	volatile int top;
+	volatile int bottom;
+	int size;
 };
 
 struct rbuff *rbuff_new(int size);

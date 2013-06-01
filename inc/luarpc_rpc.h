@@ -54,20 +54,20 @@
 //  following values:
 
 enum {
-  ERR_EOF       = MAXINT - 100,  // reached end of file on transport
-  ERR_CLOSED    = MAXINT - 101,  // attempted operation on closed transport
-  ERR_PROTOCOL  = MAXINT - 102,  // some error in the received protocol
-  ERR_NODATA    = MAXINT - 103,
-  ERR_COMMAND   = MAXINT - 106,
-  ERR_HEADER    = MAXINT - 107,
-  ERR_LONGFNAME = MAXINT - 108
+        ERR_EOF       = MAXINT - 100,  // reached end of file on transport
+        ERR_CLOSED    = MAXINT - 101,  // attempted operation on closed transport
+        ERR_PROTOCOL  = MAXINT - 102,  // some error in the received protocol
+        ERR_NODATA    = MAXINT - 103,
+        ERR_COMMAND   = MAXINT - 106,
+        ERR_HEADER    = MAXINT - 107,
+        ERR_LONGFNAME = MAXINT - 108
 };
 
 enum exception_type { done, nonfatal, fatal };
 
 struct exception {
-  enum exception_type type;
-  int errnum;
+	enum exception_type type;
+	int errnum;
 };
 
 define_exception_type(struct exception);
@@ -79,41 +79,39 @@ extern struct exception_context the_exception_context[ 1 ];
 
 // Transport Connection Structure
 typedef struct _Transport Transport;
-struct _Transport 
-{
-  ser_handler fd;
-  unsigned tmr_id;
-  u8     loc_little: 1,               // Local is little endian?
-         loc_armflt: 1,               // local float representation is arm float?
-         loc_intnum: 1,               // Local is integer only?
-         net_little: 1,               // Network is little endian?
-         net_intnum: 1;               // Network is integer only?
-  u8     lnum_bytes;
+struct _Transport {
+	ser_handler fd;
+	unsigned tmr_id;
+	u8     loc_little: 1,               // Local is little endian?
+	       loc_armflt: 1,               // local float representation is arm float?
+	       loc_intnum: 1,               // Local is integer only?
+	       net_little: 1,               // Network is little endian?
+	       net_intnum: 1;               // Network is integer only?
+	u8     lnum_bytes;
 };
 
 typedef struct _Handle Handle;
-struct _Handle 
-{
-  Transport tpt;                      // the handle socket
-  int error_handler;                  // function reference
-  int async;                          // nonzero if async mode being used
-  int read_reply_count;               // number of async call return values to read
+struct _Handle {
+	Transport tpt;                      // the handle socket
+	int error_handler;                  // function reference
+	int async;                          // nonzero if async mode being used
+	int read_reply_count;               // number of async call return values to read
 };
 
 typedef struct _Helper Helper;
 struct _Helper {
-  Handle *handle;                     // pointer to handle object
-  Helper *parent;                     // parent helper
-  int pref;                           // Parent reference idx in registry
-  u8 nparents;                        // number of parents
-  char funcname[NUM_FUNCNAME_CHARS];  // name of the function
+	Handle *handle;                     // pointer to handle object
+	Helper *parent;                     // parent helper
+	int pref;                           // Parent reference idx in registry
+	u8 nparents;                        // number of parents
+	char funcname[NUM_FUNCNAME_CHARS];  // name of the function
 };
 
 typedef struct _ServerHandle ServerHandle;
 struct _ServerHandle {
-  Transport ltpt;   // listening transport, always valid if no error
-  Transport atpt;   // accepting transport, valid if connection established
-  int link_errs;
+	Transport ltpt;   // listening transport, always valid if no error
+	Transport atpt;   // accepting transport, valid if connection established
+	int link_errs;
 };
 
 
@@ -132,26 +130,26 @@ struct _ServerHandle {
     Throw( e ); \
   }
 
-// Arg & Error Checking Provided to Transport Mechanisms 
+// Arg & Error Checking Provided to Transport Mechanisms
 int check_num_args (lua_State *L, int desired_n);
 void deal_with_error (lua_State *L, Handle *h, const char *error_string);
 void my_lua_error( lua_State *L, const char *errmsg );
 
-// TRANSPORT API 
+// TRANSPORT API
 
-// Setup Transport 
+// Setup Transport
 void transport_init (Transport *tpt);
 
-// Open Listener / Server 
+// Open Listener / Server
 void transport_open_listener(lua_State *L, ServerHandle *handle);
 
-// Open Connection / Client 
+// Open Connection / Client
 int transport_open_connection(lua_State *L, Handle *handle);
 
-// Accept Connection 
+// Accept Connection
 void transport_accept (Transport *tpt, Transport *atpt);
 
-// Read & Write to Transport 
+// Read & Write to Transport
 void transport_read_buffer (Transport *tpt, u8 *buffer, int length);
 void transport_write_buffer (Transport *tpt, const u8 *buffer, int length);
 

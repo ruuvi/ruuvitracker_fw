@@ -14,17 +14,17 @@
   *
   *        http://www.st.com/software_license_agreement_liberty_v2
   *
-  * Unless required by applicable law or agreed to in writing, software 
-  * distributed under the License is distributed on an "AS IS" BASIS, 
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   * See the License for the specific language governing permissions and
   * limitations under the License.
   *
   ******************************************************************************
-  */ 
+  */
 
-#ifdef USB_OTG_HS_INTERNAL_DMA_ENABLED 
-#pragma     data_alignment = 4 
+#ifdef USB_OTG_HS_INTERNAL_DMA_ENABLED
+#pragma     data_alignment = 4
 #endif /* USB_OTG_HS_INTERNAL_DMA_ENABLED */
 
 /* Includes ------------------------------------------------------------------*/
@@ -37,16 +37,15 @@
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
-LINE_CODING linecoding =
-  {
-    115200, /* baud rate*/
-    0x00,   /* stop bits-1*/
-    0x00,   /* parity - none*/
-    0x08    /* nb. of bits 8*/
-  };
+LINE_CODING linecoding = {
+	115200, /* baud rate*/
+	0x00,   /* stop bits-1*/
+	0x00,   /* parity - none*/
+	0x08    /* nb. of bits 8*/
+};
 
 
-/* These are external variables imported from CDC core to be used for IN 
+/* These are external variables imported from CDC core to be used for IN
    transfer management. Data sent from microcontroller to host. */
 extern uint8_t  APP_Rx_Buffer []; /* Write CDC received data in this buffer.
                                      These data will be sent over USB IN endpoint
@@ -64,17 +63,16 @@ __IO uint32_t From_Host_Idx_Write, From_Host_Idx_Read;
 /* Private function prototypes -----------------------------------------------*/
 static uint16_t VCP_Init     (void);
 static uint16_t VCP_DeInit   (void);
-static uint16_t VCP_Ctrl     (uint32_t Cmd, uint8_t* Buf, uint32_t Len);
-static uint16_t VCP_DataTx   (uint8_t* Buf, uint32_t Len);
-static uint16_t VCP_DataRx   (uint8_t* Buf, uint32_t Len);
+static uint16_t VCP_Ctrl     (uint32_t Cmd, uint8_t *Buf, uint32_t Len);
+static uint16_t VCP_DataTx   (uint8_t *Buf, uint32_t Len);
+static uint16_t VCP_DataRx   (uint8_t *Buf, uint32_t Len);
 
-CDC_IF_Prop_TypeDef VCP_fops = 
-{
-  VCP_Init,
-  VCP_DeInit,
-  VCP_Ctrl,
-  VCP_DataTx,
-  VCP_DataRx
+CDC_IF_Prop_TypeDef VCP_fops = {
+	VCP_Init,
+	VCP_DeInit,
+	VCP_Ctrl,
+	VCP_DataTx,
+	VCP_DataRx
 };
 
 /* Private functions ---------------------------------------------------------*/
@@ -104,13 +102,13 @@ static uint16_t VCP_DeInit(void)
 /**
   * @brief  VCP_Ctrl
   *         Manage the CDC class requests
-  * @param  Cmd: Command code            
+  * @param  Cmd: Command code
   * @param  Buf: Buffer containing command data (request parameters)
   * @param  Len: Number of data to be sent (in bytes)
   * @retval Result of the operation (USBD_OK in all cases)
   */
-static uint16_t VCP_Ctrl (uint32_t Cmd, uint8_t* Buf, uint32_t Len)
-{ 
+static uint16_t VCP_Ctrl (uint32_t Cmd, uint8_t *Buf, uint32_t Len)
+{
 	(void) Len;
 	switch (Cmd) {
 	case SEND_ENCAPSULATED_COMMAND:
@@ -135,7 +133,7 @@ static uint16_t VCP_Ctrl (uint32_t Cmd, uint8_t* Buf, uint32_t Len)
 
 	case SET_LINE_CODING:
 		linecoding.bitrate = (uint32_t) (Buf[0] | (Buf[1] << 8) | (Buf[2] << 16)
-				| (Buf[3] << 24));
+		                                 | (Buf[3] << 24));
 		linecoding.format = Buf[4];
 		linecoding.paritytype = Buf[5];
 		linecoding.datatype = Buf[6];
@@ -172,19 +170,19 @@ static uint16_t VCP_Ctrl (uint32_t Cmd, uint8_t* Buf, uint32_t Len)
 extern int USBD_USR_isavailable();
 /**
   * @brief  VCP_DataTx
-  *         CDC received data to be send over USB IN endpoint are managed in 
+  *         CDC received data to be send over USB IN endpoint are managed in
   *         this function.
   * @param  Buf: Buffer of data to be sent
   * @param  Len: Number of data to be sent (in bytes)
   * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
   */
-uint16_t VCP_DataTx(uint8_t* Buf, uint32_t Len)
+uint16_t VCP_DataTx(uint8_t *Buf, uint32_t Len)
 {
 	uint32_t i;
 
 	for (i = 0; i < Len; i++) {
-	  if (VCP_SendChar(*(Buf + i)) == USBD_FAIL)
-	    return USBD_FAIL;
+		if (VCP_SendChar(*(Buf + i)) == USBD_FAIL)
+			return USBD_FAIL;
 	}
 
 	return USBD_OK;
@@ -197,7 +195,7 @@ uint16_t VCP_DataTx(uint8_t* Buf, uint32_t Len)
   * @param  Len: Number of data to be sent (in bytes)
   * @retval Result of the operation: USBD_OK if all operations are OK else VCP_FAIL
   */
-uint32_t VCP_SendRaw(uint8_t* Buf, uint32_t Len)
+uint32_t VCP_SendRaw(uint8_t *Buf, uint32_t Len)
 {
 	return VCP_DataTx(Buf, Len);
 }
@@ -208,9 +206,9 @@ uint32_t VCP_SendRaw(uint8_t* Buf, uint32_t Len)
   * @param  s: String to be sent
   * @retval Result of the operation: USBD_OK if all operations are OK else VCP_FAIL
   */
-uint32_t VCP_SendString(char* s)
+uint32_t VCP_SendString(char *s)
 {
-	return VCP_SendRaw((uint8_t*)s, strlen(s));
+	return VCP_SendRaw((uint8_t *)s, strlen(s));
 }
 
 /**
@@ -223,12 +221,12 @@ uint32_t VCP_SendChar(char c)
 {
 	/* To avoid buffer overflow */
 	if (APP_Rx_ptr_in == APP_RX_DATA_SIZE) {
-	  APP_Rx_ptr_in = 0; // Roll back
+		APP_Rx_ptr_in = 0; // Roll back
 	}
 	if (APP_Rx_ptr_in < APP_Rx_ptr_out) { // We have rolled back.
-	  if (APP_Rx_ptr_in == (APP_Rx_ptr_out-1)) { //No more room
-	    return USBD_FAIL; //Buffer full
-	  }
+		if (APP_Rx_ptr_in == (APP_Rx_ptr_out-1)) { //No more room
+			return USBD_FAIL; //Buffer full
+		}
 	}
 	APP_Rx_Buffer[APP_Rx_ptr_in++] = c;
 
@@ -271,14 +269,14 @@ uint32_t VCP_HasReceived(void)
   * @retval Result of the operation: USBD_OK
   */
 extern void usart_received(int id, u8 c);
-uint16_t VCP_DataRx(uint8_t* Buf, uint32_t Len)
+uint16_t VCP_DataRx(uint8_t *Buf, uint32_t Len)
 {
 	// n.b. this function is called from the ISR
 	uint32_t i;
 
 	for (i = 0; i < Len; i++) {
-	  /* Pipe received data to UART0 buffer (TODO: do not hardcode this)*/
-	  usart_received(0, Buf[i]);
+		/* Pipe received data to UART0 buffer (TODO: do not hardcode this)*/
+		usart_received(0, Buf[i]);
 	}
 
 	return USBD_OK;

@@ -25,23 +25,22 @@
 
 // [TODO]? Following code might need a C99 compiler (for 0-sized arrays)
 #ifdef BUF_ENABLE_UART
-  static buf_desc buf_desc_uart[ NUM_TOTAL_UART ];
+static buf_desc buf_desc_uart[ NUM_TOTAL_UART ];
 #else
-  static buf_desc buf_desc_uart[ 0 ];
+static buf_desc buf_desc_uart[ 0 ];
 #endif
 
 #ifdef BUF_ENABLE_ADC
-  static buf_desc buf_desc_adc [ NUM_ADC ];
+static buf_desc buf_desc_adc [ NUM_ADC ];
 #else
-  static buf_desc buf_desc_adc [ 0 ];
+static buf_desc buf_desc_adc [ 0 ];
 #endif
 
 // NOTE: the order of descriptors here MUST match the order of the BUF_ID_xx
 // enum in inc/buf.h
-static const buf_desc* buf_desc_array[ BUF_ID_TOTAL ] = 
-{
-  buf_desc_uart,
-  buf_desc_adc
+static const buf_desc *buf_desc_array[ BUF_ID_TOTAL ] = {
+	buf_desc_uart,
+	buf_desc_adc
 };
 
 // Helper macros
@@ -51,7 +50,7 @@ static const buf_desc* buf_desc_array[ BUF_ID_TOTAL ] =
 #define BUF_REALDSIZE( p ) ( ( u16 )1 << p->logdsize )
 #define BUF_GETPTR( resid, resnum ) buf_desc *pbuf = ( buf_desc* )buf_desc_array[ resid ] + resnum
 
-// READ16 and WRITE16 macros are here to ensure _atomic_ reads and writes of 
+// READ16 and WRITE16 macros are here to ensure _atomic_ reads and writes of
 // 16-bits data. Might have to be changed for an 8-bit architecture.
 #define READ16( p )     p
 #define WRITE16( p, x ) p = x
@@ -61,12 +60,12 @@ static const buf_desc* buf_desc_array[ BUF_ID_TOTAL ] =
 #ifdef BUILD_SERMUX
 static unsigned bufh_check_resnum( unsigned resid, unsigned resnum )
 {
-  if( resid == BUF_ID_UART && resnum >= SERMUX_SERVICE_ID_FIRST )
-    return resnum - SERMUX_SERVICE_ID_FIRST + NUM_UART;
-  else
-    return resnum;
+	if( resid == BUF_ID_UART && resnum >= SERMUX_SERVICE_ID_FIRST )
+		return resnum - SERMUX_SERVICE_ID_FIRST + NUM_UART;
+	else
+		return resnum;
 }
-#define BUF_CHECK_RESNUM( resid, resnum ) resnum = bufh_check_resnum( resid, resnum )    
+#define BUF_CHECK_RESNUM( resid, resnum ) resnum = bufh_check_resnum( resid, resnum )
 #else
 #define BUF_CHECK_RESNUM( resid, resnum )
 #endif
@@ -80,30 +79,29 @@ static unsigned bufh_check_resnum( unsigned resid, unsigned resnum )
 // Returns 1 on success, 0 on failure
 int buf_set( unsigned resid, unsigned resnum, u8 logsize, u8 logdsize )
 {
-  BUF_CHECK_RESNUM( resid, resnum );
-  BUF_GETPTR( resid, resnum );
-  
-  pbuf->logdsize = logdsize;
-  pbuf->logsize = logsize + logdsize;
-  
-  if( ( pbuf->buf = ( t_buf_data* )realloc( pbuf->buf, BUF_BYTESIZE( pbuf ) ) ) == NULL )
-  {
-    pbuf->logsize = BUF_SIZE_NONE;
-    pbuf->rptr = pbuf->wptr = pbuf->count = 0;
-    if( logsize != BUF_SIZE_NONE )
-      return PLATFORM_ERR;
-  }
-  
-  return PLATFORM_OK;
+	BUF_CHECK_RESNUM( resid, resnum );
+	BUF_GETPTR( resid, resnum );
+
+	pbuf->logdsize = logdsize;
+	pbuf->logsize = logsize + logdsize;
+
+	if( ( pbuf->buf = ( t_buf_data * )realloc( pbuf->buf, BUF_BYTESIZE( pbuf ) ) ) == NULL ) {
+		pbuf->logsize = BUF_SIZE_NONE;
+		pbuf->rptr = pbuf->wptr = pbuf->count = 0;
+		if( logsize != BUF_SIZE_NONE )
+			return PLATFORM_ERR;
+	}
+
+	return PLATFORM_OK;
 }
 
 // Marks buffer as empty
 void buf_flush( unsigned resid, unsigned resnum )
 {
-  BUF_CHECK_RESNUM( resid, resnum );
-  BUF_GETPTR( resid, resnum );
-  
-  pbuf->rptr = pbuf->wptr = pbuf->count = 0;
+	BUF_CHECK_RESNUM( resid, resnum );
+	BUF_GETPTR( resid, resnum );
+
+	pbuf->rptr = pbuf->wptr = pbuf->count = 0;
 }
 
 // Write to buffer
@@ -114,24 +112,23 @@ void buf_flush( unsigned resid, unsigned resnum )
 // [TODO] maybe add a buffer overflow flag
 int buf_write( unsigned resid, unsigned resnum, t_buf_data *data )
 {
-  BUF_CHECK_RESNUM( resid, resnum );
-  BUF_GETPTR( resid, resnum );
-  const char* s = ( const char* )data;
-  char* d = ( char* )( pbuf->buf + pbuf->wptr );
-  
-  if( pbuf->logsize == BUF_SIZE_NONE )
-    return PLATFORM_ERR;    
-  if( pbuf->count > BUF_REALSIZE( pbuf ) )
-  {
-    fprintf( stderr, "[ERROR] Buffer overflow on resid=%d, resnum=%d!\n", resid, resnum );
-    return PLATFORM_ERR; 
-  }
-  DUFF_DEVICE_8( BUF_REALDSIZE( pbuf ),  *d++ = *s++ );
-  
-  BUF_MOD_INCR( pbuf, wptr );
-    pbuf->count ++;
-    
-  return PLATFORM_OK;
+	BUF_CHECK_RESNUM( resid, resnum );
+	BUF_GETPTR( resid, resnum );
+	const char *s = ( const char * )data;
+	char *d = ( char * )( pbuf->buf + pbuf->wptr );
+
+	if( pbuf->logsize == BUF_SIZE_NONE )
+		return PLATFORM_ERR;
+	if( pbuf->count > BUF_REALSIZE( pbuf ) ) {
+		fprintf( stderr, "[ERROR] Buffer overflow on resid=%d, resnum=%d!\n", resid, resnum );
+		return PLATFORM_ERR;
+	}
+	DUFF_DEVICE_8( BUF_REALDSIZE( pbuf ),  *d++ = *s++ );
+
+	BUF_MOD_INCR( pbuf, wptr );
+	pbuf->count ++;
+
+	return PLATFORM_OK;
 }
 
 // Returns 1 if the specified device is buffered, 0 otherwise
@@ -139,28 +136,28 @@ int buf_write( unsigned resid, unsigned resnum, t_buf_data *data )
 // resnum - resource number (0, 1, 2...)
 int buf_is_enabled( unsigned resid, unsigned resnum )
 {
-  BUF_CHECK_RESNUM( resid, resnum );
-  BUF_GETPTR( resid, resnum );
-    
-  return pbuf->logsize != BUF_SIZE_NONE;
+	BUF_CHECK_RESNUM( resid, resnum );
+	BUF_GETPTR( resid, resnum );
+
+	return pbuf->logsize != BUF_SIZE_NONE;
 }
 
 // Return the size of the buffer in number
 unsigned buf_get_size( unsigned resid, unsigned resnum )
 {
-  BUF_CHECK_RESNUM( resid, resnum );
-  BUF_GETPTR( resid, resnum );
-    
-  return pbuf->logsize == BUF_SIZE_NONE ? 0 : BUF_REALSIZE( pbuf );
+	BUF_CHECK_RESNUM( resid, resnum );
+	BUF_GETPTR( resid, resnum );
+
+	return pbuf->logsize == BUF_SIZE_NONE ? 0 : BUF_REALSIZE( pbuf );
 }
 
 // Return the size of the data in the buffer
 unsigned buf_get_count( unsigned resid, unsigned resnum )
 {
-  BUF_CHECK_RESNUM( resid, resnum );
-  BUF_GETPTR( resid, resnum );
-  
-  return READ16( pbuf->count );  
+	BUF_CHECK_RESNUM( resid, resnum );
+	BUF_GETPTR( resid, resnum );
+
+	return READ16( pbuf->count );
 }
 
 // Get data from buffer of size dsize
@@ -168,28 +165,28 @@ unsigned buf_get_count( unsigned resid, unsigned resnum )
 // resnum - resource number (0, 1, 2...)
 // data - pointer for where data should go
 // dsize - length of data to get
-// Returns PLATFORM_OK on success, PLATFORM_ERR on failure, 
+// Returns PLATFORM_OK on success, PLATFORM_ERR on failure,
 //   PLATFORM_UNDERFLOW on buffer empty
 int buf_read( unsigned resid, unsigned resnum, t_buf_data *data )
 {
-  BUF_CHECK_RESNUM( resid, resnum );
-  BUF_GETPTR( resid, resnum );
+	BUF_CHECK_RESNUM( resid, resnum );
+	BUF_GETPTR( resid, resnum );
 
-  int old_status;
-  const char* s = ( const char* )( pbuf->buf + pbuf->rptr );
-  char* d = ( char* )data;
-  
-  if( pbuf->logsize == BUF_SIZE_NONE || READ16( pbuf->count ) == 0 )
-    return PLATFORM_UNDERFLOW;
- 
-  DUFF_DEVICE_8( BUF_REALDSIZE( pbuf ),  *d++ = *s++ );
+	int old_status;
+	const char *s = ( const char * )( pbuf->buf + pbuf->rptr );
+	char *d = ( char * )data;
 
-  old_status = platform_cpu_set_global_interrupts( PLATFORM_CPU_DISABLE );
-  pbuf->count --;
-  platform_cpu_set_global_interrupts( old_status );
-  BUF_MOD_INCR( pbuf, rptr );
-  
-  return PLATFORM_OK;
+	if( pbuf->logsize == BUF_SIZE_NONE || READ16( pbuf->count ) == 0 )
+		return PLATFORM_UNDERFLOW;
+
+	DUFF_DEVICE_8( BUF_REALDSIZE( pbuf ),  *d++ = *s++ );
+
+	old_status = platform_cpu_set_global_interrupts( PLATFORM_CPU_DISABLE );
+	pbuf->count --;
+	platform_cpu_set_global_interrupts( old_status );
+	BUF_MOD_INCR( pbuf, rptr );
+
+	return PLATFORM_OK;
 }
 
 #endif // #ifdef BUF_ENABLE

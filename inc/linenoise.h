@@ -35,17 +35,17 @@
 #define __LINENOISE_H
 
 // Error codes
-#define LINENOISE_HISTORY_NOT_ENABLED ( -2 ) 
+#define LINENOISE_HISTORY_NOT_ENABLED ( -2 )
 #define LINENOISE_HISTORY_EMPTY       ( -3 )
 
 // Components that use linenoise in eLua
 #define LINENOISE_ID_LUA            0
-#define LINENOISE_ID_SHELL          1  
+#define LINENOISE_ID_SHELL          1
 #define LINENOISE_TOTAL_COMPONENTS  2
 
-int linenoise_getline( int id, char* buffer, int maxinput, const char* prompt );
+int linenoise_getline( int id, char *buffer, int maxinput, const char *prompt );
 int linenoise_addhistory( int id, const char *line );
 void linenoise_cleanup( int id );
-int linenoise_savehistory( int id, const char* filename );
+int linenoise_savehistory( int id, const char *filename );
 
 #endif /* __LINENOISE_H */

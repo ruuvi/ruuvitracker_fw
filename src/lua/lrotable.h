@@ -38,36 +38,32 @@
 typedef int luaR_numkey;
 
 /* The next structure defines the type of a key */
-typedef struct
-{
-  int type;
-  union
-  {
-    const char*   strkey;
-    luaR_numkey   numkey;
-  } id;
+typedef struct {
+	int type;
+	union {
+		const char   *strkey;
+		luaR_numkey   numkey;
+	} id;
 } luaR_key;
 
 /* An entry in the read only table */
-typedef struct
-{
-  const luaR_key key;
-  const TValue value;
+typedef struct {
+	const luaR_key key;
+	const TValue value;
 } luaR_entry;
 
 /* A rotable */
-typedef struct
-{
-  const char *name;
-  const luaR_entry *pentries;
+typedef struct {
+	const char *name;
+	const luaR_entry *pentries;
 } luaR_table;
 
-void* luaR_findglobal(const char *key, unsigned len);
+void *luaR_findglobal(const char *key, unsigned len);
 int luaR_findfunction(lua_State *L, const luaR_entry *ptable);
-const TValue* luaR_findentry(void *data, const char *strkey, luaR_numkey numkey, unsigned *ppos);
+const TValue *luaR_findentry(void *data, const char *strkey, luaR_numkey numkey, unsigned *ppos);
 void luaR_getcstr(char *dest, const TString *src, size_t maxsize);
 void luaR_next(lua_State *L, void *data, TValue *key, TValue *val);
-void* luaR_getmeta(void *data);
+void *luaR_getmeta(void *data);
 #ifdef LUA_META_ROTABLES
 int luaR_isrotable(void *p);
 #else

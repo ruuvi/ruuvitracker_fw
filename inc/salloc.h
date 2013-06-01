@@ -5,10 +5,10 @@
 
 #include <stddef.h>
 
-void* smalloc( size_t size );
-void sfree( void* ptr );
-void* scalloc( size_t nmemb, size_t size );
-void* srealloc( void* ptr, size_t size );
+void *smalloc( size_t size );
+void sfree( void *ptr );
+void *scalloc( size_t nmemb, size_t size );
+void *srealloc( void *ptr, size_t size );
 
 #endif // #ifndef __SALLOC_H__
 

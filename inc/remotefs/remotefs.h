@@ -43,7 +43,7 @@
 // Function: int open(const char *pathname,int flags, mode_t mode)
 void remotefs_open_write_response( u8 *p, int result );
 int remotefs_open_read_response( const u8 *p, int *presult );
-void remotefs_open_write_request( u8 *p, const char* pathname, int flags, int mode );
+void remotefs_open_write_request( u8 *p, const char *pathname, int flags, int mode );
 int remotefs_open_read_request( const u8 *p, const char **ppathname, int *pflags, int *pmode );
 
 // Function: ssize_t write(int fd, const void *buf, size_t count)
@@ -57,7 +57,7 @@ void remotefs_read_write_response( u8 *p, u32 readbytes );
 int remotefs_read_read_response( const u8 *p, const u8 **ppdata, u32 *preadbytes );
 void remotefs_read_write_request( u8 *p, int fd, u32 count );
 int remotefs_read_read_request( const u8 *p, int *pfd, u32 *pcount );
-                                 
+
 // Function: int close( int fd )
 void remotefs_close_write_response( u8 *p, int result );
 int remotefs_close_read_response( const u8 *p, int *presult );
@@ -73,7 +73,7 @@ int remotefs_lseek_read_request( const u8 *p, int *pfd, s32 *poffset, int *pwhen
 // Function: u32 opendir( const char* name )
 void remotefs_opendir_write_response( u8 *p, u32 d );
 int remotefs_opendir_read_response( const u8 *p, u32 *pd );
-void remotefs_opendir_write_request( u8 *p, const char* name );
+void remotefs_opendir_write_request( u8 *p, const char *name );
 int remotefs_opendir_read_request( const u8 *p, const char **pname );
 
 // Function: void readdir( u32 d, const char **pname, u32 *psize, u32 *pftime );

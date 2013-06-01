@@ -15,7 +15,7 @@
 #define EXC_CATCH else
 #define EXC_THROW() longjmp( exception_buf, 1 )
 
-// Macro version of Duff's device found in 
+// Macro version of Duff's device found in
 // "A Reusable Duff Device" by Ralf Holly
 // Dr Dobb's Journal, August 1, 2005
 
@@ -36,6 +36,6 @@
         }                             \
   } while (0)
 
-#define STD_CTRLZ_CODE    26    
+#define STD_CTRLZ_CODE    26
 
 #endif

@@ -20,25 +20,25 @@
 // Required Structures
 // These structures provided by Simon Ford of mbed
 typedef struct {
-  uint8_t  hr;   /* Hours    [0..23]                  */
-  uint8_t  min;  /* Minutes  [0..59]                  */
-  uint8_t  sec;  /* Seconds  [0..59]                  */
-  uint8_t  day;  /* Day      [1..31]                  */
-  uint8_t  mon;  /* Month    [1..12]                  */
-  uint16_t year; /* Year     [1980..2107]             */
+	uint8_t  hr;   /* Hours    [0..23]                  */
+	uint8_t  min;  /* Minutes  [0..59]                  */
+	uint8_t  sec;  /* Seconds  [0..59]                  */
+	uint8_t  day;  /* Day      [1..31]                  */
+	uint8_t  mon;  /* Month    [1..12]                  */
+	uint16_t year; /* Year     [1980..2107]             */
 } FTIME; // 7 bytes
 
 typedef struct {       // File Search info record
-  char  name[32];      // File - 32-bytes
-  uint32_t  size;      // File size in bytes - 4-bytes
-  uint16_t   fileID;   // System File Identification  - 2-bytes
-  FTIME create_time;   // Date & time file was created
-  FTIME write_time;    // Date & time of last write
+	char  name[32];      // File - 32-bytes
+	uint32_t  size;      // File size in bytes - 4-bytes
+	uint16_t   fileID;   // System File Identification  - 2-bytes
+	FTIME create_time;   // Date & time file was created
+	FTIME write_time;    // Date & time of last write
 } XFINFO;
 
 typedef struct {
-  char *pattern;
-  XFINFO file_info;
+	char *pattern;
+	XFINFO file_info;
 } SEARCHINFO;
 
 

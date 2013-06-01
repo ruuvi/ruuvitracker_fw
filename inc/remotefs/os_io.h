@@ -21,7 +21,7 @@ int os_close( int fd );
 s32 os_lseek( int fd, s32 offset, int whence );
 u32 os_lseek_sys_whence_to_rfs_whence( int syswhence );
 int os_isdir( const char *name );
-u32 os_opendir( const char* name );
+u32 os_opendir( const char *name );
 void os_readdir( u32 d, const char **pname );
 int os_closedir( u32 d );
 

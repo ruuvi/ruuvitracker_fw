@@ -58,64 +58,60 @@ static p_xm_recv_func xmodem_in_func;
 
 void xmodem_init( p_xm_send_func send_func, p_xm_recv_func recv_func )
 {
-  xmodem_out_func = send_func;
-  xmodem_in_func = recv_func;
+	xmodem_out_func = send_func;
+	xmodem_in_func = recv_func;
 }
 
 // Utility function: flush the receive buffer
 static void xmodem_flush( int how )
 {
-  while( xmodem_in_func( XMODEM_PXM_ACKET_DELAY ) != -1 );
-  if( how == XMODEM_FLUSH_AND_XM_CAN )
-  {
-    xmodem_out_func( XM_CAN );
-    xmodem_out_func( XM_CAN );
-    xmodem_out_func( XM_CAN );
-  }
+	while( xmodem_in_func( XMODEM_PXM_ACKET_DELAY ) != -1 );
+	if( how == XMODEM_FLUSH_AND_XM_CAN ) {
+		xmodem_out_func( XM_CAN );
+		xmodem_out_func( XM_CAN );
+		xmodem_out_func( XM_CAN );
+	}
 }
 
 // This private function receives a x-modem record to the pointer and
 // returns 1 on success and 0 on error
 static int xmodem_get_record( unsigned char blocknum, unsigned char *pbuf )
 {
-  unsigned chk, j, size;
-  int ch;
-  
-  // Read packet
-  for( j = 0; j < PXM_ACKET_SIZE + 4; j ++ )
-  {
-    if( ( ch = xmodem_in_func( XMODEM_TIMEOUT ) ) == -1 )
-      goto err;
-    pbuf[ j ] = ( unsigned char )ch;
-  }
+	unsigned chk, j, size;
+	int ch;
 
-  // Check block number
-  if( *pbuf ++ != blocknum )
-    goto err;
-  if( *pbuf ++ != ( unsigned char )~blocknum )
-    goto err;
-  // Check CRC
-  for( size = chk = 0; size < PXM_ACKET_SIZE; size++, pbuf ++ ) 
-  {
-    chk = chk ^ *pbuf << 8;
-    for( j = 0; j < 8; j ++ ) 
-    {
-      if( chk & 0x8000 )
-        chk = chk << 1 ^ 0x1021;
-      else
-        chk = chk << 1;
-    }
-  }
-  chk &= 0xFFFF;
-  if( *pbuf ++ != ( ( chk >> 8 ) & 0xFF ) )
-    goto err;
-  if( *pbuf ++ != ( chk & 0xFF ) )
-    goto err;
-  return 1;
-  
+	// Read packet
+	for( j = 0; j < PXM_ACKET_SIZE + 4; j ++ ) {
+		if( ( ch = xmodem_in_func( XMODEM_TIMEOUT ) ) == -1 )
+			goto err;
+		pbuf[ j ] = ( unsigned char )ch;
+	}
+
+	// Check block number
+	if( *pbuf ++ != blocknum )
+		goto err;
+	if( *pbuf ++ != ( unsigned char )~blocknum )
+		goto err;
+	// Check CRC
+	for( size = chk = 0; size < PXM_ACKET_SIZE; size++, pbuf ++ ) {
+		chk = chk ^ *pbuf << 8;
+		for( j = 0; j < 8; j ++ ) {
+			if( chk & 0x8000 )
+				chk = chk << 1 ^ 0x1021;
+			else
+				chk = chk << 1;
+		}
+	}
+	chk &= 0xFFFF;
+	if( *pbuf ++ != ( ( chk >> 8 ) & 0xFF ) )
+		goto err;
+	if( *pbuf ++ != ( chk & 0xFF ) )
+		goto err;
+	return 1;
+
 err:
-  xmodem_out_func( XM_NAK );
-  return 0;
+	xmodem_out_func( XM_NAK );
+	return 0;
 }
 
 // This global function receives a x-modem transmission consisting of
@@ -123,62 +119,56 @@ err:
 // an error code an error
 long xmodem_receive( char **dest )
 {
-  int starting = 1, ch;
-  unsigned char packnum = 1, buf[ PXM_ACKET_SIZE + 4 ];
-  unsigned retries = XMODEM_RETRY_LIMIT;
-  u32 limit = XMODEM_INITIAL_BUFFER_SIZE, size = 0;
-  void *p;
-  
-  while( retries-- ) 
-  {
-    if( starting )
-      xmodem_out_func( 'C' );
-    if( ( ( ch = xmodem_in_func( XMODEM_TIMEOUT ) ) == -1 ) || ( ch != XM_SOH && ch != XM_EOT && ch != XM_CAN ) )
-      continue;
-    if( ch == XM_EOT ) 
-    {
-      // End of transmission
-      xmodem_out_func( XM_ACK );
-      xmodem_flush( XMODEM_FLUSH_ONLY );
-      return size;
-    }
-    else if( ch == XM_CAN )
-    {
-      // The remote part ended the transmission
-      xmodem_out_func( XM_ACK );
-      xmodem_flush( XMODEM_FLUSH_ONLY );
-      return XMODEM_ERROR_REMOTECANCEL;      
-    }
-    starting = 0;
-    
-    // Get XMODEM packet
-    if( !xmodem_get_record( packnum, buf ) )
-      continue; // allow for retransmission
-    xmodem_flush( XMODEM_FLUSH_ONLY );      
-    retries = XMODEM_RETRY_LIMIT;
-    packnum ++;
-      
-    // Got a valid packet
-    if( size + PXM_ACKET_SIZE > limit )
-    {
-      limit += XMODEM_INCREMENT_AMMOUNT;
-      if( ( p = realloc( *dest, limit ) ) == NULL )
-      {
-        // Not enough memory, force cancel and return
-        xmodem_flush( XMODEM_FLUSH_AND_XM_CAN );
-        return XMODEM_ERROR_OUTOFMEM;
-      }
-      *dest = ( char* )p;
-    }    
-    // Acknowledge and consume packet
-    xmodem_out_func( XM_ACK );
-    memcpy( *dest + size, buf + 2, PXM_ACKET_SIZE );
-    size += PXM_ACKET_SIZE;
-  }
-  
-  // Exceeded retry count
-  xmodem_flush( XMODEM_FLUSH_AND_XM_CAN );
-  return XMODEM_ERROR_RETRYEXCEED;
+	int starting = 1, ch;
+	unsigned char packnum = 1, buf[ PXM_ACKET_SIZE + 4 ];
+	unsigned retries = XMODEM_RETRY_LIMIT;
+	u32 limit = XMODEM_INITIAL_BUFFER_SIZE, size = 0;
+	void *p;
+
+	while( retries-- ) {
+		if( starting )
+			xmodem_out_func( 'C' );
+		if( ( ( ch = xmodem_in_func( XMODEM_TIMEOUT ) ) == -1 ) || ( ch != XM_SOH && ch != XM_EOT && ch != XM_CAN ) )
+			continue;
+		if( ch == XM_EOT ) {
+			// End of transmission
+			xmodem_out_func( XM_ACK );
+			xmodem_flush( XMODEM_FLUSH_ONLY );
+			return size;
+		} else if( ch == XM_CAN ) {
+			// The remote part ended the transmission
+			xmodem_out_func( XM_ACK );
+			xmodem_flush( XMODEM_FLUSH_ONLY );
+			return XMODEM_ERROR_REMOTECANCEL;
+		}
+		starting = 0;
+
+		// Get XMODEM packet
+		if( !xmodem_get_record( packnum, buf ) )
+			continue; // allow for retransmission
+		xmodem_flush( XMODEM_FLUSH_ONLY );
+		retries = XMODEM_RETRY_LIMIT;
+		packnum ++;
+
+		// Got a valid packet
+		if( size + PXM_ACKET_SIZE > limit ) {
+			limit += XMODEM_INCREMENT_AMMOUNT;
+			if( ( p = realloc( *dest, limit ) ) == NULL ) {
+				// Not enough memory, force cancel and return
+				xmodem_flush( XMODEM_FLUSH_AND_XM_CAN );
+				return XMODEM_ERROR_OUTOFMEM;
+			}
+			*dest = ( char * )p;
+		}
+		// Acknowledge and consume packet
+		xmodem_out_func( XM_ACK );
+		memcpy( *dest + size, buf + 2, PXM_ACKET_SIZE );
+		size += PXM_ACKET_SIZE;
+	}
+
+	// Exceeded retry count
+	xmodem_flush( XMODEM_FLUSH_AND_XM_CAN );
+	return XMODEM_ERROR_RETRYEXCEED;
 }
 
 #else // #ifdef BUILD_XMODEM
@@ -187,8 +177,8 @@ long xmodem_receive( char **dest )
 
 void xmodem_init( p_xm_send_func send_func, p_xm_recv_func recv_func )
 {
-  send_func = send_func;
-  recv_func = recv_func;
+	send_func = send_func;
+	recv_func = recv_func;
 }
 
 #endif // #ifdef BUILD_XMODEM

@@ -31,7 +31,7 @@ timer_data_type cmn_systimer_get();
 void cmn_uart_setup_sermux();
 
 unsigned int intlog2( unsigned int v );
-const char* cmn_str64( u64 x );
+const char *cmn_str64( u64 x );
 void cmn_get_timeout_data( lua_State *L, int pidx, unsigned *pid, timer_data_type *ptimeout );
 
 #endif // #ifndef __COMMON_H__

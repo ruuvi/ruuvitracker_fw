@@ -9,16 +9,15 @@
 
 // Seek
 #define FDSEEK        0x01
-struct fd_seek 
-{
-  _off_t off;
-  int dir;
+struct fd_seek {
+	_off_t off;
+	int dir;
 };
 
 // ***************** Base IOCTRL numbers for other devices *********************
 #define IOCTL_BASE_UART     0x100
 
 // Function prototype
-int ioctl( int file, unsigned long request, void *ptr );  
+int ioctl( int file, unsigned long request, void *ptr );
 
 #endif

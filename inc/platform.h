@@ -8,11 +8,10 @@
 #include "elua_int.h"
 
 // Error / status codes
-enum
-{
-  PLATFORM_ERR,
-  PLATFORM_OK,
-  PLATFORM_UNDERFLOW = -1
+enum {
+        PLATFORM_ERR,
+        PLATFORM_OK,
+        PLATFORM_UNDERFLOW = -1
 };
 
 // Platform initialization
@@ -44,27 +43,26 @@ typedef u32 pio_code;
 #define PLATFORM_IO_READ_IN_MASK              0
 #define PLATFORM_IO_READ_OUT_MASK             1
 
-enum
-{
-  // Pin operations
-  PLATFORM_IO_PIN_SET,
-  PLATFORM_IO_PIN_CLEAR,
-  PLATFORM_IO_PIN_GET,
-  PLATFORM_IO_PIN_DIR_INPUT,
-  PLATFORM_IO_PIN_DIR_OUTPUT,
-  PLATFORM_IO_PIN_PULLUP,
-  PLATFORM_IO_PIN_PULLDOWN,
-  PLATFORM_IO_PIN_NOPULL,
-  // Port operations
-  PLATFORM_IO_PORT_SET_VALUE,
-  PLATFORM_IO_PORT_GET_VALUE,
-  PLATFORM_IO_PORT_DIR_INPUT,
-  PLATFORM_IO_PORT_DIR_OUTPUT
+enum {
+        // Pin operations
+        PLATFORM_IO_PIN_SET,
+        PLATFORM_IO_PIN_CLEAR,
+        PLATFORM_IO_PIN_GET,
+        PLATFORM_IO_PIN_DIR_INPUT,
+        PLATFORM_IO_PIN_DIR_OUTPUT,
+        PLATFORM_IO_PIN_PULLUP,
+        PLATFORM_IO_PIN_PULLDOWN,
+        PLATFORM_IO_PIN_NOPULL,
+        // Port operations
+        PLATFORM_IO_PORT_SET_VALUE,
+        PLATFORM_IO_PORT_GET_VALUE,
+        PLATFORM_IO_PORT_DIR_INPUT,
+        PLATFORM_IO_PORT_DIR_OUTPUT
 };
 
 // The platform I/O functions
 int platform_pio_has_port( unsigned port );
-const char* platform_pio_get_prefix( unsigned port );
+const char *platform_pio_get_prefix( unsigned port );
 int platform_pio_has_pin( unsigned port, unsigned pin );
 pio_type platform_pio_op( unsigned port, pio_type pinmask, int op );
 
@@ -103,15 +101,14 @@ typedef u64 timer_data_type;
 #define PLATFORM_TIMER_INT_INVALID_ID         3
 
 // Timer operations
-enum
-{
-  PLATFORM_TIMER_OP_START,
-  PLATFORM_TIMER_OP_READ,
-  PLATFORM_TIMER_OP_SET_CLOCK,
-  PLATFORM_TIMER_OP_GET_CLOCK,
-  PLATFORM_TIMER_OP_GET_MAX_DELAY,
-  PLATFORM_TIMER_OP_GET_MIN_DELAY,
-  PLATFORM_TIMER_OP_GET_MAX_CNT
+enum {
+        PLATFORM_TIMER_OP_START,
+        PLATFORM_TIMER_OP_READ,
+        PLATFORM_TIMER_OP_SET_CLOCK,
+        PLATFORM_TIMER_OP_GET_CLOCK,
+        PLATFORM_TIMER_OP_GET_MAX_DELAY,
+        PLATFORM_TIMER_OP_GET_MIN_DELAY,
+        PLATFORM_TIMER_OP_GET_MAX_CNT
 };
 
 // The platform timer functions
@@ -146,10 +143,9 @@ void platform_timer_sys_disable_int();
 #define PLATFORM_CAN_MAXLEN                   8
 
 // eLua CAN ID types
-enum
-{
-  ELUA_CAN_ID_STD = 0,
-  ELUA_CAN_ID_EXT
+enum {
+        ELUA_CAN_ID_STD = 0,
+        ELUA_CAN_ID_EXT
 };
 
 int platform_can_exists( unsigned id );
@@ -189,19 +185,17 @@ void platform_spi_select( unsigned id, int is_select );
 #define PLATFORM_UART_TOTAL                   4
 
 // Parity
-enum
-{
-  PLATFORM_UART_PARITY_EVEN,
-  PLATFORM_UART_PARITY_ODD,
-  PLATFORM_UART_PARITY_NONE
+enum {
+        PLATFORM_UART_PARITY_EVEN,
+        PLATFORM_UART_PARITY_ODD,
+        PLATFORM_UART_PARITY_NONE
 };
 
 // Stop bits
-enum
-{
-  PLATFORM_UART_STOPBITS_1,
-  PLATFORM_UART_STOPBITS_1_5,
-  PLATFORM_UART_STOPBITS_2
+enum {
+        PLATFORM_UART_STOPBITS_1,
+        PLATFORM_UART_STOPBITS_1_5,
+        PLATFORM_UART_STOPBITS_2
 };
 
 // Flow control types (this is a bit mask, one can specify PLATFORM_UART_FLOW_RTS | PLATFORM_UART_FLOW_CTS )
@@ -277,17 +271,15 @@ void platform_adc_set_timer( unsigned id, u32 timer );
 // I2C platform interface
 
 // I2C speed
-enum
-{
-  PLATFORM_I2C_SPEED_SLOW = 100000,
-  PLATFORM_I2C_SPEED_FAST = 400000
+enum {
+        PLATFORM_I2C_SPEED_SLOW = 100000,
+        PLATFORM_I2C_SPEED_FAST = 400000
 };
 
 // I2C direction
-enum
-{
-  PLATFORM_I2C_DIRECTION_TRANSMITTER,
-  PLATFORM_I2C_DIRECTION_RECEIVER
+enum {
+        PLATFORM_I2C_DIRECTION_TRANSMITTER,
+        PLATFORM_I2C_DIRECTION_RECEIVER
 };
 
 int platform_i2c_exists( unsigned id );
@@ -301,8 +293,8 @@ int platform_i2c_recv_byte( unsigned id, int ack );
 // *****************************************************************************
 // Ethernet specific functions
 
-void platform_eth_send_packet( const void* src, u32 size );
-u32 platform_eth_get_packet_nb( void* buf, u32 maxlen );
+void platform_eth_send_packet( const void *src, u32 size );
+u32 platform_eth_get_packet_nb( void *buf, u32 maxlen );
 void platform_eth_force_interrupt();
 u32 platform_eth_get_elapsed_time();
 
@@ -329,8 +321,8 @@ int platform_flash_erase_sector( u32 sector_id );
 // *****************************************************************************
 // Allocator support
 
-void* platform_get_first_free_ram( unsigned id );
-void* platform_get_last_free_ram( unsigned id );
+void *platform_get_first_free_ram( unsigned id );
+void *platform_get_last_free_ram( unsigned id );
 
 
 #endif

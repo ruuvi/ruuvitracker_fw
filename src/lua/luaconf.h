@@ -160,11 +160,11 @@
 #if !defined LUA_NUMBER_INTEGRAL
 #define LUA_INTEGER ptrdiff_t
 #else
-  #if !defined LUA_INTEGRAL_LONGLONG
-  #define LUA_INTEGER	long
-  #else
-  #define LUA_INTEGER long long
-  #endif // #if !defined LUA_INTEGRAL_LONGLONG
+#if !defined LUA_INTEGRAL_LONGLONG
+#define LUA_INTEGER	long
+#else
+#define LUA_INTEGER long long
+#endif // #if !defined LUA_INTEGRAL_LONGLONG
 #endif // #if !defined LUA_NUMBER_INTEGRAL
 
 /*
@@ -284,7 +284,7 @@
 ** CHANGE it if you need longer lines.
 */
 #define LUA_MAXINPUT	128
-               
+
 
 /*
 @@ lua_readline defines how to show a prompt and then read a line from
@@ -552,10 +552,10 @@
 
 /* Define LUA_NUMBER_INTEGRAL to produce a system that uses no
    floating point operations by changing the type of Lua numbers from
-   double to long.  It implements division and modulus so that 
+   double to long.  It implements division and modulus so that
 
-   x == (x / y) * y + x % y.  
-   
+   x == (x / y) * y + x % y.
+
    The exponentiation function returns zero for negative exponents.
    Defining LUA_NUMBER_INTEGRAL also removes the difftime function,
    and the math module should not be used.  The string.format function
@@ -584,13 +584,13 @@
 @@ lua_str2number converts a string to a number.
 */
 #if defined LUA_NUMBER_INTEGRAL
-  #if !defined LUA_INTEGRAL_LONGLONG
-  #define LUA_NUMBER_SCAN		"%ld"
-  #define LUA_NUMBER_FMT		"%ld"
-  #else
-  #define LUA_NUMBER_SCAN   "%lld"
-  #define LUA_NUMBER_FMT    "%lld"
-  #endif // #if !defined LUA_INTEGRAL_LONGLONG
+#if !defined LUA_INTEGRAL_LONGLONG
+#define LUA_NUMBER_SCAN		"%ld"
+#define LUA_NUMBER_FMT		"%ld"
+#else
+#define LUA_NUMBER_SCAN   "%lld"
+#define LUA_NUMBER_FMT    "%lld"
+#endif // #if !defined LUA_INTEGRAL_LONGLONG
 #else
 #define LUA_NUMBER_SCAN		"%lf"
 #define LUA_NUMBER_FMT		"%.14g"
@@ -598,11 +598,11 @@
 #define lua_number2str(s,n)	sprintf((s), LUA_NUMBER_FMT, (n))
 #define LUAI_MAXNUMBER2STR	32 /* 16 digits, sign, point, and \0 */
 #if defined LUA_NUMBER_INTEGRAL
-  #if !defined LUA_INTEGRAL_LONGLONG
-  #define lua_str2number(s,p)	strtol((s), (p), 10)
-  #else
-  #define lua_str2number(s,p) strtoll((s), (p), 10)
-  #endif // #if !defined LUA_INTEGRAL_LONGLONG
+#if !defined LUA_INTEGRAL_LONGLONG
+#define lua_str2number(s,p)	strtol((s), (p), 10)
+#else
+#define lua_str2number(s,p) strtoll((s), (p), 10)
+#endif // #if !defined LUA_INTEGRAL_LONGLONG
 #else
 #define lua_str2number(s,p)	strtod((s), (p))
 #endif // #if defined LUA_NUMBER_INTEGRAL
@@ -676,7 +676,10 @@ LUA_NUMBER luai_ipow(LUA_NUMBER, LUA_NUMBER);
    with a DirectX idiosyncrasy */
 #else
 
-union luai_Cast { double l_d; long l_l; };
+union luai_Cast {
+	double l_d;
+	long l_l;
+};
 #define lua_number2int(i,d) \
   { volatile union luai_Cast u; u.l_d = (d) + 6755399441055744.0; (i) = u.l_l; }
 #define lua_number2integer(i,n)		lua_number2int(i, n)
@@ -875,7 +878,7 @@ typedef long int32_t;
    metatables for tables/userdata/types (but the VM might run slower)
 */
 #if (LUA_OPTIMIZE_MEMORY == 2) && !defined(LUA_CROSS_COMPILER)
-#define LUA_META_ROTABLES 
+#define LUA_META_ROTABLES
 #endif
 
 #if LUA_OPTIMIZE_MEMORY == 2 && LUA_USE_POPEN

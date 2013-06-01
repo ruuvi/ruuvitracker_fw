@@ -83,7 +83,7 @@
 #define BUILD_RPC
 #endif
 
-#if defined( BUILD_RPC ) 
+#if defined( BUILD_RPC )
 #define RPCLINE _ROM( AUXLIB_RPC, luaopen_rpc, rpc_map )
 #else
 #define RPCLINE

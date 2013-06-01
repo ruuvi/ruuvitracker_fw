@@ -55,15 +55,15 @@ typedef int (*lua_CFunction) (lua_State *L);
 /*
 ** functions that read/write blocks when loading/dumping Lua chunks
 */
-typedef const char * (*lua_Reader) (lua_State *L, void *ud, size_t *sz);
+typedef const char *(*lua_Reader) (lua_State *L, void *ud, size_t *sz);
 
-typedef int (*lua_Writer) (lua_State *L, const void* p, size_t sz, void* ud);
+typedef int (*lua_Writer) (lua_State *L, const void *p, size_t sz, void *ud);
 
 
 /*
 ** prototype for memory-allocation functions
 */
-typedef void * (*lua_Alloc) (void *ud, void *ptr, size_t osize, size_t nsize);
+typedef void *(*lua_Alloc) (void *ud, void *ptr, size_t osize, size_t nsize);
 
 
 /*
@@ -164,7 +164,7 @@ LUA_API void  (lua_pushlstring) (lua_State *L, const char *s, size_t l);
 LUA_API void  (lua_pushrolstring) (lua_State *L, const char *s, size_t l);
 LUA_API void  (lua_pushstring) (lua_State *L, const char *s);
 LUA_API const char *(lua_pushvfstring) (lua_State *L, const char *fmt,
-                                                      va_list argp);
+                                        va_list argp);
 LUA_API const char *(lua_pushfstring) (lua_State *L, const char *fmt, ...);
 LUA_API void  (lua_pushcclosure) (lua_State *L, lua_CFunction fn, int n);
 LUA_API void  (lua_pushboolean) (lua_State *L, int b);
@@ -205,7 +205,7 @@ LUA_API void  (lua_call) (lua_State *L, int nargs, int nresults);
 LUA_API int   (lua_pcall) (lua_State *L, int nargs, int nresults, int errfunc);
 LUA_API int   (lua_cpcall) (lua_State *L, lua_CFunction func, void *ud);
 LUA_API int   (lua_load) (lua_State *L, lua_Reader reader, void *dt,
-                                        const char *chunkname);
+                          const char *chunkname);
 
 LUA_API int (lua_dump) (lua_State *L, lua_Writer writer, void *data);
 
@@ -250,7 +250,7 @@ LUA_API void lua_setallocf (lua_State *L, lua_Alloc f, void *ud);
 
 
 
-/* 
+/*
 ** ===============================================================
 ** some useful macros
 ** ===============================================================
@@ -293,8 +293,8 @@ LUA_API void lua_setallocf (lua_State *L, lua_Alloc f, void *ud);
 
 // BogdanM: modified for eLua interrupt support
 //#define lua_open()	luaL_newstate()
-lua_State* lua_open(void);
-lua_State* lua_getstate(void);
+lua_State *lua_open(void);
+lua_State *lua_getstate(void);
 
 #define lua_getregistry(L)	lua_pushvalue(L, LUA_REGISTRYINDEX)
 
@@ -354,18 +354,18 @@ LUA_API int lua_gethookcount (lua_State *L);
 
 
 struct lua_Debug {
-  int event;
-  const char *name;	/* (n) */
-  const char *namewhat;	/* (n) `global', `local', `field', `method' */
-  const char *what;	/* (S) `Lua', `C', `main', `tail' */
-  const char *source;	/* (S) */
-  int currentline;	/* (l) */
-  int nups;		/* (u) number of upvalues */
-  int linedefined;	/* (S) */
-  int lastlinedefined;	/* (S) */
-  char short_src[LUA_IDSIZE]; /* (S) */
-  /* private part */
-  int i_ci;  /* active function */
+	int event;
+	const char *name;	/* (n) */
+	const char *namewhat;	/* (n) `global', `local', `field', `method' */
+	const char *what;	/* (S) `Lua', `C', `main', `tail' */
+	const char *source;	/* (S) */
+	int currentline;	/* (l) */
+	int nups;		/* (u) number of upvalues */
+	int linedefined;	/* (S) */
+	int lastlinedefined;	/* (S) */
+	char short_src[LUA_IDSIZE]; /* (S) */
+	/* private part */
+	int i_ci;  /* active function */
 };
 
 /* }====================================================================== */

@@ -14,23 +14,23 @@
 #define GPS_BUFF_SIZE	128
 
 enum GPS_state {
-  STATE_UNKNOWN = 0,
-  STATE_OFF = 1,
-  STATE_ON = 2,
-  STATE_HAS_2D_FIX = 3,
-  STATE_HAS_3D_FIX = 4,
-  STATE_ERROR = 5
+        STATE_UNKNOWN = 0,
+        STATE_OFF = 1,
+        STATE_ON = 2,
+        STATE_HAS_2D_FIX = 3,
+        STATE_HAS_3D_FIX = 4,
+        STATE_ERROR = 5
 };
 
 /* Date and time data */
 typedef struct _gps_datetime {
-    int hh;
-    int mm;
-    int sec;
-    int msec;
-    int day;
-    int month;
-    int year;
+	int hh;
+	int mm;
+	int sec;
+	int msec;
+	int day;
+	int month;
+	int year;
 } gps_datetime;
 
 /* C-API */

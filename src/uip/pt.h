@@ -52,7 +52,7 @@
 #include "lc.h"
 
 struct pt {
-  lc_t lc;
+	lc_t lc;
 };
 
 #define PT_WAITING 0

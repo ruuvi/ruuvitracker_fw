@@ -1,4 +1,4 @@
-// Serial multiplexer definitions 
+// Serial multiplexer definitions
 
 #ifndef __SERMUX_H__
 #define __SERMUX_H__

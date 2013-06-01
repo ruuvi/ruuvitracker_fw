@@ -12,27 +12,25 @@
 
 #define THENUMBERONE 1 // Example constant to demo _ELUA_CTE macro use
 
-static int afunc(lua_State * L)
+static int afunc(lua_State *L)
 {
 	lua_pushliteral(L, "afunc() called!");
 
 	return 1;
 }
 
-static const eLua_const_userdata_t consts[] =
-{
+static const eLua_const_userdata_t consts[] = {
 	_ELUA_CTE(THENUMBERONE),
 	{ NULL, 0 }
 };
 
-static const luaL_reg funcs[] =
-{
+static const luaL_reg funcs[] = {
 	{ "afunc", afunc },
 	{ NULL, NULL }
 }; // Pretty boring module ...
 
 // Function that gets called when lua registers the module
-LUALIB_API int luaopen_stm32(lua_State * L)
+LUALIB_API int luaopen_stm32(lua_State *L)
 {
 	eLua_register(L, "stm32", funcs);  // Register module methods first
 	eLua_register_const(L, consts);    // Then register constants, if any.

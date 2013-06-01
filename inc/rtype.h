@@ -13,6 +13,6 @@
 #define   TYPE_OP_ID      0x07
 #define   TYPE_SMALL_PTR  0x08
 #define   TYPE_PKT_SIZE   0xA5
-                                    
+
 #endif
 
