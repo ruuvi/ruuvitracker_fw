@@ -1,7 +1,7 @@
 #!/bin/bash
 
 src_files() {
-	find ./inc ./src -maxdepth 3 -type f -name \*.h -or -name \*.c
+	find ./inc ./src -type f -name \*.h -or -name \*.c
 }
 
 
