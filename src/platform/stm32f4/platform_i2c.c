@@ -154,3 +154,101 @@ int platform_i2c_recv_byte( unsigned id, int ack )
 	uint8_t data = I2C_ReceiveData(i2c[id]);
 	return data;
 }
+
+static int _i2c_recv_buf(unsigned id, u8 *buff, int len)
+{
+	int i, ack;
+	for (i=0;i<len;i++) {
+		if (i<(len-1))
+			ack = 1;
+		else
+			ack = 0;
+		buff[i] = platform_i2c_recv_byte(id, ack);
+	}
+	return i;
+}
+
+static int _i2c_send_buf(unsigned id, u8 *buff, int len)
+{
+	int i;
+	for (i=0;i<len;i++) {
+		platform_i2c_send_byte(id, buff[i]);
+	}
+	return i;
+}
+
+/* Read from device using 8 bit offset addressing */
+int platform_i2c_read8(unsigned id, u8 device, u8 offset, u8 *buff, int len)
+{
+	int rc;
+	platform_i2c_send_start(id);
+	rc = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
+	if (1 != rc)
+		goto END;
+	platform_i2c_send_byte(id, offset);
+	platform_i2c_send_stop(id);
+	platform_i2c_send_start(id);
+	rc = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_RECEIVER);
+	if (1 != rc)
+		goto END;
+	rc = _i2c_recv_buf(id, buff, len);
+END:
+	platform_i2c_send_stop(id);
+	return rc;
+}
+
+/* Write to device using 8bit addressing */
+int platform_i2c_write8(unsigned id, u8 device, u8 offset, u8 *buff, int len)
+{
+	int rc;
+	platform_i2c_send_start(id);
+	rc = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
+	if (1 != rc)
+		goto END;
+	platform_i2c_send_byte(id, offset);
+	rc = _i2c_send_buf(id, buff, len);
+END:
+	platform_i2c_send_stop(id);
+	return rc;
+}
+
+static void _i2c_send_offset16(unsigned id, u8 offset)
+{
+	platform_i2c_send_byte(id, (offset>>8)&0xff);
+	platform_i2c_send_byte(id, (offset&0xff));
+}
+
+/* Read from device using 16bit offset */
+int platform_i2c_read16(unsigned id, u8 device, u16 offset, u8 *buff, int len)
+{
+	int rc;
+	platform_i2c_send_start(id);
+	rc = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
+	if (1 != rc)
+		goto END;
+	_i2c_send_offset16(id, offset);
+	platform_i2c_send_stop(id);
+	platform_i2c_send_start(id);
+	rc = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_RECEIVER);
+	if (1 != rc)
+		goto END;
+	rc = _i2c_recv_buf(id, buff, len);
+END:
+	platform_i2c_send_stop(id);
+	return rc;
+}
+
+/* Write to device using 16bit addressing */
+int platform_i2c_write16(unsigned id, u8 device, u16 offset, u8 *buff, int len)
+{
+	int rc;
+	platform_i2c_send_start(id);
+	rc = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
+	if (1 != rc)
+		goto END;
+	_i2c_send_offset16(id, offset);
+	rc = _i2c_send_buf(id, buff, len);
+END:
+	platform_i2c_send_stop(id);
+	return rc;
+}

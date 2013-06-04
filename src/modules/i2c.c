@@ -8,6 +8,7 @@
 #include "lrotable.h"
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 // Lua: speed = i2c.setup( id, speed )
 static int i2c_setup( lua_State *L )
@@ -129,76 +130,103 @@ static int i2c_read( lua_State *L )
 	return 1;
 }
 
-static int i2c_read_from( lua_State *L )
+
+static int _i2c_read_8_16(char width, lua_State *L )
 {
-	luaL_Buffer b;
+	int rc;
 	unsigned id = luaL_checkinteger(L, 1);
 	int dev     = luaL_checkinteger(L, 2);
 	int addr    = luaL_checkinteger(L, 3);
 	int size   = luaL_checkinteger(L, 4);
-	int i,data,ret;
+	u8 *data;
 
 	MOD_CHECK_ID( i2c, id );
 	if( size == 0 )
 		return 0;
-	luaL_buffinit( L, &b );
-	platform_i2c_send_start(id);
-	ret = platform_i2c_send_address(id, (u16)(dev&0xff), PLATFORM_I2C_DIRECTION_TRANSMITTER);
-	if (0 == ret) {               /* No response from device */
-		platform_i2c_send_stop(id);
+	data = malloc(size);
+	if (8 == width)
+		rc = platform_i2c_read8(id, dev, addr, data, size);
+	else
+		rc = platform_i2c_read16(id, dev, addr, data, size);
+	if (0 == rc)
 		return 0;
-	}
-	platform_i2c_send_byte(id, (u8) (addr&0xff));
-	platform_i2c_send_stop(id);
-	platform_i2c_send_start(id);
-	ret = platform_i2c_send_address(id, (u16)(dev&0xff), PLATFORM_I2C_DIRECTION_RECEIVER);
-	if (0 == ret) {
-		platform_i2c_send_stop(id);
-		return 0;
-	}
-	if (1 == size) {
-		data = platform_i2c_recv_byte( id, 0 );
-		lua_pushinteger(L, data);
-	} else {
-		for( i = 0; i < size; i ++ ) {
-			if( ( data = platform_i2c_recv_byte( id, i < size - 1 ) ) == -1 )
-				break;
-			else
-				luaL_addchar( &b, ( char )data );
-		}
-		luaL_pushresult( &b );
-	}
-	platform_i2c_send_stop(id);
+	if (1 == size)
+		lua_pushinteger(L, data[0]);
+	else
+		lua_pushlstring(L, (void*)data, size);
+	free(data);
 	return 1;
 }
 
-static int i2c_write_to( lua_State *L )
+static int i2c_read_8(lua_State *L)
+{
+	return _i2c_read_8_16(8, L);
+}
+static int i2c_read_16(lua_State *L)
+{
+	return _i2c_read_8_16(16, L);
+}
+
+static int _i2c_write_8_16(char width, lua_State *L )
 {
 	int ret;
 	unsigned id = luaL_checkinteger(L, 1);
 	int dev     = luaL_checkinteger(L, 2);
 	int addr    = luaL_checkinteger(L, 3);
+	u8 *buff = 0;
+	int argn,i,index=0,len=0;
+	unsigned int datalen, numdata;
+	const char *pdata;
 
 	MOD_CHECK_ID( i2c, id );
-	platform_i2c_send_start(id);
-	ret = platform_i2c_send_address(id, (u16)(dev&0xff), PLATFORM_I2C_DIRECTION_TRANSMITTER);
-	if (0 == ret) {               /* No response from device */
-		platform_i2c_send_stop(id);
-		return 0;
+	if( lua_gettop( L ) < 4 )
+		return luaL_error( L, "invalid number of arguments" );
+	for( argn = 4; argn <= lua_gettop( L ); argn ++ ) {
+		// lua_isnumber() would silently convert a string of digits to an integer
+		// whereas here strings are handled separately.
+		if( lua_type( L, argn ) == LUA_TNUMBER ) {
+			numdata = ( int )luaL_checkinteger( L, argn );
+			if( numdata < 0 || numdata > 255 )
+				return luaL_error( L, "numeric data must be from 0 to 255" );
+			len++;
+			buff = realloc(buff, len);
+			buff[index++] = (u8)numdata;
+		} else if( lua_istable( L, argn ) ) {
+			datalen = lua_objlen( L, argn );
+			for( i = 0; i < datalen; i ++ ) {
+				lua_rawgeti( L, argn, i + 1 );
+				numdata = ( int )luaL_checkinteger( L, -1 );
+				lua_pop( L, 1 );
+				if( numdata < 0 || numdata > 255 )
+					return luaL_error( L, "numeric data must be from 0 to 255" );
+				len++;
+				buff = realloc(buff, len);
+				buff[index++] = (u8)numdata;
+			}
+		} else {
+			pdata = luaL_checklstring( L, argn, &datalen );
+			len += datalen;
+			buff = realloc(buff, len);
+			memcpy(&buff[index], pdata, datalen);
+			index+=datalen;
+		}
 	}
-	platform_i2c_send_byte(id, (u8) (addr&0xff));
-
-	/* Manipulate stack to please i2c_write function */
-	int top = lua_gettop(L);
-	lua_remove(L, 3);
-	lua_remove(L, 2);
-	i2c_write(L);
-	platform_i2c_send_stop(id);
-	int reply = luaL_checkinteger(L, lua_gettop(L));
-	/* Now manipulate stack back to what lua assumes it to be */
-	lua_settop(L,top);
-	lua_pushinteger(L, reply);
+	if (8 == width)
+		ret = platform_i2c_write8(id, dev, addr, buff, len);
+	else
+		ret = platform_i2c_write16(id, dev, addr, buff, len);
+	free(buff);
+	lua_pushinteger(L, ret);
 	return 1;
+}
+
+static int i2c_write_8(lua_State *L)
+{
+	return _i2c_write_8_16(8, L);
+}
+static int i2c_write_16(lua_State *L)
+{
+	return _i2c_write_8_16(16, L);
 }
 
 // Module function map
@@ -211,8 +239,10 @@ const LUA_REG_TYPE i2c_map[] = {
 	{ LSTRKEY( "address" ), LFUNCVAL( i2c_address ) },
 	{ LSTRKEY( "write" ), LFUNCVAL( i2c_write ) },
 	{ LSTRKEY( "read" ), LFUNCVAL( i2c_read ) },
-	{ LSTRKEY( "read_from" ), LFUNCVAL( i2c_read_from ) },
-	{ LSTRKEY( "write_to" ), LFUNCVAL( i2c_write_to ) },
+	{ LSTRKEY( "read8" ), LFUNCVAL( i2c_read_8 ) },
+	{ LSTRKEY( "read16" ), LFUNCVAL( i2c_read_16 ) },
+	{ LSTRKEY( "write8" ), LFUNCVAL( i2c_write_8 ) },
+	{ LSTRKEY( "write16" ), LFUNCVAL( i2c_write_16 ) },
 #if LUA_OPTIMIZE_MEMORY > 0
 	{ LSTRKEY( "FAST" ), LNUMVAL( PLATFORM_I2C_SPEED_FAST ) },
 	{ LSTRKEY( "SLOW" ), LNUMVAL( PLATFORM_I2C_SPEED_SLOW ) },
