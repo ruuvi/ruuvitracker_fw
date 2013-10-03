@@ -30,6 +30,7 @@
 #define PORT_D 3
 #define PORT_E 4
 
+#if defined( ELUA_BOARD_RUUVIB1 )
 #define STATUS_PIN GPIO_Pin_12
 #define STATUS_PORT PORT_E
 #define DTR_PIN    GPIO_Pin_14
@@ -38,6 +39,18 @@
 #define POWER_PORT PORT_E
 #define ENABLE_PIN  GPIO_Pin_15
 #define ENABLE_PORT PORT_C
+#elif defined( ELUA_BOARD_RUUVIC1 )
+#define STATUS_PIN  GPIO_Pin_15
+#define STATUS_PORT PORT_C
+#define DTR_PIN     GPIO_Pin_5
+#define DTR_PORT    PORT_C
+#define POWER_PIN   GPIO_Pin_4
+#define POWER_PORT  PORT_C
+#define ENABLE_PIN  GPIO_Pin_7
+#define ENABLE_PORT PORT_C
+#else
+#error "Define GSM pins in gsm.c"
+#endif
 
 #define BUFF_SIZE	64
 

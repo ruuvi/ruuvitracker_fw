@@ -15,6 +15,8 @@ if [ "$BOARD" == "RUUVIA" ]; then
     BINARY="elua_lua_stm32f415rg.bin"
 elif [ "$BOARD" == "RUUVIB1" ]; then
     BINARY="elua_lua_stm32f407vg.bin"
+elif [ "$BOARD" == "RUUVIC1" ]; then
+    BINARY="elua_lua_stm32f405rg.bin"
 else
     echo "ERROR, Unknown board"
     exit 1
