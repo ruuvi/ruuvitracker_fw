@@ -1,3 +1,11 @@
+--[[--
+Use with:
+leds = require "led"
+leds.green_led:on()
+leds.green_led:off()
+--]]--
+
+
 local ledmodule = {}
 
 local Led = {}
