@@ -91,6 +91,13 @@ static int standby(lua_State *L)
 	return 0;
 }
 
+static int systick_get_raw_wrapper(lua_State *L)
+{
+	lua_pushinteger(L, systick_get_raw());
+	return 1;
+}
+
+
 #define MIN_OPT_LEVEL 2
 #include "lrodefs.h"
 extern const LUA_REG_TYPE sha1_map[];
@@ -105,6 +112,8 @@ const LUA_REG_TYPE ruuvi_map[] = {
 	{ LSTRKEY( "standby_mode" ), LFUNCVAL(standby) },
 	/* SHA1 table ruuvi.sha1 */
 	{ LSTRKEY( "sha1" ),         LROVAL( sha1_map ) },
+	/* export systick_get_raw as Arduino style millis(), well try anyway, it crashes the board... */
+	{ LSTRKEY( "millis" ),       LFUNCVAL( systick_get_raw_wrapper ) },
 #endif
 	{ LNILKEY, LNILVAL }
 };
