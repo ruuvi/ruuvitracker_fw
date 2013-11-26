@@ -112,7 +112,7 @@ const LUA_REG_TYPE ruuvi_map[] = {
 	{ LSTRKEY( "standby_mode" ), LFUNCVAL(standby) },
 	/* SHA1 table ruuvi.sha1 */
 	{ LSTRKEY( "sha1" ),         LROVAL( sha1_map ) },
-	/* export systick_get_raw as Arduino style millis(), well try anyway, it crashes the board... */
+	/* export systick_get_raw as Arduino style millis() */
 	{ LSTRKEY( "millis" ),       LFUNCVAL( systick_get_raw_wrapper ) },
 #endif
 	{ LNILKEY, LNILVAL }
