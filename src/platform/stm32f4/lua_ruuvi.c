@@ -93,7 +93,7 @@ static int standby(lua_State *L)
 
 static int systick_get_raw_wrapper(lua_State *L)
 {
-	lua_pushinteger(L, systick_get_raw());
+	lua_pushnumber(L, systick_get_raw());
 	return 1;
 }
 
