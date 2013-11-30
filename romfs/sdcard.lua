@@ -5,6 +5,8 @@ sd = require "sdcard"
 sd.enable() return boolean if the operation was successfull or not (fails if no card inserted)
 sd.disable() will always succeed
 sd.is_inserted() returns boolean
+sd.is_enabled() return the enable status, will also return failure if card not inserted
+
 
 --]]--
 
@@ -18,14 +20,23 @@ then
 end
 
 
-local function is_inserted()
+function sdmodule.is_inserted()
     -- Make sure the pin is in correct mode
     pio.pin.setdir(pio.INPUT, enable_pin)
     pio.pin.setpull(pio.PULLUP, inserted_pin)
     return (pio.pin.getval(inserted_pin) == 0)
 end
 
-local function disable()
+function sdmodule.is_enabled()
+    -- Make sure the pin is in correct mode
+    if (not sdmodule.is_inserted())
+    then
+        return false
+    end
+    return (pio.pin.getval(sdmodule.enable_pin) == 1)
+end
+
+function sdmodule.disable()
     -- let the pull-down resistor on the board shut down the regulator
     pio.pin.setdir(pio.INPUT, enable_pin)
     pio.pin.setpull(pio.NOPULL, enable_pin)
@@ -33,8 +44,8 @@ local function disable()
     pio.pin.setpull(pio.NOPULL, inserted_pin)
 end
 
-local function enable()
-    if (not is_inserted())
+function sdmodule.enable()
+    if (not sdmodule.is_inserted())
     then
         return false
     end
@@ -42,9 +53,6 @@ local function enable()
     pio.pin.sethigh(enable_pin)
 end
 
-sdmodule.enable = enable
-sdmodule.is_inserted = is_inserted
-sdmodule.disable = disable
 
 return sdmodule
 
