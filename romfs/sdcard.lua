@@ -5,9 +5,11 @@ sd = require "sdcard"
 sd.enable() return boolean if the operation was successfull or not (fails if no card inserted)
 sd.disable() will always succeed
 sd.is_inserted() returns boolean
-sd.is_enabled() return the enable status, will also return failure if card not inserted
-
-
+sd.is_enabled() return the enable status, will also return failure if card not inserted. 
+                NOTE! This does not actually tell you if the card is ready/working/whatnot, it seems eLua
+                does not like having the card come and go, you should never try to access the card when
+                it's not enabled, this will likely mess up eLua/FatFS and prevent you accessing the card
+                until next reboot...
 --]]--
 
 local sdmodule = {}
