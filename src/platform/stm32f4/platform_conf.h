@@ -174,11 +174,6 @@ extern int luaopen_ruuvi( lua_State *L );
 #define MMCFS_CS_PORT                1 // PB, see platform.c, keys start from 0
 #define MMCFS_CS_PIN                 15
 #define MMCFS_SPI_NUM                0 // SPI1, see platform.c, keys start from zero
-// Actually probably just using the same kind of defines as in gsm.c would work better, anyway these are just reminders for now
-#define RUUVI_SDINSERTED_PORT        2  // PC
-#define RUUVI_SDINSERTED_PIN         10 
-#define RUUVI_SDLDO_PORT             2  // PC8
-#define RUUVI_SDLDO_PIN              8
 
 
 // CPU frequency (needed by the CPU module, 0 if not used)
