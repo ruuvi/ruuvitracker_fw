@@ -17,16 +17,16 @@ local sdmodule = {}
 -- Board specifig config
 if pd.board() == "RUUVIC1"
 then
-   local inserted_pin = pio.PC_10
-   local enable_pin   = pio.PC_8
+    sdmodule.inserted_pin = pio.PC_10
+    sdmodule.enable_pin   = pio.PC_8
 end
 
 
 function sdmodule.is_inserted()
     -- Make sure the pin is in correct mode
-    pio.pin.setdir(pio.INPUT, enable_pin)
-    pio.pin.setpull(pio.PULLUP, inserted_pin)
-    return (pio.pin.getval(inserted_pin) == 0)
+    pio.pin.setdir(pio.INPUT, sdmodule.enable_pin)
+    pio.pin.setpull(pio.PULLUP, sdmodule.inserted_pin)
+    return (pio.pin.getval(sdmodule.inserted_pin) == 0)
 end
 
 function sdmodule.is_enabled()
@@ -35,15 +35,15 @@ function sdmodule.is_enabled()
     then
         return false
     end
-    return (pio.pin.getval(sdmodule.enable_pin) == 1)
+    return (pio.pin.getval(sdmodule.sdmodule.enable_pin) == 1)
 end
 
 function sdmodule.disable()
     -- let the pull-down resistor on the board shut down the regulator
-    pio.pin.setdir(pio.INPUT, enable_pin)
-    pio.pin.setpull(pio.NOPULL, enable_pin)
+    pio.pin.setdir(pio.INPUT, sdmodule.enable_pin)
+    pio.pin.setpull(pio.NOPULL, sdmodule.enable_pin)
     -- And disable pullup on the sense pin as well, just in case it would matter at all
-    pio.pin.setpull(pio.NOPULL, inserted_pin)
+    pio.pin.setpull(pio.NOPULL, sdmodule.inserted_pin)
 end
 
 function sdmodule.enable()
@@ -51,8 +51,8 @@ function sdmodule.enable()
     then
         return false
     end
-    pio.pin.setdir(pio.OUTPUT, enable_pin)
-    pio.pin.sethigh(enable_pin)
+    pio.pin.setdir(pio.OUTPUT, sdmodule.enable_pin)
+    pio.pin.sethigh(sdmodule.enable_pin)
 end
 
 
