@@ -9,6 +9,7 @@ Usage (without subclassing)
 i2cdev = require "i2cdevice"
 i2cdev.address_scan() -- Runs a scan for the 7-bit address space
 md = i2cdev.Device:new(0x1d)
+md:bus_init() -- setup the I2C bus
 md:present() -- returns true/false depending on whether the slave ACKed or not
 md:dump_registers(0x0, 0x31) -- this will do a bunch of sequential single byte reads
 md:write(reg, value)
