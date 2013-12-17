@@ -24,7 +24,7 @@ end
 
 function sdmodule.is_inserted()
     -- Make sure the pin is in correct mode
-    pio.pin.setdir(pio.INPUT, sdmodule.enable_pin)
+    pio.pin.setdir(pio.INPUT, sdmodule.inserted_pin)
     pio.pin.setpull(pio.PULLUP, sdmodule.inserted_pin)
     return (pio.pin.getval(sdmodule.inserted_pin) == 0)
 end
@@ -53,6 +53,7 @@ function sdmodule.enable()
     end
     pio.pin.setdir(pio.OUTPUT, sdmodule.enable_pin)
     pio.pin.sethigh(sdmodule.enable_pin)
+    return true
 end
 
 
