@@ -291,9 +291,9 @@ rt_error platform_i2c_send_address( unsigned id, u16 address, int direction );
 rt_error platform_i2c_send_byte( unsigned id, u8 data );
 rt_error platform_i2c_recv_byte( unsigned id, int ack, u8 *buff );
 rt_error platform_i2c_read8(unsigned id, u8 device, u8 offset, u8 *buff, int len, int *recv_count);
-int platform_i2c_write8(unsigned id, u8 device, u8 offset, u8 *buff, int len);
+rt_error platform_i2c_write8(unsigned id, u8 device, u8 offset, u8 *buff, int len, int *send_count);
 rt_error platform_i2c_read16(unsigned id, u8 device, u16 offset, u8 *buff, int len, int *recv_count);
-int platform_i2c_write16(unsigned id, u8 device, u16 offset, u8 *buff, int len);
+rt_error platform_i2c_write16(unsigned id, u8 device, u16 offset, u8 *buff, int len, int *send_count);
 
 // *****************************************************************************
 // Ethernet specific functions
