@@ -192,9 +192,7 @@ static rt_error _i2c_recv_buf(unsigned id, u8 *buff, int len, int *recv_count)
 			ack = 0;
 		status = platform_i2c_recv_byte(id, ack, &buff[i]);
 		if (status != RT_ERR_OK)
-		{
 			return status;
-		}
 	}
 	*recv_count = i;
 	return RT_ERR_OK;
@@ -208,9 +206,7 @@ static rt_error _i2c_send_buf(unsigned id, u8 *buff, int len, int *send_count)
 	{
 		status = platform_i2c_send_byte(id, buff[i]);
 		if (status != RT_ERR_OK)
-		{
 			return status;
-		}
 	}
 	*send_count = i;
 	return RT_ERR_OK;
@@ -223,9 +219,7 @@ rt_error platform_i2c_read8(unsigned id, u8 device, u8 offset, u8 *buff, int len
 	rt_error status2;
 	status = platform_i2c_send_start(id);
 	if (status != RT_ERR_OK)
-	{
 		return status;
-	}
 	status = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
 	if (status != RT_ERR_OK)
 		goto END;
@@ -248,13 +242,9 @@ rt_error platform_i2c_read8(unsigned id, u8 device, u8 offset, u8 *buff, int len
 END:
 	status2 = platform_i2c_send_stop(id);
 	if (status != RT_ERR_OK)
-	{
 		return status;
-	}
 	if (status2 != RT_ERR_OK)
-	{
 		return status2;
-	}
 	return RT_ERR_OK;
 }
 
@@ -265,9 +255,7 @@ rt_error platform_i2c_write8(unsigned id, u8 device, u8 offset, u8 *buff, int le
 	rt_error status2;
 	status = platform_i2c_send_start(id);
 	if (status != RT_ERR_OK)
-	{
 		return status;
-	}
 	status = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
 	if (status != RT_ERR_OK)
 		goto END;
@@ -278,13 +266,9 @@ rt_error platform_i2c_write8(unsigned id, u8 device, u8 offset, u8 *buff, int le
 END:
 	status2 = platform_i2c_send_stop(id);
 	if (status != RT_ERR_OK)
-	{
 		return status;
-	}
 	if (status2 != RT_ERR_OK)
-	{
 		return status2;
-	}
 	return RT_ERR_OK;
 }
 
@@ -293,14 +277,10 @@ static rt_error _i2c_send_offset16(unsigned id, u8 offset)
 	rt_error status;
 	status = platform_i2c_send_byte(id, (offset>>8)&0xff);
 	if (status != RT_ERR_OK)
-	{
 		return status;
-	}
 	status = platform_i2c_send_byte(id, (offset&0xff));
 	if (status != RT_ERR_OK)
-	{
 		return status;
-	}
 	return RT_ERR_OK;
 }
 
@@ -311,9 +291,7 @@ rt_error platform_i2c_read16(unsigned id, u8 device, u16 offset, u8 *buff, int l
 	rt_error status2;
 	status = platform_i2c_send_start(id);
 	if (status != RT_ERR_OK)
-	{
 		return status;
-	}
 	status = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
 	if (status != RT_ERR_OK)
 		goto END;
@@ -336,13 +314,9 @@ rt_error platform_i2c_read16(unsigned id, u8 device, u16 offset, u8 *buff, int l
 END:
 	status2 = platform_i2c_send_stop(id);
 	if (status != RT_ERR_OK)
-	{
 		return status;
-	}
 	if (status2 != RT_ERR_OK)
-	{
 		return status2;
-	}
 	return RT_ERR_OK;
 }
 
@@ -353,9 +327,7 @@ rt_error platform_i2c_write16(unsigned id, u8 device, u16 offset, u8 *buff, int 
 	rt_error status2;
 	status = platform_i2c_send_start(id);
 	if (status != RT_ERR_OK)
-	{
 		return status;
-	}
 	status = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
 	if (status != RT_ERR_OK)
 		goto END;
@@ -366,12 +338,8 @@ rt_error platform_i2c_write16(unsigned id, u8 device, u16 offset, u8 *buff, int 
 END:
 	status2 = platform_i2c_send_stop(id);
 	if (status != RT_ERR_OK)
-	{
 		return status;
-	}
 	if (status2 != RT_ERR_OK)
-	{
 		return status2;
-	}
 	return RT_ERR_OK;
 }
