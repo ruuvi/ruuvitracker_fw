@@ -121,10 +121,10 @@ function Device:read(reg, amount)
         return nil
     end
     -- Stop and start, the wrong way, but I get no ACK from the slave when doing repeated start
-    i2c.stop(self.bus_id)
-    i2c.start(self.bus_id)
+    -- i2c.stop(self.bus_id)
+    -- i2c.start(self.bus_id)
     -- Repeated start, the correct way to do this
-    --i2c.start(self.bus_id)
+    i2c.start(self.bus_id)
     -- I suppose the direction here will set the R/W bit in the address, the eLua documentation is not 100% clear on this.
     local acked = i2c.address(self.bus_id, self.address, i2c.RECEIVER)
     if (not acked)
