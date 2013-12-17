@@ -106,6 +106,7 @@ static int i2c_write( lua_State *L )
 	int numdata;
 	u32 wrote = 0;
 	unsigned argn;
+	rt_error status;
 
 	MOD_CHECK_ID( i2c, id );
 	if( lua_gettop( L ) < 2 )
@@ -119,8 +120,19 @@ static int i2c_write( lua_State *L )
 			numdata = ( int )luaL_checkinteger( L, argn );
 			if( numdata < 0 || numdata > 255 )
 				return luaL_error( L, "numeric data must be from 0 to 255" );
-			if( platform_i2c_send_byte( id, numdata ) != 1 )
-				break;
+			status = platform_i2c_send_byte( id, numdata );
+			switch(status)
+			{
+				case RT_ERR_OK:
+					break;
+				case RT_ERR_TIMEOUT:
+					return luaL_error( L, "Timeout when sending data" );
+					break;
+				default:
+				case RT_ERR_ERROR:
+					return luaL_error( L, "Unknown error when sending data" );
+					break;
+			}
 			wrote ++;
 		}
 		else if( lua_istable( L, argn ) )
@@ -133,8 +145,19 @@ static int i2c_write( lua_State *L )
 				lua_pop( L, 1 );
 				if( numdata < 0 || numdata > 255 )
 					return luaL_error( L, "numeric data must be from 0 to 255" );
-				if( platform_i2c_send_byte( id, numdata ) == 0 )
-					break;
+				status = platform_i2c_send_byte( id, numdata );
+				switch(status)
+				{
+					case RT_ERR_OK:
+						break;
+					case RT_ERR_TIMEOUT:
+						return luaL_error( L, "Timeout when sending data" );
+						break;
+					default:
+					case RT_ERR_ERROR:
+						return luaL_error( L, "Unknown error when sending data" );
+						break;
+				}
 			}
 			wrote += i;
 			if( i < datalen )
@@ -145,8 +168,19 @@ static int i2c_write( lua_State *L )
 			pdata = luaL_checklstring( L, argn, &datalen );
 			for( i = 0; i < datalen; i ++ )
 			{
-				if( platform_i2c_send_byte( id, pdata[ i ] ) == 0 )
-					break;
+				status = platform_i2c_send_byte( id, pdata[ i ] );
+				switch(status)
+				{
+					case RT_ERR_OK:
+						break;
+					case RT_ERR_TIMEOUT:
+						return luaL_error( L, "Timeout when sending data" );
+						break;
+					default:
+					case RT_ERR_ERROR:
+						return luaL_error( L, "Unknown error when sending data" );
+						break;
+				}
 			}
 			wrote += i;
 			if( i < datalen )
