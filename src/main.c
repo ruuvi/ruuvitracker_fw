@@ -100,7 +100,8 @@ int main( void )
 #else
 #error "Enable SDCard power in main.c or add a dummy define for your board if the card is always powered"
 #endif
-#endif
+#endif // defined(BUILD_MMCFS)
+
 	// Register the MMC filesystem
 	mmcfs_init();
 
