@@ -146,29 +146,41 @@ rt_error platform_i2c_send_address( unsigned id, u16 address, int direction )
 }
 
 /* Send one byte to I2C bus */
-int platform_i2c_send_byte( unsigned id, u8 data )
+rt_error platform_i2c_send_byte( unsigned id, u8 data )
 {
 	I2C_SendData(i2c[id], data);
+	RT_TIMEOUT_INIT();
 	// wait for I2C1 EV8_2 --> byte has been transmitted
-	while(!I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_BYTE_TRANSMITTED));
-	return 1;
+	while(!I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_BYTE_TRANSMITTED))
+	{
+		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
+	}
+	return RT_ERR_OK;
 }
 
 /* This function reads one byte from the slave device */
-int platform_i2c_recv_byte( unsigned id, int ack )
+rt_error platform_i2c_recv_byte( unsigned id, int ack, u8 *buff)
 {
 	if(ack) // enable acknowledge of recieved data
+	{
 		I2C_AcknowledgeConfig(i2c[id], ENABLE);
+	}
 	else // disabe acknowledge of received data
+	{
 		I2C_AcknowledgeConfig(i2c[id], DISABLE);
+	}
+	RT_TIMEOUT_INIT();
 	// wait until one byte has been received
-	while( !I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_BYTE_RECEIVED) );
+	while( !I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_BYTE_RECEIVED) )
+	{
+		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
+	}
 	// read data from I2C data register and return data byte
-	uint8_t data = I2C_ReceiveData(i2c[id]);
-	return data;
+	*buff = I2C_ReceiveData(i2c[id]);
+	return RT_ERR_OK;
 }
 
-static int _i2c_recv_buf(unsigned id, u8 *buff, int len)
+static rt_error _i2c_recv_buf(unsigned id, u8 *buff, int len, int *recv_count)
 {
 	int i, ack;
 	for (i=0;i<len;i++) {
@@ -176,9 +188,14 @@ static int _i2c_recv_buf(unsigned id, u8 *buff, int len)
 			ack = 1;
 		else
 			ack = 0;
-		buff[i] = platform_i2c_recv_byte(id, ack);
+		rt_error status = platform_i2c_recv_byte(id, ack, &buff[i]);
+		if (status != RT_ERR_OK)
+		{
+			return status;
+		}
 	}
-	return i;
+	*recv_count = i;
+	return RT_ERR_OK;
 }
 
 static int _i2c_send_buf(unsigned id, u8 *buff, int len)
@@ -191,23 +208,45 @@ static int _i2c_send_buf(unsigned id, u8 *buff, int len)
 }
 
 /* Read from device using 8 bit offset addressing */
-int platform_i2c_read8(unsigned id, u8 device, u8 offset, u8 *buff, int len)
+rt_error platform_i2c_read8(unsigned id, u8 device, u8 offset, u8 *buff, int len, int *recv_count)
 {
-	int rc;
-	platform_i2c_send_start(id);
-	rc = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
-	if (1 != rc)
+	rt_error status;
+	rt_error status2;
+	status = platform_i2c_send_start(id);
+	if (status != RT_ERR_OK)
+	{
+		return status;
+	}
+	status = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
+	if (status != RT_ERR_OK)
 		goto END;
-	platform_i2c_send_byte(id, offset);
-	platform_i2c_send_stop(id);
-	platform_i2c_send_start(id);
-	rc = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_RECEIVER);
-	if (1 != rc)
+	status = platform_i2c_send_byte(id, offset);
+	if (status != RT_ERR_OK)
 		goto END;
-	rc = _i2c_recv_buf(id, buff, len);
+	/**
+	 * Repeated start is the correct way
+	status = platform_i2c_send_stop(id);
+	if (status != RT_ERR_OK)
+		goto END;
+	 */
+	status = platform_i2c_send_start(id);
+	if (status != RT_ERR_OK)
+		goto END;
+	status = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_RECEIVER);
+	if (status != RT_ERR_OK)
+		goto END;
+	status = _i2c_recv_buf(id, buff, len, recv_count);
 END:
-	platform_i2c_send_stop(id);
-	return rc;
+	status2 = platform_i2c_send_stop(id);
+	if (status != RT_ERR_OK)
+	{
+		return status;
+	}
+	if (status2 != RT_ERR_OK)
+	{
+		return status2;
+	}
+	return RT_ERR_OK;
 }
 
 /* Write to device using 8bit addressing */
@@ -225,30 +264,62 @@ END:
 	return rc;
 }
 
-static void _i2c_send_offset16(unsigned id, u8 offset)
+static rt_error _i2c_send_offset16(unsigned id, u8 offset)
 {
-	platform_i2c_send_byte(id, (offset>>8)&0xff);
-	platform_i2c_send_byte(id, (offset&0xff));
+	rt_error status;
+	status = platform_i2c_send_byte(id, (offset>>8)&0xff);
+	if (status != RT_ERR_OK)
+	{
+		return status;
+	}
+	status = platform_i2c_send_byte(id, (offset&0xff));
+	if (status != RT_ERR_OK)
+	{
+		return status;
+	}
+	return RT_ERR_OK;
 }
 
 /* Read from device using 16bit offset */
-int platform_i2c_read16(unsigned id, u8 device, u16 offset, u8 *buff, int len)
+rt_error platform_i2c_read16(unsigned id, u8 device, u16 offset, u8 *buff, int len, int *recv_count)
 {
-	int rc;
-	platform_i2c_send_start(id);
-	rc = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
-	if (1 != rc)
+	rt_error status;
+	rt_error status2;
+	status = platform_i2c_send_start(id);
+	if (status != RT_ERR_OK)
+	{
+		return status;
+	}
+	status = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
+	if (status != RT_ERR_OK)
 		goto END;
-	_i2c_send_offset16(id, offset);
-	platform_i2c_send_stop(id);
-	platform_i2c_send_start(id);
-	rc = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_RECEIVER);
-	if (1 != rc)
+	status = _i2c_send_offset16(id, offset);
+	if (status != RT_ERR_OK)
 		goto END;
-	rc = _i2c_recv_buf(id, buff, len);
+	/**
+	 * Repeated start is the correct way
+	status = platform_i2c_send_stop(id);
+	if (status != RT_ERR_OK)
+		goto END;
+	 */
+	status = platform_i2c_send_start(id);
+	if (status != RT_ERR_OK)
+		goto END;
+	status = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_RECEIVER);
+	if (status != RT_ERR_OK)
+		goto END;
+	status = _i2c_recv_buf(id, buff, len, recv_count);
 END:
-	platform_i2c_send_stop(id);
-	return rc;
+	status2 = platform_i2c_send_stop(id);
+	if (status != RT_ERR_OK)
+	{
+		return status;
+	}
+	if (status2 != RT_ERR_OK)
+	{
+		return status2;
+	}
+	return RT_ERR_OK;
 }
 
 /* Write to device using 16bit addressing */

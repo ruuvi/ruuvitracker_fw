@@ -288,11 +288,11 @@ u32 platform_i2c_setup( unsigned id, u32 speed );
 rt_error platform_i2c_send_start( unsigned id );
 rt_error platform_i2c_send_stop( unsigned id );
 rt_error platform_i2c_send_address( unsigned id, u16 address, int direction );
-int platform_i2c_send_byte( unsigned id, u8 data );
-int platform_i2c_recv_byte( unsigned id, int ack );
-int platform_i2c_read8(unsigned id, u8 device, u8 offset, u8 *buff, int len);
+rt_error platform_i2c_send_byte( unsigned id, u8 data );
+rt_error platform_i2c_recv_byte( unsigned id, int ack, u8 *buff );
+rt_error platform_i2c_read8(unsigned id, u8 device, u8 offset, u8 *buff, int len, int *recv_count);
 int platform_i2c_write8(unsigned id, u8 device, u8 offset, u8 *buff, int len);
-int platform_i2c_read16(unsigned id, u8 device, u16 offset, u8 *buff, int len);
+rt_error platform_i2c_read16(unsigned id, u8 device, u16 offset, u8 *buff, int len, int *recv_count);
 int platform_i2c_write16(unsigned id, u8 device, u16 offset, u8 *buff, int len);
 
 // *****************************************************************************

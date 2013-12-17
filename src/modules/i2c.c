@@ -154,17 +154,30 @@ static int i2c_read( lua_State *L )
 	unsigned id = luaL_checkinteger( L, 1 );
 	u32 size = ( u32 )luaL_checkinteger( L, 2 ), i;
 	luaL_Buffer b;
-	int data;
+	u8 data;
+	rt_error status;
 
 	MOD_CHECK_ID( i2c, id );
 	if( size == 0 )
 		return 0;
 	luaL_buffinit( L, &b );
 	for( i = 0; i < size; i ++ )
-		if( ( data = platform_i2c_recv_byte( id, i < size - 1 ) ) == -1 )
-			break;
-		else
-			luaL_addchar( &b, ( char )data );
+	{
+		status = platform_i2c_recv_byte( id, i < size - 1, &data );
+		switch(status)
+		{
+			case RT_ERR_OK:
+				break;
+			case RT_ERR_TIMEOUT:
+				return luaL_error( L, "Timeout when receiving data" );
+				break;
+			default:
+			case RT_ERR_ERROR:
+				return luaL_error( L, "Unknown error receiving data" );
+				break;
+		}
+		luaL_addchar( &b, ( char )data );
+	}
 	luaL_pushresult( &b );
 	return 1;
 }
@@ -173,6 +186,7 @@ static int i2c_read( lua_State *L )
 static int _i2c_read_8_16(char width, lua_State *L )
 {
 	int rc;
+	rt_error status;
 	unsigned id = luaL_checkinteger(L, 1);
 	int dev     = luaL_checkinteger(L, 2);
 	int addr    = luaL_checkinteger(L, 3);
@@ -184,9 +198,21 @@ static int _i2c_read_8_16(char width, lua_State *L )
 		return 0;
 	data = malloc(size);
 	if (8 == width)
-		rc = platform_i2c_read8(id, dev, addr, data, size);
+		status = platform_i2c_read8(id, dev, addr, data, size, &rc);
 	else
-		rc = platform_i2c_read16(id, dev, addr, data, size);
+		status = platform_i2c_read16(id, dev, addr, data, size, &rc);
+	switch(status)
+	{
+		case RT_ERR_OK:
+			break;
+		case RT_ERR_TIMEOUT:
+			return luaL_error( L, "Timeout when sending address" );
+			break;
+		default:
+		case RT_ERR_ERROR:
+			return luaL_error( L, "Unknown error when sending address" );
+			break;
+	}
 	if (0 == rc)
 		return 0;
 	if (1 == size)
