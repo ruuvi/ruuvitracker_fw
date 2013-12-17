@@ -10,6 +10,8 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+#include "ruuvi_errors.h"
+
 // Lua: speed = i2c.setup( id, speed )
 static int i2c_setup( lua_State *L )
 {

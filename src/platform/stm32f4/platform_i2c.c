@@ -1,7 +1,7 @@
 #include "platform.h"
 #include "stm32f4xx_conf.h"
 #include <stm32f4xx.h>
-
+#include "ruuvi_errors.h"
 
 /* Definitions */
 I2C_TypeDef *const i2c[] = {I2C1, I2C2, I2C3};
