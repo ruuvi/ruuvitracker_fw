@@ -172,7 +172,6 @@ extern int luaopen_ruuvi( lua_State *L );
 // For STM32F407VGT6 - PA5 = CLK, PA6 = MISO, PA7 = MOSI, PA4 = CS
 #define MMCFS_TICK_HZ                10
 #define MMCFS_TICK_MS                ( 1000 / MMCFS_TICK_HZ )
-// TODO: make these dependent on the defined board
 #if defined( ELUA_BOARD_RUUVIC1 )
 #define MMCFS_CS_PORT                1 // PB, see platform.c, keys start from 0
 #define MMCFS_CS_PIN                 15
