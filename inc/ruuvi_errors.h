@@ -1,5 +1,6 @@
 #ifndef __RUUVI_ERRORS_H__
 #define __RUUVI_ERRORS_H__
+#include "delay.h"
 
 typedef enum rt_error
 {
@@ -10,6 +11,8 @@ typedef enum rt_error
     
 } rt_error;
 
-
+#define RT_DEFAULT_TIMEOUT (150) // ms
+#define RT_TIMEOUT_INIT() unsigned int RT_TIMEOUT_STARTED = systick_get_raw();
+#define RT_TIMEOUT_CHECK(ms) if ((RT_TIMEOUT_STARTED - systick_get_raw()) > ms) { return RT_ERR_TIMEOUT; }
 
 #endif

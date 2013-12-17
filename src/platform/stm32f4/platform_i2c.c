@@ -81,24 +81,33 @@ u32 platform_i2c_setup( unsigned id, u32 speed )
 	return speed;
 }
 
-void platform_i2c_send_start( unsigned id )
+rt_error platform_i2c_send_start( unsigned id )
 {
-	int timeout = TIMEOUT;
+	RT_TIMEOUT_INIT();
 	// wait until I2C1 is not busy anymore
-	while(I2C_GetFlagStatus(i2c[id], I2C_FLAG_BUSY)) {
-		if (timeout-- == 0) {
-			return;
-		}
+	while(I2C_GetFlagStatus(i2c[id], I2C_FLAG_BUSY))
+	{
+		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 	}
 
 	// Send I2C1 START condition
 	I2C_GenerateSTART(i2c[id], ENABLE);
+	return RT_ERR_OK;
 }
 
-void platform_i2c_send_stop( unsigned id )
+rt_error platform_i2c_send_stop( unsigned id )
 {
+	RT_TIMEOUT_INIT();
+	// wait until I2C1 is not busy anymore
+	while(I2C_GetFlagStatus(i2c[id], I2C_FLAG_BUSY))
+	{
+		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
+	}
+
 	// Send I2C1 STOP Condition
 	I2C_GenerateSTOP(i2c[id], ENABLE);
+
+	return RT_ERR_OK;
 }
 
 /* Send 7bit address to I2C buss */

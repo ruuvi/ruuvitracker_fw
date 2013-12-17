@@ -6,6 +6,7 @@
 #include "devman.h"
 #include "type.h"
 #include "elua_int.h"
+#include "ruuvi_errors.h"
 
 // Error / status codes
 enum {
@@ -284,8 +285,8 @@ enum {
 
 int platform_i2c_exists( unsigned id );
 u32 platform_i2c_setup( unsigned id, u32 speed );
-void platform_i2c_send_start( unsigned id );
-void platform_i2c_send_stop( unsigned id );
+rt_error platform_i2c_send_start( unsigned id );
+rt_error platform_i2c_send_stop( unsigned id );
 int platform_i2c_send_address( unsigned id, u16 address, int direction );
 int platform_i2c_send_byte( unsigned id, u8 data );
 int platform_i2c_recv_byte( unsigned id, int ack );

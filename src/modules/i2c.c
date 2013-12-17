@@ -31,7 +31,21 @@ static int i2c_start( lua_State *L )
 	unsigned id = luaL_checkinteger( L, 1 );
 
 	MOD_CHECK_ID( i2c, id );
-	platform_i2c_send_start( id );
+	rt_error status = platform_i2c_send_start( id );
+	switch(status)
+	{
+		case RT_ERR_OK:
+			break;
+		case RT_ERR_TIMEOUT:
+		{
+			return luaL_error( L, "Timeout when sending start" );
+			break;
+		}
+		default:
+		case RT_ERR_ERROR:
+			return luaL_error( L, "Unknown error when sending start" );
+			break;
+	}
 	return 0;
 }
 
@@ -41,7 +55,21 @@ static int i2c_stop( lua_State *L )
 	unsigned id = luaL_checkinteger( L, 1 );
 
 	MOD_CHECK_ID( i2c, id );
-	platform_i2c_send_stop( id );
+	rt_error status = platform_i2c_send_stop( id );
+	switch(status)
+	{
+		case RT_ERR_OK:
+			break;
+		case RT_ERR_TIMEOUT:
+		{
+			return luaL_error( L, "Timeout when sending start" );
+			break;
+		}
+		default:
+		case RT_ERR_ERROR:
+			return luaL_error( L, "Unknown error when sending start" );
+			break;
+	}
 	return 0;
 }
 
