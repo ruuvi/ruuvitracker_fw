@@ -92,10 +92,11 @@ int main( void )
 	// Register the ROM filesystem
 	romfs_init();
 
-    // TODO: Check the actual board revision first! 
+#if defined( ELUA_BOARD_RUUVIC1 )
     // Enable the reg for mmc card (ruuviC1). The card *must* have power when we try to initialize it or it will not work later either...
     platform_pio_op(2, ( ( u32 ) 1 << 8 ), PLATFORM_IO_PIN_DIR_OUTPUT );
     platform_pio_op(2, ( ( u32 ) 1 << 8 ), PLATFORM_IO_PIN_SET );
+#endif
 	// Register the MMC filesystem
 	mmcfs_init();
 
