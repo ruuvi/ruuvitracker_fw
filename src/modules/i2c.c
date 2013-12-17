@@ -79,7 +79,20 @@ static int i2c_address( lua_State *L )
 	MOD_CHECK_ID( i2c, id );
 	if ( address < 0 || address > 127 )
 		return luaL_error( L, "slave address must be from 0 to 127" );
-	lua_pushboolean( L, platform_i2c_send_address( id, (u16)address, direction ) );
+	rt_error status = platform_i2c_send_address( id, (u16)address, direction );
+	switch(status)
+	{
+		case RT_ERR_OK:
+			break;
+		case RT_ERR_TIMEOUT:
+			return luaL_error( L, "Timeout when sending address" );
+			break;
+		default:
+		case RT_ERR_ERROR:
+			return luaL_error( L, "Unknown error when sending address" );
+			break;
+	}
+	lua_pushboolean( L, 1);
 	return 1;
 }
 

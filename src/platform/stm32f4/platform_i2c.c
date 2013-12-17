@@ -112,18 +112,17 @@ rt_error platform_i2c_send_stop( unsigned id )
 
 /* Send 7bit address to I2C buss */
 /* Adds R/W bit to end of address.(Should not be included in address) */
-int platform_i2c_send_address( unsigned id, u16 address, int direction )
+rt_error platform_i2c_send_address( unsigned id, u16 address, int direction )
 {
-	int timeout = TIMEOUT;
+	RT_TIMEOUT_INIT();
 	// wait for I2C1 EV5 --> Master has acknowledged start condition
-	while(SUCCESS != I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_MODE_SELECT)) {
-		if (timeout-- == 0) {
-			return 0;
-		}
+	while(SUCCESS != I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_MODE_SELECT))
+	{
+		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 	}
 
 	address<<=1; //Shift 7bit address to left by one to leave room for R/W bit
-	timeout = TIMEOUT;
+	RT_TIMEOUT_REINIT();
 
 	/* wait for I2C1 EV6, check if
 	 * either Slave has acknowledged Master transmitter or
@@ -132,20 +131,18 @@ int platform_i2c_send_address( unsigned id, u16 address, int direction )
 	 */
 	if(direction == PLATFORM_I2C_DIRECTION_TRANSMITTER) {
 		I2C_Send7bitAddress(i2c[id], address, I2C_Direction_Transmitter);
-		while(SUCCESS != I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED)) {
-			if (timeout-- == 0) {
-				return 0;
-			}
+		while(SUCCESS != I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED))
+		{
+			RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 		}
 	} else if(direction == PLATFORM_I2C_DIRECTION_RECEIVER) {
 		I2C_Send7bitAddress(i2c[id], address, I2C_Direction_Receiver);
-		while(SUCCESS != I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_RECEIVER_MODE_SELECTED)) {
-			if (timeout-- == 0) {
-				return 0;
-			}
+		while(SUCCESS != I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_RECEIVER_MODE_SELECTED))
+		{
+			RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 		}
 	}
-	return 1;
+	return RT_ERR_OK;
 }
 
 /* Send one byte to I2C bus */
