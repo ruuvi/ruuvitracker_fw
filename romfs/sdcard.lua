@@ -35,7 +35,7 @@ function sdmodule.is_enabled()
     then
         return false
     end
-    return (pio.pin.getval(sdmodule.sdmodule.enable_pin) == 1)
+    return (pio.pin.getval(sdmodule.enable_pin) == 1)
 end
 
 function sdmodule.disable()
