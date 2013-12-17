@@ -110,19 +110,24 @@ static int i2c_write( lua_State *L )
 	MOD_CHECK_ID( i2c, id );
 	if( lua_gettop( L ) < 2 )
 		return luaL_error( L, "invalid number of arguments" );
-	for( argn = 2; argn <= lua_gettop( L ); argn ++ ) {
+	for( argn = 2; argn <= lua_gettop( L ); argn ++ )
+	{
 		// lua_isnumber() would silently convert a string of digits to an integer
 		// whereas here strings are handled separately.
-		if( lua_type( L, argn ) == LUA_TNUMBER ) {
+		if( lua_type( L, argn ) == LUA_TNUMBER )
+		{
 			numdata = ( int )luaL_checkinteger( L, argn );
 			if( numdata < 0 || numdata > 255 )
 				return luaL_error( L, "numeric data must be from 0 to 255" );
 			if( platform_i2c_send_byte( id, numdata ) != 1 )
 				break;
 			wrote ++;
-		} else if( lua_istable( L, argn ) ) {
+		}
+		else if( lua_istable( L, argn ) )
+		{
 			datalen = lua_objlen( L, argn );
-			for( i = 0; i < datalen; i ++ ) {
+			for( i = 0; i < datalen; i ++ )
+			{
 				lua_rawgeti( L, argn, i + 1 );
 				numdata = ( int )luaL_checkinteger( L, -1 );
 				lua_pop( L, 1 );
@@ -134,11 +139,15 @@ static int i2c_write( lua_State *L )
 			wrote += i;
 			if( i < datalen )
 				break;
-		} else {
+		}
+		else
+		{
 			pdata = luaL_checklstring( L, argn, &datalen );
 			for( i = 0; i < datalen; i ++ )
+			{
 				if( platform_i2c_send_byte( id, pdata[ i ] ) == 0 )
 					break;
+			}
 			wrote += i;
 			if( i < datalen )
 				break;
