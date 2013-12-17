@@ -14,6 +14,6 @@ typedef enum rt_error
 #define RT_DEFAULT_TIMEOUT (150) // ms
 #define RT_TIMEOUT_INIT() unsigned int RT_TIMEOUT_STARTED = systick_get_raw();
 #define RT_TIMEOUT_REINIT() RT_TIMEOUT_STARTED = systick_get_raw();
-#define RT_TIMEOUT_CHECK(ms) if ((RT_TIMEOUT_STARTED - systick_get_raw()) > ms) { return RT_ERR_TIMEOUT; }
+#define RT_TIMEOUT_CHECK(ms) if ((systick_get_raw() - RT_TIMEOUT_STARTED) > ms) { return RT_ERR_TIMEOUT; }
 
 #endif
