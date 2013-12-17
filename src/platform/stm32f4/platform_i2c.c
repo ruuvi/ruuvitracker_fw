@@ -183,12 +183,14 @@ rt_error platform_i2c_recv_byte( unsigned id, int ack, u8 *buff)
 static rt_error _i2c_recv_buf(unsigned id, u8 *buff, int len, int *recv_count)
 {
 	int i, ack;
-	for (i=0;i<len;i++) {
+	rt_error status;
+	for (i=0;i<len;i++)
+	{
 		if (i<(len-1))
 			ack = 1;
 		else
 			ack = 0;
-		rt_error status = platform_i2c_recv_byte(id, ack, &buff[i]);
+		status = platform_i2c_recv_byte(id, ack, &buff[i]);
 		if (status != RT_ERR_OK)
 		{
 			return status;
