@@ -59,11 +59,11 @@ static int i2c_stop( lua_State *L )
 		case RT_ERR_OK:
 			break;
 		case RT_ERR_TIMEOUT:
-			return luaL_error( L, "Timeout when sending start" );
+			return luaL_error( L, "Timeout when sending stop" );
 			break;
 		default:
 		case RT_ERR_ERROR:
-			return luaL_error( L, "Unknown error when sending start" );
+			return luaL_error( L, "Unknown error when sending stop" );
 			break;
 	}
 	return 0;
