@@ -173,7 +173,7 @@ static int i2c_read( lua_State *L )
 				break;
 			default:
 			case RT_ERR_ERROR:
-				return luaL_error( L, "Unknown error receiving data" );
+				return luaL_error( L, "Unknown error when receiving data" );
 				break;
 		}
 		luaL_addchar( &b, ( char )data );
@@ -210,7 +210,7 @@ static int _i2c_read_8_16(char width, lua_State *L )
 			break;
 		default:
 		case RT_ERR_ERROR:
-			return luaL_error( L, "Unknown from platform_i2c_read8/16 (actual subfunction unknown)" );
+			return luaL_error( L, "Unknown error from platform_i2c_read8/16 (actual subfunction unknown)" );
 			break;
 	}
 	if (0 == rc)
