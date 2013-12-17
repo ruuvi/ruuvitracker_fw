@@ -131,12 +131,14 @@ rt_error platform_i2c_send_address( unsigned id, u16 address, int direction )
 	 */
 	if(direction == PLATFORM_I2C_DIRECTION_TRANSMITTER) {
 		I2C_Send7bitAddress(i2c[id], address, I2C_Direction_Transmitter);
+		// TODO: This cannot live with a NACK, so we need to do more complex flag checking
 		while(SUCCESS != I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED))
 		{
 			RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 		}
 	} else if(direction == PLATFORM_I2C_DIRECTION_RECEIVER) {
 		I2C_Send7bitAddress(i2c[id], address, I2C_Direction_Receiver);
+		// TODO: This cannot live with a NACK, so we need to do more complex flag checking
 		while(SUCCESS != I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_RECEIVER_MODE_SELECTED))
 		{
 			RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
