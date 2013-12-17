@@ -200,13 +200,20 @@ static rt_error _i2c_recv_buf(unsigned id, u8 *buff, int len, int *recv_count)
 	return RT_ERR_OK;
 }
 
-static int _i2c_send_buf(unsigned id, u8 *buff, int len)
+static rt_error _i2c_send_buf(unsigned id, u8 *buff, int len, int *send_count)
 {
 	int i;
-	for (i=0;i<len;i++) {
-		platform_i2c_send_byte(id, buff[i]);
+	rt_error status;
+	for (i=0;i<len;i++)
+	{
+		status = platform_i2c_send_byte(id, buff[i]);
+		if (status != RT_ERR_OK)
+		{
+			return status;
+		}
 	}
-	return i;
+	*send_count = i;
+	return RT_ERR_OK;
 }
 
 /* Read from device using 8 bit offset addressing */
@@ -252,18 +259,33 @@ END:
 }
 
 /* Write to device using 8bit addressing */
-int platform_i2c_write8(unsigned id, u8 device, u8 offset, u8 *buff, int len)
+rt_error platform_i2c_write8(unsigned id, u8 device, u8 offset, u8 *buff, int len, int *send_count)
 {
-	int rc;
-	platform_i2c_send_start(id);
-	rc = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
-	if (1 != rc)
+	rt_error status;
+	rt_error status2;
+	status = platform_i2c_send_start(id);
+	if (status != RT_ERR_OK)
+	{
+		return status;
+	}
+	status = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
+	if (status != RT_ERR_OK)
 		goto END;
-	platform_i2c_send_byte(id, offset);
-	rc = _i2c_send_buf(id, buff, len);
+	status = platform_i2c_send_byte(id, offset);
+	if (status != RT_ERR_OK)
+		goto END;
+	status = _i2c_send_buf(id, buff, len, send_count);
 END:
-	platform_i2c_send_stop(id);
-	return rc;
+	status2 = platform_i2c_send_stop(id);
+	if (status != RT_ERR_OK)
+	{
+		return status;
+	}
+	if (status2 != RT_ERR_OK)
+	{
+		return status2;
+	}
+	return RT_ERR_OK;
 }
 
 static rt_error _i2c_send_offset16(unsigned id, u8 offset)
@@ -325,16 +347,31 @@ END:
 }
 
 /* Write to device using 16bit addressing */
-int platform_i2c_write16(unsigned id, u8 device, u16 offset, u8 *buff, int len)
+rt_error platform_i2c_write16(unsigned id, u8 device, u16 offset, u8 *buff, int len, int *send_count)
 {
-	int rc;
-	platform_i2c_send_start(id);
-	rc = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
-	if (1 != rc)
+	rt_error status;
+	rt_error status2;
+	status = platform_i2c_send_start(id);
+	if (status != RT_ERR_OK)
+	{
+		return status;
+	}
+	status = platform_i2c_send_address(id, device, PLATFORM_I2C_DIRECTION_TRANSMITTER);
+	if (status != RT_ERR_OK)
 		goto END;
-	_i2c_send_offset16(id, offset);
-	rc = _i2c_send_buf(id, buff, len);
+	status = _i2c_send_offset16(id, offset);
+	if (status != RT_ERR_OK)
+		goto END;
+	status = _i2c_send_buf(id, buff, len, send_count);
 END:
-	platform_i2c_send_stop(id);
-	return rc;
+	status2 = platform_i2c_send_stop(id);
+	if (status != RT_ERR_OK)
+	{
+		return status;
+	}
+	if (status2 != RT_ERR_OK)
+	{
+		return status2;
+	}
+	return RT_ERR_OK;
 }

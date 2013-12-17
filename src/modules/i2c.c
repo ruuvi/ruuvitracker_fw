@@ -206,11 +206,11 @@ static int _i2c_read_8_16(char width, lua_State *L )
 		case RT_ERR_OK:
 			break;
 		case RT_ERR_TIMEOUT:
-			return luaL_error( L, "Timeout when sending address" );
+			return luaL_error( L, "Timeout from platform_i2c_read8/16 (actual subfunction unknown)" );
 			break;
 		default:
 		case RT_ERR_ERROR:
-			return luaL_error( L, "Unknown error when sending address" );
+			return luaL_error( L, "Unknown from platform_i2c_read8/16 (actual subfunction unknown)" );
 			break;
 	}
 	if (0 == rc)
@@ -235,6 +235,7 @@ static int i2c_read_16(lua_State *L)
 static int _i2c_write_8_16(char width, lua_State *L )
 {
 	int ret;
+	rt_error status;
 	unsigned id = luaL_checkinteger(L, 1);
 	int dev     = luaL_checkinteger(L, 2);
 	int addr    = luaL_checkinteger(L, 3);
@@ -277,10 +278,22 @@ static int _i2c_write_8_16(char width, lua_State *L )
 		}
 	}
 	if (8 == width)
-		ret = platform_i2c_write8(id, dev, addr, buff, len);
+		status = platform_i2c_write8(id, dev, addr, buff, len, &ret);
 	else
-		ret = platform_i2c_write16(id, dev, addr, buff, len);
+		status = platform_i2c_write16(id, dev, addr, buff, len, &ret);
 	free(buff);
+	switch(status)
+	{
+		case RT_ERR_OK:
+			break;
+		case RT_ERR_TIMEOUT:
+			return luaL_error( L, "Timeout from platform_i2c_write8/16 (actual subfunction unknown)" );
+			break;
+		default:
+		case RT_ERR_ERROR:
+			return luaL_error( L, "Unknown error from platform_i2c_write8/16 (actual subfunction unknown)" );
+			break;
+	}
 	lua_pushinteger(L, ret);
 	return 1;
 }
