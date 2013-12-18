@@ -166,13 +166,20 @@ extern int luaopen_ruuvi( lua_State *L );
 #define RPC_UART_ID           CON_UART_ID
 #define RPC_UART_SPEED        CON_UART_SPEED
 
+
+#if defined(BUILD_MMCFS)
 // MMCFS Support (FatFs on SD/MMC)
 // For STM32F407VGT6 - PA5 = CLK, PA6 = MISO, PA7 = MOSI, PA4 = CS
 #define MMCFS_TICK_HZ                10
 #define MMCFS_TICK_MS                ( 1000 / MMCFS_TICK_HZ )
-#define MMCFS_CS_PORT                1
-#define MMCFS_CS_PIN                 11
-#define MMCFS_SPI_NUM                1
+#if defined( ELUA_BOARD_RUUVIC1 )
+#define MMCFS_CS_PORT                1 // PB, see platform.c, keys start from 0
+#define MMCFS_CS_PIN                 15
+#define MMCFS_SPI_NUM                0 // SPI1, see platform.c, keys start from zero
+#else
+#error "Define SDCard MMCFS_XXX constants in platform_conf.h"
+#endif
+#endif // defined(BUILD_MMCFS)
 
 // CPU frequency (needed by the CPU module, 0 if not used)
 u32 platform_s_cpu_get_frequency();
