@@ -23,6 +23,16 @@
 
 #ifdef BUILD_GSM
 
+#ifdef DEBUG
+#define D_ENTER() printf("%s:%s(): enter\n", __FILE__, __FUNCTION__)
+#define D_EXIT() printf("%s:%s(): exit\n", __FILE__, __FUNCTION__)
+#define _DEBUG(fmt, args...) printf("%s:%s:%d: "fmt, __FILE__, __FUNCTION__, __LINE__, args)
+#else
+#define D_ENTER()
+#define D_EXIT()
+#define _DEBUG(fmt, args...)
+#endif
+
 // For plaform_pio_op() portnums
 #define PORT_A 0
 #define PORT_B 1
@@ -512,42 +522,89 @@ int gsm_read_raw(char *buf, int max_len)
 	return i;
 }
 
+static void gsm_set_serial_speed(int speed)
+{
+	platform_uart_setup( GSM_UART_ID, speed, 8, PLATFORM_UART_PARITY_NONE, PLATFORM_UART_STOPBITS_1);
+}
+
+static void gsm_set_flow(int enabled)
+{
+	if (enabled)
+		platform_s_uart_set_flow_control( GSM_UART_ID, PLATFORM_UART_FLOW_CTS | PLATFORM_UART_FLOW_RTS);
+	else
+		platform_s_uart_set_flow_control( GSM_UART_ID, PLATFORM_UART_FLOW_NONE);
+}
+
 /* Setup IO ports. Called in platform_setup() from platform.c */
 void gsm_setup_io()
 {
-	/* Power pin (PE.2) */
+	/* Power pin */
 	platform_pio_op(POWER_PORT, POWER_PIN, PLATFORM_IO_PIN_DIR_OUTPUT);
 	platform_pio_op(POWER_PORT, POWER_PIN, PLATFORM_IO_PIN_SET);
-	/* DTR pin (PC14) */
+	/* DTR pin */
 	platform_pio_op(DTR_PORT, DTR_PIN, PLATFORM_IO_PIN_DIR_OUTPUT);
 	platform_pio_op(DTR_PORT, DTR_PIN, PLATFORM_IO_PIN_CLEAR);
-	/* Status pin (PE12) */
+	/* Status pin */
 	platform_pio_op(STATUS_PORT, STATUS_PIN, PLATFORM_IO_PIN_DIR_INPUT);
-	/* Enable_voltage (PC15) */
+	/* Enable_voltage */
 	platform_pio_op(ENABLE_PORT, ENABLE_PIN, PLATFORM_IO_PIN_DIR_OUTPUT);
 	platform_pio_op(ENABLE_PORT, ENABLE_PIN, PLATFORM_IO_PIN_CLEAR);
 
 	// Serial port
-	platform_uart_setup( GSM_UART_ID, 115200, 8, PLATFORM_UART_PARITY_NONE, PLATFORM_UART_STOPBITS_1);
-	platform_s_uart_set_flow_control( GSM_UART_ID, PLATFORM_UART_FLOW_CTS | PLATFORM_UART_FLOW_RTS);
+	gsm_set_serial_speed(115200);
+	gsm_set_flow(0);
+}
+
+static void set_mode_to_9600()
+{
+	D_ENTER();
+	gsm_set_flow(0);
+	gsm_set_serial_speed(9600);
+	gsm.flags |= HW_FLOW_ENABLED; /* Just to fool gsm_uart_write to send full speed */
+	gsm_uart_write("AT" GSM_CMD_LINE_END);	
+	gsm_uart_write("AT" GSM_CMD_LINE_END);
+	gsm.flags &= ~HW_FLOW_ENABLED; /* Remove fooling */
+	if (AT_OK == gsm_cmd("AT")) {
+		gsm_cmd("AT+CPIN?");    /* Check PIN, Functionality and Network status */
+		gsm_cmd("AT+CFUN?");    /* Responses of these will feed the state machine */
+		gsm_cmd("AT+COPS?");
+		gsm_cmd("AT+SAPBR=2,1"); /* Query GPRS status */
+		gsm_cmd("ATE0");
+		/* We should now know modem's real status */
+		/* Assume that gps is ready, there is no good way to check it */
+		gsm.flags |= GPS_READY;
+	}
+	D_EXIT();
 }
 
 static void set_hw_flow()
 {
-	while(gsm.state < STATE_BOOTING)
+	unsigned int timeout=5000;
+	D_ENTER();
+	while(gsm.state < STATE_BOOTING) {
 		delay_ms(1);
-
+		if (!(timeout--)) {
+			_DEBUG("%s","No boot messages from uart. assume autobauding\n");
+			set_mode_to_9600();
+			break;
+		}
+	}
 	if (AT_OK == gsm_cmd("AT+IFC=2,2")) {
+		gsm_set_flow(1);
 		gsm.flags |= HW_FLOW_ENABLED;
 		gsm_cmd("ATE0"); 		/* Disable ECHO */
 		gsm_cmd("AT+CSCLK=0");      /* Do not allow module to sleep */
 	}
+	_DEBUG("%s","HW flow enabled\n");
+	D_EXIT();
 }
 
 void gsm_enable_voltage()
 {
+	D_ENTER();
 	platform_pio_op(ENABLE_PORT, ENABLE_PIN, PLATFORM_IO_PIN_CLEAR);
 	delay_ms(100);		/* Give 100ms for voltage to settle */
+	D_EXIT();
 }
 
 void gsm_disable_voltage()
@@ -637,7 +694,7 @@ void gsm_line_received()
 	if (0 == strcmp(GSM_CMD_LINE_END, buf))
 		return;
 
-	printf("GSM: %s\n", buf);
+	_DEBUG("recv: %s\n", buf);
 
 	m = lookup_urc_message(buf);
 	if (m) {
