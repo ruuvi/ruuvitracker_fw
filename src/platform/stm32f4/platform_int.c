@@ -152,10 +152,12 @@ static void all_exti_irqhandler( int line )
 {
 	u16 v, port, pin;
 
+#if defined( ELUA_BOARD_RUUVIB1 )
 	/* Reset device on User_button */
 	if (10 == line) {
 		NVIC_SystemReset();
 	}
+#endif
 
 	v = exti_line_to_gpio( line );
 	port = PLATFORM_IO_GET_PORT( v );
@@ -500,6 +502,7 @@ void platform_int_init()
 	nvic_init_structure.NVIC_IRQChannel = TIM8_TRG_COM_TIM14_IRQn;
 	NVIC_Init(&nvic_init_structure);
 
+#if defined( ELUA_BOARD_RUUVIB1 )
 	/* Initialize EXTI10, PB10, User button */
 	EXTI_InitTypeDef exti;
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
@@ -513,6 +516,7 @@ void platform_int_init()
 	EXTI_Init(&exti);
 	EXTI_ClearFlag(EXTI_Line10);
 	EXTI_ClearITPendingBit(EXTI_Line10);
+#endif
 }
 
 
