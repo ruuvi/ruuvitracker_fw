@@ -146,8 +146,13 @@ extern int luaopen_ruuvi( lua_State *L );
 #define VTMR_FREQ_HZ          10
 
 // GSM+GPS serial ports
+#if defined( ELUA_BOARD_RUUVIB1 )
 #define GSM_UART_ID           1
 #define GPS_UART_ID           2
+#elif defined( ELUA_BOARD_RUUVIC1 )
+#define GSM_UART_ID           2
+#define GPS_UART_ID           1
+#endif
 
 // Enable RX buffering on UART
 //#define BUF_ENABLE_UART
