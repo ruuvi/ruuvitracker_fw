@@ -14,7 +14,6 @@ enum Reply { AT_OK=0, AT_FAIL, AT_ERROR, AT_TIMEOUT };
 
 /* C-API */
 int gsm_cmd(const char *cmd);                                            /* Send AT command to modem. Returns AT_OK, AT_FAIL or AT_ERROR */
-int gsm_cmd_check(const char *cmd);                                      /* Send AT command to modem. Returns AT_OK, AT_FAIL or AT_ERROR, prints the command and error code */
 int gsm_cmd_fmt(const char *fmt, ...);                                   /* Send formatted string command to modem. */
 int gsm_cmd_wait(const char *cmd, const char *response, int timeout);    /* Send string and wait for a specific response */
 int gsm_cmd_wait_fmt(const char *response, int timeout, char *fmt, ...); /* Send formatted string and wait for response */

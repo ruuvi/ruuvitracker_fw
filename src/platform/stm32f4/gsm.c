@@ -344,6 +344,16 @@ int gsm_cmd(const char *cmd)
 	return gsm.reply;
 }
 
+int gsm_cmd_fmt(const char *fmt, ...)
+{
+	char cmd[256];
+	va_list ap;
+	va_start( ap, fmt );
+	vsnprintf( cmd, 256, fmt, ap );
+	va_end( ap );
+	return gsm_cmd(cmd);
+}
+
 int gsm_cmd_check(const char *cmd)
 {
 	int rc;
@@ -364,16 +374,11 @@ int gsm_cmd_check(const char *cmd)
 	}
 	return rc;
 }
+#ifdef DEBUG
+// If we have DEBUG enabled then rewrite all following calls to gsm_cmd to gsm_cmd_check (which does some debug output)
+#define gsm_cmd gsm_cmd_check
+#endif
 
-int gsm_cmd_fmt(const char *fmt, ...)
-{
-	char cmd[256];
-	va_list ap;
-	va_start( ap, fmt );
-	vsnprintf( cmd, 256, fmt, ap );
-	va_end( ap );
-	return gsm_cmd_check(cmd);
-}
 
 void gsm_set_raw_mode()
 {
@@ -599,12 +604,12 @@ static void set_mode_to_9600()
 	gsm_uart_write("AT" GSM_CMD_LINE_END);	
 	gsm_uart_write("AT" GSM_CMD_LINE_END);
 	gsm.flags &= ~HW_FLOW_ENABLED; /* Remove fooling */
-	if (AT_OK == gsm_cmd_check("AT")) {
-		gsm_cmd_check("AT+CPIN?");    /* Check PIN, Functionality and Network status */
-		gsm_cmd_check("AT+CFUN?");    /* Responses of these will feed the state machine */
-		gsm_cmd_check("AT+COPS?");
-		gsm_cmd_check("AT+SAPBR=2,1"); /* Query GPRS status */
-		gsm_cmd_check("ATE0");
+	if (AT_OK == gsm_cmd("AT")) {
+		gsm_cmd("AT+CPIN?");    /* Check PIN, Functionality and Network status */
+		gsm_cmd("AT+CFUN?");    /* Responses of these will feed the state machine */
+		gsm_cmd("AT+COPS?");
+		gsm_cmd("AT+SAPBR=2,1"); /* Query GPRS status */
+		gsm_cmd("ATE0");
 		/* We should now know modem's real status */
 		/* Assume that gps is ready, there is no good way to check it */
 		gsm.flags |= GPS_READY;
@@ -624,11 +629,11 @@ static void set_hw_flow()
 			break;
 		}
 	}
-	if (AT_OK == gsm_cmd_check("AT+IFC=2,2")) {
+	if (AT_OK == gsm_cmd("AT+IFC=2,2")) {
 		gsm_set_flow(1);
 		gsm.flags |= HW_FLOW_ENABLED;
-		gsm_cmd_check("ATE0"); 		/* Disable ECHO */
-		gsm_cmd_check("AT+CSCLK=0");      /* Do not allow module to sleep */
+		gsm_cmd("ATE0"); 		/* Disable ECHO */
+		gsm_cmd("AT+CSCLK=0");      /* Do not allow module to sleep */
 	}
 	_DEBUG("%s","HW flow enabled\n");
 	D_EXIT();
@@ -755,12 +760,12 @@ void gsm_set_power_state(enum Power_mode mode)
 			set_hw_flow();
 		} else {                    /* Modem already on. Possibly warm reset */
 			if (gsm.state == STATE_OFF) {
-				gsm_cmd_check("AT+CPIN?");    /* Check PIN, Functionality and Network status */
-				gsm_cmd_check("AT+CFUN?");    /* Responses of these will feed the state machine */
-				gsm_cmd_check("AT+COPS?");
-				gsm_cmd_check("AT+SAPBR=2,1"); /* Query GPRS status */
+				gsm_cmd("AT+CPIN?");    /* Check PIN, Functionality and Network status */
+				gsm_cmd("AT+CFUN?");    /* Responses of these will feed the state machine */
+				gsm_cmd("AT+COPS?");
+				gsm_cmd("AT+SAPBR=2,1"); /* Query GPRS status */
 				set_hw_flow();
-				gsm_cmd_check("ATE0");
+				gsm_cmd("ATE0");
 				/* We should now know modem's real status */
 				/* Assume that gps is ready, there is no good way to check it */
 				gsm.flags |= GPS_READY;
@@ -808,20 +813,20 @@ int gsm_gprs_enable()
 		delay_ms(TIMEOUT_MS);
 
 	/* Check if already enabled, response is parsed in URC handler */
-	rc = gsm_cmd_check("AT+SAPBR=2,1");
+	rc = gsm_cmd("AT+SAPBR=2,1");
 	if (rc)
 		return rc;
 
 	if (gsm.flags&GPRS_READY)
 		return 0;
 
-	rc = gsm_cmd_check("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");
+	rc = gsm_cmd("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");
 	if (rc)
 		return rc;
 	rc = gsm_cmd_fmt("AT+SAPBR=3,1,\"APN\",\"%s\"", gsm.ap_name);
 	if (rc)
 		return rc;
-	rc = gsm_cmd_check("AT+SAPBR=1,1");
+	rc = gsm_cmd("AT+SAPBR=1,1");
 
 	if (AT_OK == rc)
 		gsm.flags |= GPRS_READY;
@@ -830,11 +835,11 @@ int gsm_gprs_enable()
 
 int gsm_gprs_disable()
 {
-	gsm_cmd_check("AT+SAPBR=2,1");
+	gsm_cmd("AT+SAPBR=2,1");
 	if (!(gsm.flags&GPRS_READY))
 		return 0; //Was not enabled
 
-	return gsm_cmd_check("AT+SAPBR=0,1"); //Close Bearer
+	return gsm_cmd("AT+SAPBR=0,1"); //Close Bearer
 }
 
 /* -------------------- L U A   I N T E R F A C E --------------------*/
@@ -875,7 +880,7 @@ static int gsm_send_cmd(lua_State *L)
 	if (!cmd)
 		return 0;
 
-	ret = gsm_cmd_check(cmd);
+	ret = gsm_cmd(cmd);
 	lua_pushinteger(L, ret);
 
 	if (ret != AT_OK) {
@@ -908,7 +913,7 @@ static int gsm_send_pin(lua_State *L)
 		delay_ms(1);		/* Allow uC to sleep */
 
 	if (STATE_ASK_PIN == gsm.state) {
-		ret = gsm_cmd_check(cmd);
+		ret = gsm_cmd(cmd);
 		lua_pushinteger(L, ret);
 	} else {
 		lua_pushinteger(L, AT_OK);
@@ -994,7 +999,7 @@ static int gsm_send_sms(lua_State *L)
 	if (!number || !text)
 		return 0;
 
-	if (AT_OK != gsm_cmd_check("AT+CMGF=1")) {		/* Set to text mode */
+	if (AT_OK != gsm_cmd("AT+CMGF=1")) {		/* Set to text mode */
 		lua_pushinteger(L, AT_ERROR);
 		return 1;
 	}
@@ -1005,7 +1010,7 @@ static int gsm_send_sms(lua_State *L)
 	gsm_uart_write("\"\r");
 	gsm_wait(">", TIMEOUT_MS);	 /* Send SMS cmd and wait for '>' to appear */
 	gsm_uart_write(text);
-	ret = gsm_cmd_check(ctrlZ);		/* CTRL-Z ends message. Wait for 'OK' */
+	ret = gsm_cmd(ctrlZ);		/* CTRL-Z ends message. Wait for 'OK' */
 	lua_pushinteger(L, ret);
 	return 1;
 }
@@ -1016,7 +1021,7 @@ static int gsm_read_sms(lua_State *L)
 	const char *err;
 	int r,t;
 	int index = luaL_checkinteger(L, 1);
-	r = gsm_cmd_check("AT+CMGF=1");         /* Set to text mode */
+	r = gsm_cmd("AT+CMGF=1");         /* Set to text mode */
 	switch(r)
 	{
 		case AT_OK:
@@ -1109,7 +1114,7 @@ static int gsm_delete_sms(lua_State *L)
 	int ret;
 	int index = luaL_checkinteger(L, 1);
 	snprintf(cmd,64,"AT+CMGD=%d", index);
-	ret = gsm_cmd_check(cmd);
+	ret = gsm_cmd(cmd);
 	lua_pushinteger(L, ret);
 	return 1;
 }
@@ -1126,26 +1131,26 @@ static int gsm_http_init(const char *url)
 	if (AT_OK != gsm_gprs_enable())
 		return -1;
 
-	ret = gsm_cmd_check("AT+HTTPINIT");
+	ret = gsm_cmd("AT+HTTPINIT");
 	if (ret != AT_OK)
 		return -1;
-	ret = gsm_cmd_check("AT+HTTPPARA=\"CID\",\"1\"");
+	ret = gsm_cmd("AT+HTTPPARA=\"CID\",\"1\"");
 	if (ret != AT_OK)
 		return -1;
 	ret = gsm_cmd_fmt("AT+HTTPPARA=\"URL\",\"%s\"", url);
 	if (ret != AT_OK)
 		return -1;
 #if defined( ELUA_BOARD_RUUVIC1 )
-	ret = gsm_cmd_check("AT+HTTPPARA=\"UA\",\"RuuviTracker/SIM968\"");
+	ret = gsm_cmd("AT+HTTPPARA=\"UA\",\"RuuviTracker/SIM968\"");
 #else
-	ret = gsm_cmd_check("AT+HTTPPARA=\"UA\",\"RuuviTracker/SIM908\"");
+	ret = gsm_cmd("AT+HTTPPARA=\"UA\",\"RuuviTracker/SIM908\"");
 #endif
 	if (ret != AT_OK)
 		return -1;
-	ret = gsm_cmd_check("AT+HTTPPARA=\"REDIR\",\"1\"");
+	ret = gsm_cmd("AT+HTTPPARA=\"REDIR\",\"1\"");
 	if (ret != AT_OK)
 		return -1;
-	ret = gsm_cmd_check("AT+HTTPPARA=\"TIMEOUT\",\"30\"");
+	ret = gsm_cmd("AT+HTTPPARA=\"TIMEOUT\",\"30\"");
 	if (ret != AT_OK)
 		return -1;
 	return 0;
@@ -1153,7 +1158,7 @@ static int gsm_http_init(const char *url)
 
 static void gsm_http_clean()
 {
-	if (AT_OK != gsm_cmd_check("AT+HTTPTERM")) {
+	if (AT_OK != gsm_cmd("AT+HTTPTERM")) {
 		gsm_gprs_disable();         /* This should get it to respond */
 	}
 }
@@ -1171,7 +1176,7 @@ static int gsm_http_send_data(const char *data)
 		return r;
 	}
 	gsm_uart_write(data);
-	return gsm_cmd_check(GSM_CMD_LINE_END);
+	return gsm_cmd(GSM_CMD_LINE_END);
 }
 
 static int gsm_http_handle(lua_State *L, method_t method,
@@ -1202,9 +1207,9 @@ static int gsm_http_handle(lua_State *L, method_t method,
 	}
 
 	if (GET == method)
-		ret = gsm_cmd_check("AT+HTTPACTION=0");
+		ret = gsm_cmd("AT+HTTPACTION=0");
 	else
-		ret = gsm_cmd_check("AT+HTTPACTION=1");
+		ret = gsm_cmd("AT+HTTPACTION=1");
 	if (ret != AT_OK) {
 		printf("GSM: HTTP Action failed\n");
 		goto HTTP_END;
@@ -1314,19 +1319,19 @@ static int gsm_tcp_enable()
 	if (gsm.flags&TCP_ENABLED)
 		return 0;
 
-	rc = gsm_cmd_check("AT+CIPMUX=1");  /* Multi IP */
+	rc = gsm_cmd("AT+CIPMUX=1");  /* Multi IP */
 	if (rc)
 		return rc;
-	rc = gsm_cmd_check("AT+CIPSPRT=1"); /* Report '>' */
+	rc = gsm_cmd("AT+CIPSPRT=1"); /* Report '>' */
 	if (rc)
 		return rc;
-	rc = gsm_cmd_check("AT+CGATT?");
+	rc = gsm_cmd("AT+CGATT?");
 	if (rc)
 		return rc;
 	rc = gsm_cmd_fmt("AT+CSTT=\"%s\"", gsm.ap_name);
 	if (rc)
 		return rc;
-	rc = gsm_cmd_check("AT+CIICR");
+	rc = gsm_cmd("AT+CIICR");
 	if (rc)
 		return rc;
 	rc = gsm_cmd_wait("AT+CIFSR", "\\d+.\\d+.\\d+.\\d", TIMEOUT_MS);
