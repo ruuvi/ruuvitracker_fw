@@ -83,6 +83,12 @@ static int i2c_address( lua_State *L )
 	switch(status)
 	{
 		case RT_ERR_OK:
+			lua_pushboolean( L, 1);
+			return 1;
+			break;
+		case RT_ERR_FAIL:
+			lua_pushboolean( L, 0);
+			return 1;
 			break;
 		case RT_ERR_TIMEOUT:
 			return luaL_error( L, "Timeout when sending address" );
@@ -92,8 +98,6 @@ static int i2c_address( lua_State *L )
 			return luaL_error( L, "Unknown error when sending address" );
 			break;
 	}
-	lua_pushboolean( L, 1);
-	return 1;
 }
 
 // Lua: wrote = i2c.write( id, data1, [data2], ..., [datan] )

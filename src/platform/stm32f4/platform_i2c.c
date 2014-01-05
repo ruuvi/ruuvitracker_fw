@@ -1,7 +1,23 @@
 #include "platform.h"
+#include "platform_conf.h"
 #include "stm32f4xx_conf.h"
 #include <stm32f4xx.h>
 #include "ruuvi_errors.h"
+
+#ifdef DEBUG
+#include <stdio.h>
+#define D_ENTER() printf("%s:%s(): enter\n", __FILE__, __FUNCTION__)
+#define D_EXIT() printf("%s:%s(): exit\n", __FILE__, __FUNCTION__)
+#define _DEBUG(fmt, args...) printf("%s:%s:%d: "fmt, __FILE__, __FUNCTION__, __LINE__, args)
+#else
+#define D_ENTER()
+#define D_EXIT()
+#define _DEBUG(fmt, args...)
+#endif
+
+// Shorthand for checking for bus errors
+#define I2C_CHECK_BERR() if (I2C_GetFlagStatus(i2c[id], I2C_FLAG_BERR)) { _DEBUG("%s\n", "I2C bus error!"); D_EXIT(); return RT_ERR_ERROR; }
+
 
 /* Definitions */
 I2C_TypeDef *const i2c[] = {I2C1, I2C2, I2C3};
@@ -74,6 +90,7 @@ u32 platform_i2c_setup( unsigned id, u32 speed )
 	I2C_InitStruct.I2C_Ack = I2C_Ack_Disable;		// disable acknowledge when reading (can be changed later on)
 	I2C_InitStruct.I2C_AcknowledgedAddress = I2C_AcknowledgedAddress_7bit; // set address length to 7 bit addresses
 	I2C_Init(i2c[id], &I2C_InitStruct);				// init I2C1
+	I2C_StretchClockCmd(i2c[id], ENABLE);		// Make sure clock streching is enabled
 
 	// enable I2C1
 	I2C_Cmd(i2c[id], ENABLE);
@@ -83,30 +100,70 @@ u32 platform_i2c_setup( unsigned id, u32 speed )
 
 rt_error platform_i2c_send_start( unsigned id )
 {
+	D_ENTER();
 	RT_TIMEOUT_INIT();
-	// wait until I2C1 is not busy anymore
-	while(I2C_GetFlagStatus(i2c[id], I2C_FLAG_BUSY))
+	// Wait for bus to become free (or that we are the master)
+	while(1)
 	{
+		//_DEBUG("waiting for bus, status reg value=%x\n", (unsigned int)I2C_GetLastEvent(i2c[id]));
+		I2C_CHECK_BERR();
+		if (I2C_GetFlagStatus(i2c[id], I2C_FLAG_MSL)) // We are the master and decide what happens on the bus
+		{
+			break;
+		}
+		if (!I2C_GetFlagStatus(i2c[id], I2C_FLAG_BUSY)) // Bus is free 
+		{
+			break;
+		}
 		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 	}
+	_DEBUG("%s\n", "bus free check passed");
 
+	RT_TIMEOUT_REINIT();
 	// Send I2C1 START condition
 	I2C_GenerateSTART(i2c[id], ENABLE);
+	// Wait for the start generation to complete
+	while(!I2C_GetFlagStatus(i2c[id], I2C_FLAG_SB))
+	{
+		I2C_CHECK_BERR();
+		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
+	}
+	D_EXIT();
 	return RT_ERR_OK;
 }
 
 rt_error platform_i2c_send_stop( unsigned id )
 {
+	D_ENTER();
 	RT_TIMEOUT_INIT();
-	// wait until I2C1 is not busy anymore
-	while(I2C_GetFlagStatus(i2c[id], I2C_FLAG_BUSY))
+	// wait for the bus to be free for us to send that stop
+	while(1)
 	{
+		//_DEBUG("waiting for bus, status reg value=%x\n", (unsigned int)I2C_GetLastEvent(i2c[id]));
+		I2C_CHECK_BERR();
+		if (I2C_GetFlagStatus(i2c[id], I2C_FLAG_MSL)) // We are the master and decide what happens on the bus
+		{
+			break;
+		}
+		if (!I2C_GetFlagStatus(i2c[id], I2C_FLAG_BUSY)) // Bus is free (though we should not be sending STOPs if we are not the master...)
+		{
+			break;
+		}
 		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 	}
+	_DEBUG("%s\n", "bus free check passed");
 
+	RT_TIMEOUT_REINIT();
 	// Send I2C1 STOP Condition
 	I2C_GenerateSTOP(i2c[id], ENABLE);
-
+	// And wait for the STOP condition to complete and the bus to become free
+	while(I2C_GetFlagStatus(i2c[id], I2C_FLAG_BUSY))
+	{
+		_DEBUG("waiting for bus, status reg value=%x\n", (unsigned int)I2C_GetLastEvent(i2c[id]));
+		I2C_CHECK_BERR();
+		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
+	}
+	D_EXIT();
 	return RT_ERR_OK;
 }
 
@@ -114,12 +171,16 @@ rt_error platform_i2c_send_stop( unsigned id )
 /* Adds R/W bit to end of address.(Should not be included in address) */
 rt_error platform_i2c_send_address( unsigned id, u16 address, int direction )
 {
+	D_ENTER();
+	_DEBUG("address=0x%x\n", address);
 	RT_TIMEOUT_INIT();
 	// wait for I2C1 EV5 --> Master has acknowledged start condition
 	while(SUCCESS != I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_MODE_SELECT))
 	{
+		I2C_CHECK_BERR();
 		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 	}
+	_DEBUG("%s\n", "I2C_EVENT_MASTER_MODE_SELECT check passed");
 
 	address<<=1; //Shift 7bit address to left by one to leave room for R/W bit
 	RT_TIMEOUT_REINIT();
@@ -129,40 +190,75 @@ rt_error platform_i2c_send_address( unsigned id, u16 address, int direction )
 	 * Master receiver mode, depending on the transmission
 	 * direction
 	 */
-	if(direction == PLATFORM_I2C_DIRECTION_TRANSMITTER) {
+	if(direction == PLATFORM_I2C_DIRECTION_TRANSMITTER)
+	{
 		I2C_Send7bitAddress(i2c[id], address, I2C_Direction_Transmitter);
-		// TODO: This cannot live with a NACK, so we need to do more complex flag checking
-		while(SUCCESS != I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED))
+		while(1)
 		{
-			RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
-		}
-	} else if(direction == PLATFORM_I2C_DIRECTION_RECEIVER) {
-		I2C_Send7bitAddress(i2c[id], address, I2C_Direction_Receiver);
-		// TODO: This cannot live with a NACK, so we need to do more complex flag checking
-		while(SUCCESS != I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_RECEIVER_MODE_SELECTED))
-		{
+			_DEBUG("I2C_Direction_Transmitter, status reg value=%x\n", (unsigned int)I2C_GetLastEvent(i2c[id]));
+			I2C_CHECK_BERR();
+			if (I2C_GetFlagStatus(i2c[id], I2C_FLAG_AF))
+			{
+				// NACK
+				D_EXIT();
+				return RT_ERR_FAIL;
+			}
+			if (I2C_GetFlagStatus(i2c[id], I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED))
+			{
+				// ACK
+				D_EXIT();
+				return RT_ERR_OK;
+			}
 			RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 		}
 	}
-	return RT_ERR_OK;
+	else if(direction == PLATFORM_I2C_DIRECTION_RECEIVER)
+	{
+		I2C_Send7bitAddress(i2c[id], address, I2C_Direction_Receiver);
+		while(1)
+		{
+			_DEBUG("I2C_Direction_Receiver, status reg value=%x\n", (unsigned int)I2C_GetLastEvent(i2c[id]));
+			I2C_CHECK_BERR();
+			if (I2C_GetFlagStatus(i2c[id], I2C_FLAG_AF))
+			{
+				// NACK
+				return RT_ERR_FAIL;
+			}
+			if (I2C_GetFlagStatus(i2c[id], I2C_EVENT_MASTER_RECEIVER_MODE_SELECTED))
+			{
+				// ACK
+				D_EXIT();
+				return RT_ERR_OK;
+			}
+			RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
+		}
+	}
+	// We should not fall this far
+	D_EXIT();
+	return RT_ERR_ERROR;
 }
 
 /* Send one byte to I2C bus */
 rt_error platform_i2c_send_byte( unsigned id, u8 data )
 {
+	D_ENTER();
 	I2C_SendData(i2c[id], data);
 	RT_TIMEOUT_INIT();
 	// wait for I2C1 EV8_2 --> byte has been transmitted
 	while(!I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_BYTE_TRANSMITTED))
 	{
+		_DEBUG("waiting for byte to be sent, status reg value=%x\n", (unsigned int)I2C_GetLastEvent(i2c[id]));
+		I2C_CHECK_BERR();
 		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 	}
+	D_EXIT();
 	return RT_ERR_OK;
 }
 
 /* This function reads one byte from the slave device */
 rt_error platform_i2c_recv_byte( unsigned id, int ack, u8 *buff)
 {
+	D_ENTER();
 	if(ack) // enable acknowledge of recieved data
 	{
 		I2C_AcknowledgeConfig(i2c[id], ENABLE);
@@ -175,10 +271,13 @@ rt_error platform_i2c_recv_byte( unsigned id, int ack, u8 *buff)
 	// wait until one byte has been received
 	while( !I2C_CheckEvent(i2c[id], I2C_EVENT_MASTER_BYTE_RECEIVED) )
 	{
+		_DEBUG("waiting for byte to be received, status reg value=%x\n", (unsigned int)I2C_GetLastEvent(i2c[id]));
+		I2C_CHECK_BERR();
 		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 	}
 	// read data from I2C data register and return data byte
 	*buff = I2C_ReceiveData(i2c[id]);
+	D_EXIT();
 	return RT_ERR_OK;
 }
 
