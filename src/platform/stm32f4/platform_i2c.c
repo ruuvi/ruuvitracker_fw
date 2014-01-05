@@ -4,10 +4,16 @@
 #include <stm32f4xx.h>
 #include "ruuvi_errors.h"
 
+#ifdef DEBUG
 #include <stdio.h>
 #define D_ENTER() printf("%s:%s(): enter\n", __FILE__, __FUNCTION__)
 #define D_EXIT() printf("%s:%s(): exit\n", __FILE__, __FUNCTION__)
 #define _DEBUG(fmt, args...) printf("%s:%s:%d: "fmt, __FILE__, __FUNCTION__, __LINE__, args)
+#else
+#define D_ENTER()
+#define D_EXIT()
+#define _DEBUG(fmt, args...)
+#endif
 
 // Shorthand for checking for bus errors
 #define I2C_CHECK_BERR() if (I2C_GetFlagStatus(i2c[id], I2C_FLAG_BERR)) { _DEBUG("%s\n", "I2C bus error!"); D_EXIT(); return RT_ERR_ERROR; }
