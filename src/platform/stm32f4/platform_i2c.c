@@ -128,6 +128,10 @@ rt_error platform_i2c_send_start( unsigned id )
 		I2C_CHECK_BERR();
 		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 	}
+	// Make sure there is no leftover NACK bit laying around...
+	//_DEBUG("start generated, status reg value=%x\n", (unsigned int)I2C_GetLastEvent(i2c[id]));
+	I2C_ClearFlag(i2c[id], I2C_FLAG_AF);
+	_DEBUG("start generated (NACK cleared), status reg value=%x\n", (unsigned int)I2C_GetLastEvent(i2c[id]));
 	D_EXIT();
 	return RT_ERR_OK;
 }
@@ -163,6 +167,10 @@ rt_error platform_i2c_send_stop( unsigned id )
 		I2C_CHECK_BERR();
 		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 	}
+	// Interestingly enough the bit NACK is not cleared by STOP condition even though documentation claims otherwise...
+	//_DEBUG("bus freed, status reg value=%x\n", (unsigned int)I2C_GetLastEvent(i2c[id]));
+	I2C_ClearFlag(i2c[id], I2C_FLAG_AF);
+	_DEBUG("bus freed (NACK cleared), status reg value=%x\n", (unsigned int)I2C_GetLastEvent(i2c[id]));
 	D_EXIT();
 	return RT_ERR_OK;
 }
@@ -200,12 +208,14 @@ rt_error platform_i2c_send_address( unsigned id, u16 address, int direction )
 			if (I2C_GetFlagStatus(i2c[id], I2C_FLAG_AF))
 			{
 				// NACK
+				_DEBUG("NACK for address=0x%x\n", address);
 				D_EXIT();
 				return RT_ERR_FAIL;
 			}
 			if (I2C_GetFlagStatus(i2c[id], I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED))
 			{
 				// ACK
+				_DEBUG("ACK for address=0x%x\n", address);
 				D_EXIT();
 				return RT_ERR_OK;
 			}
@@ -222,11 +232,13 @@ rt_error platform_i2c_send_address( unsigned id, u16 address, int direction )
 			if (I2C_GetFlagStatus(i2c[id], I2C_FLAG_AF))
 			{
 				// NACK
+				_DEBUG("NACK for address=0x%x\n", (uint8_t)(address | 0x1));
 				return RT_ERR_FAIL;
 			}
 			if (I2C_GetFlagStatus(i2c[id], I2C_EVENT_MASTER_RECEIVER_MODE_SELECTED))
 			{
 				// ACK
+				_DEBUG("ACK for address=0x%x\n", (uint8_t)(address | 0x1));
 				D_EXIT();
 				return RT_ERR_OK;
 			}
@@ -251,6 +263,7 @@ rt_error platform_i2c_send_byte( unsigned id, u8 data )
 		I2C_CHECK_BERR();
 		RT_TIMEOUT_CHECK( RT_DEFAULT_TIMEOUT );
 	}
+	_DEBUG("byte to sent, status reg value=%x\n", (unsigned int)I2C_GetLastEvent(i2c[id]));
 	D_EXIT();
 	return RT_ERR_OK;
 }
