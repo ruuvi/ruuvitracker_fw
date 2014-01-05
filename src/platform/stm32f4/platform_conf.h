@@ -1,5 +1,4 @@
 // eLua platform configuration
-#define DEBUG
 
 #ifndef __PLATFORM_CONF_H__
 #define __PLATFORM_CONF_H__

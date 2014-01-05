@@ -4,6 +4,8 @@
 
 #ifndef D_EXIT
 #define D_EXIT()
+#endif
+#ifndef _DEBUG
 #define _DEBUG(fmt, args...)
 #endif
 
