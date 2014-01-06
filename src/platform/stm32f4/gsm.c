@@ -351,7 +351,11 @@ int gsm_cmd_fmt(const char *fmt, ...)
 	va_start( ap, fmt );
 	vsnprintf( cmd, 256, fmt, ap );
 	va_end( ap );
+#ifdef DEBUG
+	return gsm_cmd_check(cmd);
+#else
 	return gsm_cmd(cmd);
+#endif
 }
 
 int gsm_cmd_check(const char *cmd)
@@ -564,7 +568,7 @@ int gsm_read_raw(char *buf, int max_len)
 
 static void gsm_set_serial_speed(int speed)
 {
-	platform_uart_setup( GSM_UART_ID, speed, 8, PLATFORM_UART_PARITY_NONE, PLATFORM_UART_STOPBITS_1);
+	platform_uart_setup( GSM_UART_ID, speed*DEBUG_UART_BAUDRATE_MUL, 8, PLATFORM_UART_PARITY_NONE, PLATFORM_UART_STOPBITS_1);
 }
 
 static void gsm_set_flow(int enabled)
@@ -601,7 +605,7 @@ static void set_mode_to_9600()
 	gsm_set_flow(0);
 	gsm_set_serial_speed(9600);
 	gsm.flags |= HW_FLOW_ENABLED; /* Just to fool gsm_uart_write to send full speed */
-	gsm_uart_write("AT" GSM_CMD_LINE_END);	
+	gsm_uart_write("AT" GSM_CMD_LINE_END);
 	gsm_uart_write("AT" GSM_CMD_LINE_END);
 	gsm.flags &= ~HW_FLOW_ENABLED; /* Remove fooling */
 	if (AT_OK == gsm_cmd("AT")) {
@@ -621,6 +625,9 @@ static void set_hw_flow()
 {
 	unsigned int timeout=5000;
 	D_ENTER();
+	gsm_uart_write("AT" GSM_CMD_LINE_END); // Try to make the autobauding wake up
+	gsm_uart_write("AT" GSM_CMD_LINE_END); // Try to make the autobauding wake up
+	// TODO: Check the actual boot message (IIII\xff\xff\xff\xff) for baudrate validation. Figure out the missing RDY later.
 	while(gsm.state < STATE_BOOTING) {
 		delay_ms(1);
 		if (!(timeout--)) {
@@ -734,6 +741,8 @@ void gsm_line_received()
 	if (0 == strcmp(GSM_CMD_LINE_END, buf))
 		return;
 
+	// GPS_UART_ID=2 -> USART3
+	_DEBUG("USART3->BRR=0x%x\n", USART3->BRR);
 	_DEBUG("recv: %s\n", buf);
 
 	m = lookup_urc_message(buf);
