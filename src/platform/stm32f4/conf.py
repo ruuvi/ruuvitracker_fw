@@ -87,6 +87,8 @@ if "RUUVIA" in comp['board']:
     comp.Append(CPPDEFINES = ['HSE_VALUE=12000000'])
 elif "RUUVIB1" in comp['board']:
     comp.Append(CPPDEFINES = ['HSE_VALUE=25000000'])
+elif "RUUVIC1" in comp['board']:
+    comp.Append(CPPDEFINES = ['HSE_VALUE=16000000'])
 
 # Standard GCC Flags
 comp.Append(CCFLAGS = ['-ffunction-sections','-fdata-sections','-fno-strict-aliasing','-Wall','-g'])
