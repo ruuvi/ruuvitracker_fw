@@ -3,8 +3,6 @@
 #ifndef __PLATFORM_CONF_H__
 #define __PLATFORM_CONF_H__
 
-#define DEBUG_UART_BAUDRATE_MUL 1.55 // somehow the UART clock seems to run slow
-
 #include "auxmods.h"
 #include "type.h"
 #include "stacks.h"

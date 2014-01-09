@@ -568,7 +568,7 @@ int gsm_read_raw(char *buf, int max_len)
 
 static void gsm_set_serial_speed(int speed)
 {
-	platform_uart_setup( GSM_UART_ID, speed*DEBUG_UART_BAUDRATE_MUL, 8, PLATFORM_UART_PARITY_NONE, PLATFORM_UART_STOPBITS_1);
+	platform_uart_setup( GSM_UART_ID, speed, 8, PLATFORM_UART_PARITY_NONE, PLATFORM_UART_STOPBITS_1);
 }
 
 static void gsm_set_flow(int enabled)
@@ -741,8 +741,6 @@ void gsm_line_received()
 	if (0 == strcmp(GSM_CMD_LINE_END, buf))
 		return;
 
-	// GPS_UART_ID=2 -> USART3
-	_DEBUG("USART3->BRR=0x%x\n", USART3->BRR);
 	_DEBUG("recv: %s\n", buf);
 
 	m = lookup_urc_message(buf);
