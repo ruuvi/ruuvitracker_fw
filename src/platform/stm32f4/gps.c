@@ -85,6 +85,9 @@ int gps_has_fix(lua_State *L)
 	return 1;
 }
 
+/* RuuviTracker Boards B and C revisions have different GPS engines */
+#if defined( ELUA_BOARD_RUUVIB1 )
+
 int gps_power_on(lua_State *L)
 {
 	if(gps.state == STATE_OFF) {
@@ -111,6 +114,34 @@ int gps_power_off(lua_State *L)
 	}
 	return 0;
 }
+
+#elif defined( ELUA_BOARD_RUUVIC1 )
+
+/* Ruuvi C1
+ * gps_enable_pin = PC_6
+ * antenna_enable_pin = PC_6
+ */
+#define PORT_C 2
+#define ENABLE_PIN GPIO_Pin_6
+#define ANTENNA_PIN GPIO_Pin_8
+
+int gps_power_on(lua_State *L)
+{
+	platform_pio_op(PORT_C, ENABLE_PIN, PLATFORM_IO_PIN_DIR_OUTPUT);
+	platform_pio_op(PORT_C, ANTENNA_PIN, PLATFORM_IO_PIN_DIR_OUTPUT);
+	platform_pio_op(PORT_C, ENABLE_PIN, PLATFORM_IO_PIN_SET);
+	platform_pio_op(PORT_C, ANTENNA_PIN, PLATFORM_IO_PIN_SET);
+	return 0;
+}
+int gps_power_off(lua_State *L)
+{
+	platform_pio_op(PORT_C, ENABLE_PIN, PLATFORM_IO_PIN_CLEAR);
+	platform_pio_op(PORT_C, ANTENNA_PIN, PLATFORM_IO_PIN_CLEAR);
+	return 0;
+}
+#else
+#error "Define gps_power_on() and gps_power_off() in gps.c"
+#endif
 
 int gps_get_location(lua_State *L)
 {
@@ -215,19 +246,19 @@ void gps_line_received()
 		}
 		if(calculate_gps_checksum(buf)) {
 			gps.serial_port_validated = TRUE;
-			if(strstr(buf, "$GPRMC")) {
+			if(strstr(buf, "RMC")) {
 				parse_gprmc(buf);
-			} else if(strstr(buf, "$GPGGA")) {  // Global Positioning System Fix Data
+			} else if(strstr(buf, "GGA")) {  // Global Positioning System Fix Data
 				parse_gpgga(buf);
-			} else if(strstr(buf, "$GPGSA")) {  // GPS DOP and active satellites
+			} else if(strstr(buf, "GSA")) {  // GPS DOP and active satellites
 				parse_gpgsa(buf);
-			} else if(strstr(buf, "$GPGSV")) {  // Satellites in view
+			} else if(strstr(buf, "GSV")) {  // Satellites in view
 				//parse_gpgsv(buf); // TODO
-			} else if(strstr(buf, "$GPGLL")) {  // Geographic Position, Latitude / Longitude and time.
+			} else if(strstr(buf, "GLL")) {  // Geographic Position, Latitude / Longitude and time.
 				//parse_gpgll(buf); // TODO
-			} else if(strstr(buf, "$GPVTG")) {  // Track Made Good and Ground Speed
+			} else if(strstr(buf, "VTG")) {  // Track Made Good and Ground Speed
 				//parse_gpvtg(buf); // TODO
-			} else if(strstr(buf, "$GPZDA")) {  // Date & Time
+			} else if(strstr(buf, "ZDA")) {  // Date & Time
 				//parse_gpzda(buf); // Not needed ATM, GPRMC has the same data&time data
 			} else {
 				printf("GPS: input line '%s' doesn't match any supported GP sentences!\n", buf);
@@ -328,7 +359,7 @@ int parse_gpgsa(const char *line)
 	double pdop, hdop, vdop;
 	const char *error;
 
-	error = slre_match(0, "^\\$GPGSA,[^,]*,([^,]*),[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,([^,]*),([^,]*),([^,]*)",
+	error = slre_match(0, "^\\$G[PN]GSA,[^,]*,([^,]*),[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,([^,]*),([^,]*),([^,]*)",
 	                   line, strlen(line),
 	                   SLRE_INT, sizeof(gps_fix_type), &gps_fix_type,
 	                   SLRE_FLOAT, sizeof(pdop), &pdop,
@@ -386,7 +417,7 @@ int parse_gprmc(const char *line)
 	double lat, lon, speed_ms, heading;
 
 	const char *error;
-	error = slre_match(0, "^\\$GPRMC,([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),[^,]*,[^,]*,[^,]*",
+	error = slre_match(0, "^\\$G[PN]RMC,([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),[^,]*,[^,]*,[^,]*",
 	                   line, strlen(line),
 	                   SLRE_STRING, sizeof(time), time,
 	                   SLRE_STRING, sizeof(status), status,

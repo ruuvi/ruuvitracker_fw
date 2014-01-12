@@ -760,6 +760,9 @@ void gsm_set_power_state(enum Power_mode mode)
 			gsm_enable_voltage();
 			gsm_toggle_power_pin();
 			set_hw_flow();
+#if defined( ELUA_BOARD_RUUVIC1 )
+			gpsready(NULL); /* "GPS Ready" URC message never received on Simcom968 */
+#endif
 		} else {                    /* Modem already on. Possibly warm reset */
 			if (gsm.state == STATE_OFF) {
 				gsm_cmd("AT+CPIN?");    /* Check PIN, Functionality and Network status */
