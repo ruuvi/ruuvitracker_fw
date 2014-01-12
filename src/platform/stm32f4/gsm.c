@@ -337,8 +337,7 @@ int gsm_cmd(const char *cmd)
 		printf("GSM: '%s' failed (%d)\n", cmd, gsm.reply);
 
 	if (retry == 3) {             /* Modem not responding */
-		printf("GSM: Modem not responding, RESETING\n");
-		gsm_reset_modem();
+		printf("GSM: Modem not responding!\n");
 		return AT_TIMEOUT;
 	}
 	return gsm.reply;
@@ -599,7 +598,7 @@ void gsm_setup_io()
 	gsm_set_flow(0);
 }
 
-static void set_mode_to_9600()
+static void set_mode_to_fixed_baud()
 {
 	D_ENTER();
 	gsm_set_flow(0);
@@ -609,14 +608,13 @@ static void set_mode_to_9600()
 	gsm_uart_write("AT" GSM_CMD_LINE_END);
 	gsm.flags &= ~HW_FLOW_ENABLED; /* Remove fooling */
 	if (AT_OK == gsm_cmd("AT")) {
-		gsm_cmd("AT+CPIN?");    /* Check PIN, Functionality and Network status */
-		gsm_cmd("AT+CFUN?");    /* Responses of these will feed the state machine */
-		gsm_cmd("AT+COPS?");
-		gsm_cmd("AT+SAPBR=2,1"); /* Query GPRS status */
-		gsm_cmd("ATE0");
-		/* We should now know modem's real status */
-		/* Assume that gps is ready, there is no good way to check it */
-		gsm.flags |= GPS_READY;
+		gsm_cmd("AT+IPR=115200"); /* Switch to fixed baud rate */
+		gsm_toggle_power_pin();   /* Reset modem */
+		delay_ms(2000);
+		gsm_toggle_power_pin();
+		gsm_set_serial_speed(115200);
+	} else {
+		_DEBUG("%s", "Failed to synchronize autobauding mode\n");
 	}
 	D_EXIT();
 }
@@ -625,14 +623,11 @@ static void set_hw_flow()
 {
 	unsigned int timeout=5000;
 	D_ENTER();
-	gsm_uart_write("AT" GSM_CMD_LINE_END); // Try to make the autobauding wake up
-	gsm_uart_write("AT" GSM_CMD_LINE_END); // Try to make the autobauding wake up
-	// TODO: Check the actual boot message (IIII\xff\xff\xff\xff) for baudrate validation. Figure out the missing RDY later.
 	while(gsm.state < STATE_BOOTING) {
 		delay_ms(1);
 		if (!(timeout--)) {
 			_DEBUG("%s","No boot messages from uart. assume autobauding\n");
-			set_mode_to_9600();
+			set_mode_to_fixed_baud();
 			break;
 		}
 	}
