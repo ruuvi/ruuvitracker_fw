@@ -344,6 +344,20 @@ int gsm_cmd(const char *cmd)
 	return gsm.reply;
 }
 
+int gsm_cmd_fmt(const char *fmt, ...)
+{
+	char cmd[256];
+	va_list ap;
+	va_start( ap, fmt );
+	vsnprintf( cmd, 256, fmt, ap );
+	va_end( ap );
+#ifdef DEBUG
+	return gsm_cmd_check(cmd);
+#else
+	return gsm_cmd(cmd);
+#endif
+}
+
 int gsm_cmd_check(const char *cmd)
 {
 	int rc;
@@ -364,17 +378,11 @@ int gsm_cmd_check(const char *cmd)
 	}
 	return rc;
 }
+#ifdef DEBUG
+// If we have DEBUG enabled then rewrite all following calls to gsm_cmd to gsm_cmd_check (which does some debug output)
 #define gsm_cmd gsm_cmd_check
+#endif
 
-int gsm_cmd_fmt(const char *fmt, ...)
-{
-	char cmd[256];
-	va_list ap;
-	va_start( ap, fmt );
-	vsnprintf( cmd, 256, fmt, ap );
-	va_end( ap );
-	return gsm_cmd(cmd);
-}
 
 void gsm_set_raw_mode()
 {
@@ -392,6 +400,7 @@ int gsm_is_raw_mode()
 /* Wait for specific pattern */
 int gsm_wait_cpy(const char *pattern, int timeout, char *line, size_t buf_size)
 {
+	D_ENTER();
 	char buf[256];
 	int c, ret;
 	int i;
@@ -419,6 +428,12 @@ int gsm_wait_cpy(const char *pattern, int timeout, char *line, size_t buf_size)
 		}
 		buf[i++] = c;
 		buf[i] = 0;
+		_DEBUG("buf=%s, pattern=%s\n", buf, pattern);
+		if (0 == strcmp("ERROR", buf))
+		{
+			ret = AT_ERROR;
+			goto WAIT_END;
+		}
 		if (NULL == slre_match(0, pattern, buf, i)) { //Match
 			break;
 		}
@@ -429,19 +444,32 @@ int gsm_wait_cpy(const char *pattern, int timeout, char *line, size_t buf_size)
 	}
 
 
-	if (line) {
+	if (line)
+	{
 		strcpy(line, buf);
 		i = strlen(line);
-		while ('\n' != (c = platform_s_uart_recv(GSM_UART_ID, 0))) {
+		while (1)
+		{
+			c = platform_s_uart_recv(GSM_UART_ID, 0);
 			if(-1 != c)
+			{
 				line[i++] = c;
-			if (systick_get_raw() > t) {
+				line[i] = 0;
+				_DEBUG("strlen(line)=%d line=%s\n", strlen(line), line);
+			}
+			if ('\n' == c)
+			{
+				break;
+			}
+			if (systick_get_raw() > t)
+			{
 				ret = AT_TIMEOUT;
 				break;
 			}
 		}
 	}
 WAIT_END:
+	D_EXIT();
 	if (!was_raw_mode)
 		gsm_disable_raw_mode();
 
@@ -477,6 +505,7 @@ int gsm_cmd_wait_fmt(const char *response, int timeout, char *fmt, ...)
 /* Read line from GSM serial port to buffer */
 int gsm_read_line(char *buf, int max_len)
 {
+	D_ENTER();
 	int i,c,t;
 	int was_raw = gsm_is_raw_mode();
 	gsm_set_raw_mode();
@@ -484,19 +513,34 @@ int gsm_read_line(char *buf, int max_len)
 	t+=TIMEOUT_MS*systick_get_hz()/1000;
 	for(i=0; i<(max_len-1);) {
 		c = platform_s_uart_recv(GSM_UART_ID, 0);
-		if ('\n' == c) {
-			break;
-		} else if (-1 != c) {
+		// If we have a valid byte add it to buffer
+		if (-1 != c)
+		{
 			buf[i++] = c;
-		} else if (systick_get_raw() > t) {
+			buf[i]=0;
+			_DEBUG("strlen(buf)=%d buf=%s\n", strlen(buf), buf);
+		}
+		// If last received char was newline we have a full line
+		if ('\n' == c)
+		{
 			break;
-		} else {
+		}
+		// Check for timeout
+		if (systick_get_raw() > t)
+		{
+			// TODO: tell the caller this was a timeout
+			// TODO2: normalize the timeout check routines
+			break;
+		}
+		// If we got no data wait 1ms
+		if (-1 == c)
+		{
 			delay_ms(1);
 		}
 	}
-	buf[i]=0;
 	if (!was_raw)
 		gsm_disable_raw_mode();
+	D_EXIT();
 	return i;
 }
 
@@ -561,7 +605,7 @@ static void set_mode_to_9600()
 	gsm_set_flow(0);
 	gsm_set_serial_speed(9600);
 	gsm.flags |= HW_FLOW_ENABLED; /* Just to fool gsm_uart_write to send full speed */
-	gsm_uart_write("AT" GSM_CMD_LINE_END);	
+	gsm_uart_write("AT" GSM_CMD_LINE_END);
 	gsm_uart_write("AT" GSM_CMD_LINE_END);
 	gsm.flags &= ~HW_FLOW_ENABLED; /* Remove fooling */
 	if (AT_OK == gsm_cmd("AT")) {
@@ -581,6 +625,9 @@ static void set_hw_flow()
 {
 	unsigned int timeout=5000;
 	D_ENTER();
+	gsm_uart_write("AT" GSM_CMD_LINE_END); // Try to make the autobauding wake up
+	gsm_uart_write("AT" GSM_CMD_LINE_END); // Try to make the autobauding wake up
+	// TODO: Check the actual boot message (IIII\xff\xff\xff\xff) for baudrate validation. Figure out the missing RDY later.
 	while(gsm.state < STATE_BOOTING) {
 		delay_ms(1);
 		if (!(timeout--)) {
@@ -979,19 +1026,43 @@ static int gsm_read_sms(lua_State *L)
 {
 	char tmp[256], msg[161], number[100];
 	const char *err;
-	int r;
+	int r,t;
 	int index = luaL_checkinteger(L, 1);
-	gsm_cmd("AT+CMGF=1");         /* Set to text mode */
+	r = gsm_cmd("AT+CMGF=1");         /* Set to text mode */
+	switch(r)
+	{
+		case AT_OK:
+		break;
+		case AT_TIMEOUT:
+			return luaL_error( L, "Timeout when setting SMS mode" );
+			break;
+		default:
+		case AT_FAIL:
+		case AT_ERROR:
+			return luaL_error( L, "Unknown error when setting SMS mode" );
+			break;
+	}
 	gsm_set_raw_mode();
 	snprintf(tmp, 161, "AT+CMGR=%d" GSM_CMD_LINE_END, index);
 	gsm_uart_write(tmp);
 	r = gsm_wait_cpy("\\+CMGR:", TIMEOUT_MS, tmp, sizeof(tmp));
-	if (AT_OK != r) {
-		printf("GSM: timeout\n");
-		gsm_disable_raw_mode();
-		return 0;
+	switch(r)
+	{
+		case AT_OK:
+		break;
+		case AT_TIMEOUT:
+			gsm_disable_raw_mode();
+			return luaL_error( L, "Timeout when reading SMS content" );
+			break;
+		default:
+		case AT_FAIL:
+		case AT_ERROR:
+			gsm_disable_raw_mode();
+			return luaL_error( L, "Unknown error when reading SMS content" );
+			break;
 	}
 	/* Example: +CMGR: "REC READ","+358403445818","","13/05/13,18:00:15+12" */
+	// TODO: We probably should parse the message time (as string) and pass it to the Lua table as well
 	err = slre_match(0, "^\\+CMGR:\\s\"[^\"]+\",\"([^\"]+)", tmp, strlen(tmp),
 	                 SLRE_STRING, sizeof(number), number);
 	if (NULL != err) {
@@ -1001,14 +1072,37 @@ static int gsm_read_sms(lua_State *L)
 	}
 	msg[0] = 0;
 	tmp[0] = 0;
+	t = systick_get_raw();
+	t+=TIMEOUT_MS*systick_get_hz()/1000;
 	do {
 		gsm_read_line(tmp, sizeof(tmp));
-		if (0 == strcmp(GSM_CMD_LINE_END, tmp)) /* Stop at empty line */
+		// TODO: Actually we should stop at empty line followed by OK, the SMS might contain an empty line as well...
+		if (   0 == strcmp(GSM_CMD_LINE_END, tmp) /* Stop at empty line */
+			/* && 0 != strlen(msg) /* but only if message is not empty */
+			) 
 			break;
 		strcat(msg, tmp);
+		if (systick_get_raw() > t) {
+			return luaL_error( L, "Timeout when waiting for end-of-message" );
+			break;
+		}
 	} while(1);
-	gsm_wait("OK", TIMEOUT_MS);
+	r = gsm_wait("OK", TIMEOUT_MS);
+	// TODO: Strip the final CRLR from the message ??
 	gsm_disable_raw_mode();
+	switch(r)
+	{
+		case AT_OK:
+		break;
+		case AT_TIMEOUT:
+			return luaL_error( L, "Timeout when waiting for OK" );
+			break;
+		default:
+		case AT_FAIL:
+		case AT_ERROR:
+			return luaL_error( L, "Unknown error when waiting for OK" );
+			break;
+	}
 
 	/* Response table */
 	lua_newtable(L);
@@ -1053,7 +1147,11 @@ static int gsm_http_init(const char *url)
 	ret = gsm_cmd_fmt("AT+HTTPPARA=\"URL\",\"%s\"", url);
 	if (ret != AT_OK)
 		return -1;
+#if defined( ELUA_BOARD_RUUVIC1 )
+	ret = gsm_cmd("AT+HTTPPARA=\"UA\",\"RuuviTracker/SIM968\"");
+#else
 	ret = gsm_cmd("AT+HTTPPARA=\"UA\",\"RuuviTracker/SIM908\"");
+#endif
 	if (ret != AT_OK)
 		return -1;
 	ret = gsm_cmd("AT+HTTPPARA=\"REDIR\",\"1\"");
