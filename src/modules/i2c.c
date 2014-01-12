@@ -10,6 +10,8 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+#include "ruuvi_errors.h"
+
 // Lua: speed = i2c.setup( id, speed )
 static int i2c_setup( lua_State *L )
 {
@@ -29,7 +31,19 @@ static int i2c_start( lua_State *L )
 	unsigned id = luaL_checkinteger( L, 1 );
 
 	MOD_CHECK_ID( i2c, id );
-	platform_i2c_send_start( id );
+	rt_error status = platform_i2c_send_start( id );
+	switch(status)
+	{
+		case RT_ERR_OK:
+			break;
+		case RT_ERR_TIMEOUT:
+			return luaL_error( L, "Timeout when sending start" );
+			break;
+		default:
+		case RT_ERR_ERROR:
+			return luaL_error( L, "Unknown error when sending start" );
+			break;
+	}
 	return 0;
 }
 
@@ -39,7 +53,19 @@ static int i2c_stop( lua_State *L )
 	unsigned id = luaL_checkinteger( L, 1 );
 
 	MOD_CHECK_ID( i2c, id );
-	platform_i2c_send_stop( id );
+	rt_error status = platform_i2c_send_stop( id );
+	switch(status)
+	{
+		case RT_ERR_OK:
+			break;
+		case RT_ERR_TIMEOUT:
+			return luaL_error( L, "Timeout when sending stop" );
+			break;
+		default:
+		case RT_ERR_ERROR:
+			return luaL_error( L, "Unknown error when sending stop" );
+			break;
+	}
 	return 0;
 }
 
@@ -53,8 +79,25 @@ static int i2c_address( lua_State *L )
 	MOD_CHECK_ID( i2c, id );
 	if ( address < 0 || address > 127 )
 		return luaL_error( L, "slave address must be from 0 to 127" );
-	lua_pushboolean( L, platform_i2c_send_address( id, (u16)address, direction ) );
-	return 1;
+	rt_error status = platform_i2c_send_address( id, (u16)address, direction );
+	switch(status)
+	{
+		case RT_ERR_OK:
+			lua_pushboolean( L, 1);
+			return 1;
+			break;
+		case RT_ERR_FAIL:
+			lua_pushboolean( L, 0);
+			return 1;
+			break;
+		case RT_ERR_TIMEOUT:
+			return luaL_error( L, "Timeout when sending address" );
+			break;
+		default:
+		case RT_ERR_ERROR:
+			return luaL_error( L, "Unknown error when sending address" );
+			break;
+	}
 }
 
 // Lua: wrote = i2c.write( id, data1, [data2], ..., [datan] )
@@ -67,39 +110,82 @@ static int i2c_write( lua_State *L )
 	int numdata;
 	u32 wrote = 0;
 	unsigned argn;
+	rt_error status;
 
 	MOD_CHECK_ID( i2c, id );
 	if( lua_gettop( L ) < 2 )
 		return luaL_error( L, "invalid number of arguments" );
-	for( argn = 2; argn <= lua_gettop( L ); argn ++ ) {
+	for( argn = 2; argn <= lua_gettop( L ); argn ++ )
+	{
 		// lua_isnumber() would silently convert a string of digits to an integer
 		// whereas here strings are handled separately.
-		if( lua_type( L, argn ) == LUA_TNUMBER ) {
+		if( lua_type( L, argn ) == LUA_TNUMBER )
+		{
 			numdata = ( int )luaL_checkinteger( L, argn );
 			if( numdata < 0 || numdata > 255 )
 				return luaL_error( L, "numeric data must be from 0 to 255" );
-			if( platform_i2c_send_byte( id, numdata ) != 1 )
-				break;
+			status = platform_i2c_send_byte( id, numdata );
+			switch(status)
+			{
+				case RT_ERR_OK:
+					break;
+				case RT_ERR_TIMEOUT:
+					return luaL_error( L, "Timeout when sending data" );
+					break;
+				default:
+				case RT_ERR_ERROR:
+					return luaL_error( L, "Unknown error when sending data" );
+					break;
+			}
 			wrote ++;
-		} else if( lua_istable( L, argn ) ) {
+		}
+		else if( lua_istable( L, argn ) )
+		{
 			datalen = lua_objlen( L, argn );
-			for( i = 0; i < datalen; i ++ ) {
+			for( i = 0; i < datalen; i ++ )
+			{
 				lua_rawgeti( L, argn, i + 1 );
 				numdata = ( int )luaL_checkinteger( L, -1 );
 				lua_pop( L, 1 );
 				if( numdata < 0 || numdata > 255 )
 					return luaL_error( L, "numeric data must be from 0 to 255" );
-				if( platform_i2c_send_byte( id, numdata ) == 0 )
-					break;
+				status = platform_i2c_send_byte( id, numdata );
+				switch(status)
+				{
+					case RT_ERR_OK:
+						break;
+					case RT_ERR_TIMEOUT:
+						return luaL_error( L, "Timeout when sending data" );
+						break;
+					default:
+					case RT_ERR_ERROR:
+						return luaL_error( L, "Unknown error when sending data" );
+						break;
+				}
 			}
 			wrote += i;
 			if( i < datalen )
 				break;
-		} else {
+		}
+		else
+		{
 			pdata = luaL_checklstring( L, argn, &datalen );
 			for( i = 0; i < datalen; i ++ )
-				if( platform_i2c_send_byte( id, pdata[ i ] ) == 0 )
-					break;
+			{
+				status = platform_i2c_send_byte( id, pdata[ i ] );
+				switch(status)
+				{
+					case RT_ERR_OK:
+						break;
+					case RT_ERR_TIMEOUT:
+						return luaL_error( L, "Timeout when sending data" );
+						break;
+					default:
+					case RT_ERR_ERROR:
+						return luaL_error( L, "Unknown error when sending data" );
+						break;
+				}
+			}
 			wrote += i;
 			if( i < datalen )
 				break;
@@ -115,17 +201,30 @@ static int i2c_read( lua_State *L )
 	unsigned id = luaL_checkinteger( L, 1 );
 	u32 size = ( u32 )luaL_checkinteger( L, 2 ), i;
 	luaL_Buffer b;
-	int data;
+	u8 data;
+	rt_error status;
 
 	MOD_CHECK_ID( i2c, id );
 	if( size == 0 )
 		return 0;
 	luaL_buffinit( L, &b );
 	for( i = 0; i < size; i ++ )
-		if( ( data = platform_i2c_recv_byte( id, i < size - 1 ) ) == -1 )
-			break;
-		else
-			luaL_addchar( &b, ( char )data );
+	{
+		status = platform_i2c_recv_byte( id, i < size - 1, &data );
+		switch(status)
+		{
+			case RT_ERR_OK:
+				break;
+			case RT_ERR_TIMEOUT:
+				return luaL_error( L, "Timeout when receiving data" );
+				break;
+			default:
+			case RT_ERR_ERROR:
+				return luaL_error( L, "Unknown error when receiving data" );
+				break;
+		}
+		luaL_addchar( &b, ( char )data );
+	}
 	luaL_pushresult( &b );
 	return 1;
 }
@@ -134,6 +233,7 @@ static int i2c_read( lua_State *L )
 static int _i2c_read_8_16(char width, lua_State *L )
 {
 	int rc;
+	rt_error status;
 	unsigned id = luaL_checkinteger(L, 1);
 	int dev     = luaL_checkinteger(L, 2);
 	int addr    = luaL_checkinteger(L, 3);
@@ -145,9 +245,21 @@ static int _i2c_read_8_16(char width, lua_State *L )
 		return 0;
 	data = malloc(size);
 	if (8 == width)
-		rc = platform_i2c_read8(id, dev, addr, data, size);
+		status = platform_i2c_read8(id, dev, addr, data, size, &rc);
 	else
-		rc = platform_i2c_read16(id, dev, addr, data, size);
+		status = platform_i2c_read16(id, dev, addr, data, size, &rc);
+	switch(status)
+	{
+		case RT_ERR_OK:
+			break;
+		case RT_ERR_TIMEOUT:
+			return luaL_error( L, "Timeout from platform_i2c_read8/16 (actual subfunction unknown)" );
+			break;
+		default:
+		case RT_ERR_ERROR:
+			return luaL_error( L, "Unknown error from platform_i2c_read8/16 (actual subfunction unknown)" );
+			break;
+	}
 	if (0 == rc)
 		return 0;
 	if (1 == size)
@@ -170,6 +282,7 @@ static int i2c_read_16(lua_State *L)
 static int _i2c_write_8_16(char width, lua_State *L )
 {
 	int ret;
+	rt_error status;
 	unsigned id = luaL_checkinteger(L, 1);
 	int dev     = luaL_checkinteger(L, 2);
 	int addr    = luaL_checkinteger(L, 3);
@@ -212,10 +325,22 @@ static int _i2c_write_8_16(char width, lua_State *L )
 		}
 	}
 	if (8 == width)
-		ret = platform_i2c_write8(id, dev, addr, buff, len);
+		status = platform_i2c_write8(id, dev, addr, buff, len, &ret);
 	else
-		ret = platform_i2c_write16(id, dev, addr, buff, len);
+		status = platform_i2c_write16(id, dev, addr, buff, len, &ret);
 	free(buff);
+	switch(status)
+	{
+		case RT_ERR_OK:
+			break;
+		case RT_ERR_TIMEOUT:
+			return luaL_error( L, "Timeout from platform_i2c_write8/16 (actual subfunction unknown)" );
+			break;
+		default:
+		case RT_ERR_ERROR:
+			return luaL_error( L, "Unknown error from platform_i2c_write8/16 (actual subfunction unknown)" );
+			break;
+	}
 	lua_pushinteger(L, ret);
 	return 1;
 }

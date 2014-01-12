@@ -6,6 +6,7 @@
 #include "devman.h"
 #include "type.h"
 #include "elua_int.h"
+#include "ruuvi_errors.h"
 
 // Error / status codes
 enum {
@@ -284,15 +285,15 @@ enum {
 
 int platform_i2c_exists( unsigned id );
 u32 platform_i2c_setup( unsigned id, u32 speed );
-void platform_i2c_send_start( unsigned id );
-void platform_i2c_send_stop( unsigned id );
-int platform_i2c_send_address( unsigned id, u16 address, int direction );
-int platform_i2c_send_byte( unsigned id, u8 data );
-int platform_i2c_recv_byte( unsigned id, int ack );
-int platform_i2c_read8(unsigned id, u8 device, u8 offset, u8 *buff, int len);
-int platform_i2c_write8(unsigned id, u8 device, u8 offset, u8 *buff, int len);
-int platform_i2c_read16(unsigned id, u8 device, u16 offset, u8 *buff, int len);
-int platform_i2c_write16(unsigned id, u8 device, u16 offset, u8 *buff, int len);
+rt_error platform_i2c_send_start( unsigned id );
+rt_error platform_i2c_send_stop( unsigned id );
+rt_error platform_i2c_send_address( unsigned id, u16 address, int direction );
+rt_error platform_i2c_send_byte( unsigned id, u8 data );
+rt_error platform_i2c_recv_byte( unsigned id, int ack, u8 *buff );
+rt_error platform_i2c_read8(unsigned id, u8 device, u8 offset, u8 *buff, int len, int *recv_count);
+rt_error platform_i2c_write8(unsigned id, u8 device, u8 offset, u8 *buff, int len, int *send_count);
+rt_error platform_i2c_read16(unsigned id, u8 device, u16 offset, u8 *buff, int len, int *recv_count);
+rt_error platform_i2c_write16(unsigned id, u8 device, u16 offset, u8 *buff, int len, int *send_count);
 
 // *****************************************************************************
 // Ethernet specific functions
