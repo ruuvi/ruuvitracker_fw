@@ -1,5 +1,5 @@
 /*
- *  Simcom 908 GSM Driver for Ruuvitracker.
+ *  Simcom 908/968 GSM Driver for Ruuvitracker.
  *
  * @author: Seppo Takalo
  */
@@ -49,7 +49,7 @@
 #define POWER_PORT PORT_E
 #define ENABLE_PIN  GPIO_Pin_15
 #define ENABLE_PORT PORT_C
-#elif defined( ELUA_BOARD_RUUVIC1 )
+#elif defined (ELUA_BOARD_RUUVIC1) || defined (ELUA_BOARD_RUUVIC2)
 #define STATUS_PIN  GPIO_Pin_15
 #define STATUS_PORT PORT_C
 #define DTR_PIN     GPIO_Pin_5
@@ -760,7 +760,7 @@ void gsm_set_power_state(enum Power_mode mode)
 			gsm_enable_voltage();
 			gsm_toggle_power_pin();
 			set_hw_flow();
-#if defined( ELUA_BOARD_RUUVIC1 )
+#if defined (ELUA_BOARD_RUUVIC1) || defined (ELUA_BOARD_RUUVIC2)
 			gpsready(NULL); /* "GPS Ready" URC message never received on Simcom968 */
 #endif
 		} else {                    /* Modem already on. Possibly warm reset */
@@ -1076,7 +1076,7 @@ static int gsm_read_sms(lua_State *L)
 		gsm_read_line(tmp, sizeof(tmp));
 		// TODO: Actually we should stop at empty line followed by OK, the SMS might contain an empty line as well...
 		if (   0 == strcmp(GSM_CMD_LINE_END, tmp) /* Stop at empty line */
-			/* && 0 != strlen(msg) /* but only if message is not empty */
+			/* && 0 != strlen(msg)  //but only if message is not empty */
 			) 
 			break;
 		strcat(msg, tmp);
@@ -1145,7 +1145,8 @@ static int gsm_http_init(const char *url)
 	ret = gsm_cmd_fmt("AT+HTTPPARA=\"URL\",\"%s\"", url);
 	if (ret != AT_OK)
 		return -1;
-#if defined( ELUA_BOARD_RUUVIC1 )
+	//FIXME: Add checks for other HW versions
+#if defined (ELUA_BOARD_RUUVIC1) || defined (ELUA_BOARD_RUUVIC2)
 	ret = gsm_cmd("AT+HTTPPARA=\"UA\",\"RuuviTracker/SIM968\"");
 #else
 	ret = gsm_cmd("AT+HTTPPARA=\"UA\",\"RuuviTracker/SIM908\"");

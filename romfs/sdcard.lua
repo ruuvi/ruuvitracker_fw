@@ -15,7 +15,7 @@ sd.is_enabled() return the enable status, will also return failure if card not i
 local sdmodule = {}
 
 -- Board specifig config
-if pd.board() == "RUUVIC1"
+if (pd.board() == "RUUVIC1") or (pd.board() == "RUUVIC2")
 then
     sdmodule.inserted_pin = pio.PC_10
     sdmodule.enable_pin   = pio.PC_8

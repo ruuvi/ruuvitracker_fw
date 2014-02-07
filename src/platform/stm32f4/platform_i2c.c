@@ -38,7 +38,7 @@ static const u16 i2c_sda_pin[] = {GPIO_Pin_9, 0, 0};
 static const u16 i2c_scl_pin[] = {GPIO_Pin_8, 0, 0};
 static const u8 i2c_sda_pinsource[] = {GPIO_PinSource9, 0, 0};
 static const u8 i2c_scl_pinsource[] = {GPIO_PinSource8, 0, 0};
-#elif defined( ELUA_BOARD_RUUVIC1 )
+#elif defined (ELUA_BOARD_RUUVIC1) || defined (ELUA_BOARD_RUUVIC2)
 static const u32 i2c_port_rcc[] = {RCC_AHB1Periph_GPIOB, 0, 0};
 static GPIO_TypeDef *const i2c_port[] = {GPIOB, NULL, NULL};
 static const u16 i2c_sda_pin[] = {GPIO_Pin_7, 0, 0};

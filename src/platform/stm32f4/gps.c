@@ -1,5 +1,5 @@
 /*
- *  Simcom 908 GPS Driver for Ruuvitracker.
+ *  Simcom 908/968 GPS Driver for Ruuvitracker.
  *
  * @author: Tomi Hautakoski
 */
@@ -114,10 +114,8 @@ int gps_power_off(lua_State *L)
 	}
 	return 0;
 }
-
-#elif defined( ELUA_BOARD_RUUVIC1 )
-
-/* Ruuvi C1
+#elif defined (ELUA_BOARD_RUUVIC1) || defined (ELUA_BOARD_RUUVIC2)
+/* RuuviC1/C2
  * gps_enable_pin = PC_6
  * antenna_enable_pin = PC_6
  */
@@ -217,7 +215,6 @@ int gps_get_data(lua_State *L)
 /* Setup IO ports. Called in platform_setup() from platform.c */
 void gps_setup_io()
 {
-	// Setup serial port, GPS_UART_ID == 2 @ RUUVIB1
 	// TODO: setup other boards
 	platform_uart_setup(GPS_UART_ID, 115200, 8, PLATFORM_UART_PARITY_NONE, PLATFORM_UART_STOPBITS_1);
 }
