@@ -136,7 +136,8 @@ board_list = { 'SAM7-EX256' : [ 'AT91SAM7X256', 'AT91SAM7X512' ],
                'EK-LM3S9D92' : [ 'LM3S9D92' ],
                'RUUVIA' : ['STM32F415RG'],
 	       'RUUVIB1' : ['STM32F407VG'],
-	       'RUUVIC1' : ['STM32F405RG']
+	       'RUUVIC1' : ['STM32F405RG'],
+	       'RUUVIC2' : ['STM32F405RG']
             }
 
 cpu_list = sum([board_list[i] for i in board_list],[])

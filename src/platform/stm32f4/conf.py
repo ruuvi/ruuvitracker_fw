@@ -71,6 +71,8 @@ elif "RUUVIB1" in comp['board']:
     specific_files += " system_ruuvib1.c"
 elif "RUUVIC1" in comp['board']:
     specific_files += " system_ruuvic1.c"
+elif "RUUVIC2" in comp['board']:
+    specific_files += " system_ruuvic2.c"
 
 # Prepend with path
 specific_files = fwlib_files + " " + " ".join( [ "src/platform/%s/%s" % ( platform, f ) for f in specific_files.split() ] )
@@ -88,6 +90,8 @@ if "RUUVIA" in comp['board']:
 elif "RUUVIB1" in comp['board']:
     comp.Append(CPPDEFINES = ['HSE_VALUE=25000000'])
 elif "RUUVIC1" in comp['board']:
+    comp.Append(CPPDEFINES = ['HSE_VALUE=16000000'])
+elif "RUUVIC2" in comp['board']:
     comp.Append(CPPDEFINES = ['HSE_VALUE=16000000'])
 
 # Standard GCC Flags

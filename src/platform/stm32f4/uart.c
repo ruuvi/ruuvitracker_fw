@@ -53,7 +53,7 @@ static const u16 usart_gpio_cts_pin[] = { GPIO_Pin_11, GPIO_Pin_3, GPIO_Pin_13 }
 static const u8 usart_gpio_cts_pin_source[] = { GPIO_PinSource11, GPIO_PinSource3, GPIO_PinSource13 };
 static const u16 usart_gpio_rts_pin[] = { GPIO_Pin_12, GPIO_Pin_4, GPIO_Pin_14 };
 static const u8 usart_gpio_rts_pin_source[] = { GPIO_PinSource12, GPIO_PinSource4, GPIO_PinSource14 };
-#elif defined( ELUA_BOARD_RUUVIC1 )
+#elif defined (ELUA_BOARD_RUUVIC1) || defined (ELUA_BOARD_RUUVIC2)
 static GPIO_TypeDef *const usart_gpio_rx_port[] = { GPIOA, GPIOA, GPIOB, GPIOC, GPIOD };
 static GPIO_TypeDef *const usart_gpio_tx_port[] = { GPIOA, GPIOA, GPIOB, GPIOC, GPIOD };
 static const u16 usart_gpio_rx_pin[] = { GPIO_Pin_10, GPIO_Pin_3, GPIO_Pin_11, GPIO_Pin_11, GPIO_Pin_2 };

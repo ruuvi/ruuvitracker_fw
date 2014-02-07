@@ -93,8 +93,8 @@ int main( void )
 	romfs_init();
 
 #if defined(BUILD_MMCFS)
-#if defined( ELUA_BOARD_RUUVIC1 )
-    // Enable the reg for mmc card (ruuviC1). The card *must* have power when we try to initialize it or it will not work later either...
+#if defined (ELUA_BOARD_RUUVIC1) || defined (ELUA_BOARD_RUUVIC2)
+    // Enable the reg for mmc card (RuuviC1/C2). The card *must* have power when we try to initialize it or it will not work later either...
     platform_pio_op(2, ( ( u32 ) 1 << 8 ), PLATFORM_IO_PIN_DIR_OUTPUT );
     platform_pio_op(2, ( ( u32 ) 1 << 8 ), PLATFORM_IO_PIN_SET );
 #else

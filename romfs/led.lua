@@ -26,5 +26,8 @@ elseif pd.board() == "RUUVIB1" then
 elseif pd.board() == "RUUVIC1" then
    green_led = Led:new(pio.PB_9)
    red_led   = Led:new(pio.PB_8)
+elseif pd.board() == "RUUVIC2" then
+   green_led = Led:new(pio.PB_9)
+   red_led   = Led:new(pio.PB_8)
 end
 
