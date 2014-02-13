@@ -169,9 +169,9 @@
 				     PIN_OTYPE_PUSHPULL(GPIOA_GPS_RXD)    | \
                                      PIN_OTYPE_PUSHPULL(GPIOA_USB_DM)     | \
                                      PIN_OTYPE_PUSHPULL(GPIOA_USB_DP)     | \
-                                     PIN_OTYPE_OPENDRAIN(GPIOA_JTAG_TMS)  | \
-                                     PIN_OTYPE_OPENDRAIN(GPIOA_JTAG_TCK)  | \
-                                     PIN_OTYPE_OPENDRAIN(GPIOA_JTAG_TDI))
+                                     PIN_OTYPE_PUSHPULL(GPIOA_JTAG_TMS)   | \
+                                     PIN_OTYPE_PUSHPULL(GPIOA_JTAG_TCK)   | \
+                                     PIN_OTYPE_PUSHPULL(GPIOA_JTAG_TDI))
 #define VAL_GPIOA_OSPEEDR           (PIN_OSPEED_100M(GPIOA_BUTTON)        | \
                                      PIN_OSPEED_100M(GPIOA_ACC_INT2)      | \
                                      PIN_OSPEED_50M(GPIOA_GPS_TXD)        | \
@@ -201,9 +201,9 @@
                                      PIN_PUPDR_FLOATING(GPIOA_USART1_RXD) | \
                                      PIN_PUPDR_FLOATING(GPIOA_USB_DM)     | \
                                      PIN_PUPDR_FLOATING(GPIOA_USB_DP)     | \
-                                     PIN_PUPDR_PULLUP(GPIOA_JTAG_TMS)     | \
-                                     PIN_PUPDR_PULLDOWN(GPIOA_JTAG_TCK)   | \
-                                     PIN_PUPDR_PULLUP(GPIOA_JTAG_TDI))
+                                     PIN_PUPDR_FLOATING(GPIOA_JTAG_TMS)   | \
+                                     PIN_PUPDR_FLOATING(GPIOA_JTAG_TCK)   | \
+                                     PIN_PUPDR_FLOATING(GPIOA_JTAG_TDI))
 #define VAL_GPIOA_ODR               (PIN_ODR_HIGH(GPIOA_BUTTON)       | \
                                      PIN_ODR_HIGH(GPIOA_ACC_INT2)     | \
                                      PIN_ODR_HIGH(GPIOA_GPS_RXD)      | \
@@ -308,7 +308,7 @@
 #define VAL_GPIOB_PUPDR             (PIN_PUPDR_PULLDOWN(GPIOB_PIN0)      | \
 				     PIN_PUPDR_PULLDOWN(GPIOB_PIN1) |      \
 				     PIN_PUPDR_FLOATING(GPIOB_PIN2) |      \
-				     PIN_PUPDR_FLOATING(GPIOB_JTAG_TDO)  |      \
+				     PIN_PUPDR_PULLUP(GPIOB_JTAG_TDO)  |      \
 				     PIN_PUPDR_PULLUP(GPIOB_JTAG_TRST) | \
 				     PIN_PUPDR_PULLDOWN(GPIOB_PIN5) | \
 				     PIN_PUPDR_FLOATING(GPIOB_SCL)  | \
