@@ -1,5 +1,5 @@
 # List of all the board related files.
-BOARDSRC = boards/ruuviC2/board.c
+BOARDSRC = boards/ruuviC2/board.c boards/ruuviC2/power.c
 
 # Required include directories
 BOARDINC = boards/ruuviC2
