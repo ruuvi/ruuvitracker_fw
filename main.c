@@ -23,6 +23,8 @@
 
 #include "shell.h"
 #include "chprintf.h"
+#include "power.h"
+#include "drivers/gps.h"
 
 /*===========================================================================*/
 /* USB related stuff.                                                        */
@@ -38,7 +40,7 @@
 /*
  * Serial over USB Driver structure.
  */
-static SerialUSBDriver SDU2;
+SerialUSBDriver SDU2;
 
 /*
  * USB Device Descriptor.
@@ -423,20 +425,33 @@ static void cmd_write(BaseSequentialStream *chp, int argc, char *argv[]) {
  * to usb serial adapter
  */
 static void cmd_gps(BaseSequentialStream *chp, int argc, char *argv[]) {
+  struct gps_data_t gps;
+  char buf[255];
   (void)argc;
   (void)argv;
-  chprintf(chp, "Enabling GPS module\r\n");
-  palSetPad(GPIOC, GPIOC_ENABLE_LDO3);
-  palSetPad(GPIOC, GPIOC_ENABLE_LDO2);
-  sdStart(&SD2, NULL);
+  chprintf(chp, "Enabling GPS module.\r\nPress enter to stop\r\n\r\n");
+  gps_start();
   while (chnGetTimeout((BaseChannel *)chp, TIME_IMMEDIATE) == Q_TIMEOUT) {
-    chSequentialStreamPut(&SDU2, chSequentialStreamGet(&SD2));
+    chprintf(chp, "\x1B[2J-------[GPS Tracking,  press enter to stop]----\r\n");
+    if (GPS_FIX_TYPE_NONE != gps_has_fix()) {
+      gps = gps_get_data();
+      snprintf(buf, sizeof(buf),
+               "lat: %f\r\n"
+               "lon: %f\r\n"
+               "satellites: %d\r\n"
+               "time: %d-%d-%d %d:%d:%d\r\n",
+               (float)gps.lat,(float)gps.lon, gps.n_satellites,
+               gps.dt.year, gps.dt.month, gps.dt.day, gps.dt.hh, gps.dt.mm, gps.dt.sec);
+      chprintf(chp, buf);
+    } else {
+      chprintf(chp, "waiting for fix\r\n");
+    }
+    chThdSleepMilliseconds(4000);
   }
-  chprintf(chp, "\r\n\nstopped\r\n");
-  sdStop(&SD2);
-  palClearPad(GPIOC, GPIOC_ENABLE_LDO2);
-  palClearPad(GPIOC, GPIOC_ENABLE_LDO3);
+  gps_stop();
+  chprintf(chp, "GPS stopped\r\n");
 }
+
 
 static const ShellCommand commands[] = {
   {"mem", cmd_mem},
