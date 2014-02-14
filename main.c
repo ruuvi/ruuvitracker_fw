@@ -446,7 +446,7 @@ static void cmd_gps(BaseSequentialStream *chp, int argc, char *argv[]) {
     } else {
       chprintf(chp, "waiting for fix\r\n");
     }
-    chThdSleepMilliseconds(4000);
+    chThdSleepMilliseconds(1000);
   }
   gps_stop();
   chprintf(chp, "GPS stopped\r\n");

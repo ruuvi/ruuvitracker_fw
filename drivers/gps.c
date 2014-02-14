@@ -19,23 +19,26 @@
 #define printf(...) while(0){}
 
 #define GPS_BUFF_SIZE	128
+#define GPRMC (1<<0)
+#define GPGSA (1<<1)
+#define GPGGA (1<<2)
 
 /* Prototypes */
-void gps_line_received(void);
-int calculate_gps_checksum(const char *data);
-int parse_gpzda(const char *line);
-int parse_gpgga(const char *line);
-int parse_gpgsa(const char *line);
-int parse_gprmc(const char *line);
-void parse_nmea_time_str(char *str, gps_datetime *dt);
-void parse_nmea_date_str(char *str, gps_datetime *dt);
-double degree2nmeadeg(double val);
-double nmeadeg2degree(double val);
+static void gps_read_lines(void);
+static void gps_parse_line(const char *line);
+static int calculate_gps_checksum(const char *data);
+static int parse_gpgga(const char *line);
+static int parse_gpgsa(const char *line);
+static int parse_gprmc(const char *line);
+static void parse_nmea_time_str(char *str, gps_datetime *dt);
+static void parse_nmea_date_str(char *str, gps_datetime *dt);
+static double nmeadeg2degree(double val);
 
 /* GPS device state */
 struct gps_device {
 	enum GPS_state state;
 	int serial_port_validated;
+	int msgs_received;
 };
 static struct gps_device gps = {					/* Initial status */
 	.state = STATE_OFF,
@@ -61,6 +64,9 @@ static BinarySemaphore gps_sem;
 #define LOCK chBSemWait(&gps_sem);
 #define UNLOCK chBSemSignal(&gps_sem);
 
+
+/* ============= platform specific =====================*/
+
 static void gps_power_on(void)
 {
 	power_request(LDO3);
@@ -73,70 +79,63 @@ static void gps_power_off(void)
 	power_release(LDO2);
 }
 
-/*
-	// Construct ISO compatible time string, 2012-01-08T20:57:30.123Z
-	sprintf(timestr, "%d-%02d-%02dT%02d:%02d:%02d.%03dZ",
-	        gps_data.dt.year,
-	        gps_data.dt.month,
-	        gps_data.dt.day,
-	        gps_data.dt.hh,
-	        gps_data.dt.mm,
-	        gps_data.dt.sec,
-	        gps_data.dt.msec);
-*/
 
 /* ===================Internal functions begin=============================== */
 
 
 /**
- * Receives lines from Simcom serial interfaces and parses them.
+ * Receives lines from serial interfaces and parses them.
  */
-static char buf[GPS_BUFF_SIZE+1];
-static void gps_read_line(void)
+static char buf[GPS_BUFF_SIZE];
+static void gps_read_lines(void)
 {
-	int c, i = 0;
+	int i = 0;
+	msg_t c;
+	systime_t timeout = CH_FREQUENCY+1; /* Block for one secods waiting for first data */
 
-	while('\n' != (c = chSequentialStreamGet(&SD2))) {
-		if(-1 == c)
-			break;
-		if('\r' == c) /* skip */
+	while(Q_TIMEOUT != (c = sdGetTimeout(&SD2, timeout))) {
+		if (Q_RESET == c)
+			return;
+		if ('\r' == c) /* skip */
 			continue;
-		buf[i++] = (char)c;
-		if(i == GPS_BUFF_SIZE)
-			break;
-	}
-	buf[i] = 0;
-
-	if(i > 0) {
-		if(strstr(buf, "IIII")) {
-			return;				// GPS module outputs a 'IIII' as the first string, skip it
+		if ('\n' == c) { /* End of line */
+			buf[i] = 0; /* Mark the end */
+			gps_parse_line(buf);
+			if (gps.msgs_received & (GPRMC|GPGGA|GPGSA)) /* All required messages */
+				timeout = 10; /* Read rest of lines but do not block anymore */
+			i = 0; /* Start from beginning */
+			continue;
 		}
-		if(calculate_gps_checksum(buf)) {
-			gps.serial_port_validated = TRUE;
-			if(strstr(buf, "RMC")) {
-				parse_gprmc(buf);
-			} else if(strstr(buf, "GGA")) {  // Global Positioning System Fix Data
-				parse_gpgga(buf);
-			} else if(strstr(buf, "GSA")) {  // GPS DOP and active satellites
-				parse_gpgsa(buf);
-			} else if(strstr(buf, "GSV")) {  // Satellites in view
-				//parse_gpgsv(buf); // TODO
-			} else if(strstr(buf, "GLL")) {  // Geographic Position, Latitude / Longitude and time.
-				//parse_gpgll(buf); // TODO
-			} else if(strstr(buf, "VTG")) {  // Track Made Good and Ground Speed
-				//parse_gpvtg(buf); // TODO
-			} else if(strstr(buf, "ZDA")) {  // Date & Time
-				//parse_gpzda(buf); // Not needed ATM, GPRMC has the same data&time data
-			} else {
-				//printf("GPS: input line '%s' doesn't match any supported GP sentences!\r\n", buf);
-			}
-		} else {
-			//printf("GPS: error, calculated checksum does not match received!\r\n");
+		buf[i++] = (char)c;
+		if (i == GPS_BUFF_SIZE)
+			return; // Overflow
+	}
+}
+
+/**
+ * Parse received line.
+ */
+static void gps_parse_line(const char *line)
+{
+	if(strstr(line, "IIII")) {
+		return;	// GPS module outputs a 'IIII' as the first string, skip it
+	}
+	if(calculate_gps_checksum(line)) {
+		gps.serial_port_validated = TRUE;
+		if(strstr(line, "RMC")) {         // Required minimum data
+			parse_gprmc(line);
+			gps.msgs_received |= GPRMC;
+		} else if(strstr(line, "GGA")) {  // Global Positioning System Fix Data
+			parse_gpgga(line);
+			gps.msgs_received |= GPGGA;
+		} else if(strstr(line, "GSA")) {  // GPS DOP and active satellites
+			parse_gpgsa(line);
+			gps.msgs_received |= GPGSA;
 		}
 	}
 }
 
-int calculate_gps_checksum(const char *data)
+static int calculate_gps_checksum(const char *data)
 {
 	char checksum = 0;
 	char received_checksum = 0;
@@ -166,7 +165,7 @@ int calculate_gps_checksum(const char *data)
 	}
 }
 
-int parse_gpgga(const char *line)
+static int parse_gpgga(const char *line)
 {
 	int n_sat = 0;
 	double altitude = 0.0;
@@ -183,47 +182,15 @@ int parse_gpgga(const char *line)
 		if(gps_data.n_satellites != n_sat) {
 			printf("GPS: Number of satellites in view: %d\r\n", n_sat);
 		}
+		LOCK;
 		gps_data.n_satellites = n_sat;
 		gps_data.altitude = altitude;
+		UNLOCK;
 		return 0;
 	}
 }
 
-int parse_gpzda(const char *line)
-{
-	char time[15];
-	int day, month, year;
-	const char *error;
-
-	memset(time, 0, sizeof(time));
-	error = slre_match(0, "^\\$GPZDA,([^,]*),([^,]*),([^,]*),([^,]*),[^,]*,[^,]*",
-	                   line, strlen(line),
-	                   SLRE_STRING, sizeof(time), time,
-	                   SLRE_INT, sizeof(day), &day,
-	                   SLRE_INT, sizeof(month), &month,
-	                   SLRE_INT, sizeof(year), &year);
-	if(error != NULL) {
-		//printf("GPS: Error parsing GPZDA string '%s': %s\r\n", line, error);
-		return -1;
-	} else {
-		parse_nmea_time_str(time, &gps_data.dt);
-		gps_data.dt.day = day;
-		gps_data.dt.month = month;
-		gps_data.dt.year = year;
-		/*
-		printf("GPS: hh: %d\n", gps_data.dt.hh);
-		printf("GPS: mm: %d\n", gps_data.dt.mm);
-		printf("GPS: sec: %d\n", gps_data.dt.sec);
-		printf("GPS: msec: %d\n", gps_data.dt.msec);
-		printf("GPS: day: %d\n", gps_data.dt.day);
-		printf("GPS: month: %d\n", gps_data.dt.month);
-		printf("GPS: year: %d\n", gps_data.dt.year);
-			*/
-		return 0;
-	}
-}
-
-int parse_gpgsa(const char *line)
+static int parse_gpgsa(const char *line)
 {
 	int gps_fix_type;
 	double pdop, hdop, vdop;
@@ -241,6 +208,7 @@ int parse_gpgsa(const char *line)
 		//printf("GPS: Error parsing GPGSA string '%s': %s\n", line error);
 		return -1;
 	} else {
+		LOCK;
 		switch(gps_fix_type) {
 		case GPS_FIX_TYPE_NONE:
 			if(gps_data.fix_type != GPS_FIX_TYPE_NONE)
@@ -272,6 +240,7 @@ int parse_gpgsa(const char *line)
 		gps_data.pdop = pdop;
 		gps_data.hdop = hdop;
 		gps_data.vdop = vdop;
+		UNLOCK;
 		/*
 		printf("GPS: pdop: %f\n", gps_data.pdop);
 		printf("GPS: hdop: %f\n", gps_data.hdop);
@@ -281,7 +250,7 @@ int parse_gpgsa(const char *line)
 	}
 }
 
-int parse_gprmc(const char *line)
+static int parse_gprmc(const char *line)
 {
 	char time[15], status[2], ns[2], ew[2], date[7];
 	double lat, lon, speed_ms, heading;
@@ -306,6 +275,7 @@ int parse_gprmc(const char *line)
 		if(strcmp(status, "A") != 0) {
 			return -1;
 		}
+		LOCK;
 		parse_nmea_time_str(time, &gps_data.dt);
 		parse_nmea_date_str(date, &gps_data.dt);
 		gps_data.lat = nmeadeg2degree(lat);
@@ -328,29 +298,13 @@ int parse_gprmc(const char *line)
 		default:
 			gps_data.fix_type = GPS_FIX_TYPE_NONE;
 		}
-
-		/*
-		printf("GPS: hh: %d\n", gps_data.dt.hh);
-		printf("GPS: mm: %d\n", gps_data.dt.mm);
-		printf("GPS: sec: %d\n", gps_data.dt.sec);
-		printf("GPS: msec: %d\n", gps_data.dt.msec);
-		printf("GPS: day: %d\n", gps_data.dt.day);
-		printf("GPS: month: %d\n", gps_data.dt.month);
-		printf("GPS: year: %d\n", gps_data.dt.year);
-		printf("GPS: status: %s\n", status);
-		printf("GPS: latitude: %f\n", lat);
-		printf("GPS: ns_indicator: %s\n", ns);
-		printf("GPS: longitude: %f\n", lon);
-		printf("GPS: ew_indicator: %s\n", ew);
-		printf("GPS: speed_ms: %f\n", speed_ms);
-		printf("GPS: heading: %f\n", heading);
-		*/
+		UNLOCK;
 		return 0;
 	}
 }
 
 // Time string should be the following format: '093222.000'
-void parse_nmea_time_str(char *str, gps_datetime *dt)
+static void parse_nmea_time_str(char *str, gps_datetime *dt)
 {
 	char tmp[4];
 
@@ -367,7 +321,7 @@ void parse_nmea_time_str(char *str, gps_datetime *dt)
 }
 
 // Date string should be the following format: '140413'
-void parse_nmea_date_str(char *str, gps_datetime *dt)
+static void parse_nmea_date_str(char *str, gps_datetime *dt)
 {
 	char tmp[6];
 
@@ -380,19 +334,10 @@ void parse_nmea_date_str(char *str, gps_datetime *dt)
 	dt->year = 2000 + strtol(tmp, NULL, 10); // Its past Y2k now
 }
 
-double nmeadeg2degree(double val)
+static double nmeadeg2degree(double val)
 {
 	double deg = ((int)(val / 100));
 	val = deg + (val - deg * 100) / 60;
-	return val;
-}
-
-double degree2nmeadeg(double val)
-{
-	double int_part;
-	double fra_part;
-	fra_part = modf(val, &int_part);
-	val = int_part * 100 + fra_part * 60;
 	return val;
 }
 
@@ -409,10 +354,9 @@ static void gps_thread(void *arg) {
 	memset(&gps_data, 0, sizeof(gps_data));
 	gps_data.fix_type  = GPS_FIX_TYPE_NONE;
 	while(!chThdShouldTerminate()) {
-		LOCK;
-		gps_read_line();
+		gps.msgs_received = 0; /* Clear flags */
+		gps_read_lines();
 		gps_data.last_update = chTimeNow();
-		UNLOCK;
 	}
 	sdStop(&SD2);
 	gps_power_off();
