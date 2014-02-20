@@ -674,5 +674,4 @@ void gsm_start(void)
 	power_request(GSM);
 	worker = chThdCreateStatic(waGSM, sizeof(waGSM), NORMALPRIO, (tfunc_t)gsm_thread, NULL);
 	gsm_set_power_state(POWER_ON);
-	gsm_set_apn("internet.saunalahti");
 }

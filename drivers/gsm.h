@@ -24,6 +24,7 @@ void gsm_reset_modem(void);                                              /* Rese
 int gsm_read_raw(char *buf, int max_len);                                /* Read bytes from serial port */
 int gsm_gprs_enable(void);                                               /* Enable GPRS data */
 int gsm_gprs_disable(void);                                              /* Disable GPRS data */
+void gsm_start(void);                                                    /* Start the modem */
 
 /* Internals */
 void gsm_set_power_state(enum Power_mode mode);
