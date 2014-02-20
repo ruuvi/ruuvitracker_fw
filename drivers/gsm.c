@@ -343,9 +343,10 @@ int gsm_cmd(const char *cmd)
 	int retry;
 
 	_DEBUG("%s\r\n", cmd);
-	/* Flush buffers */
-//	while(!sdGetWouldBlock(&SD3))
-//		sdGet(&SD3);
+
+	/* Reset semaphore so we are sure that next time it is signalled
+	 * it is reply to this command */
+	chBSemReset(&gsm.waiting_reply, TRUE);
 
 	for(retry=0; retry<3; retry++) {
 		gsm_uart_write(cmd);
