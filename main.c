@@ -25,6 +25,8 @@
 #include "chprintf.h"
 #include "power.h"
 #include "drivers/gps.h"
+#include "drivers/gsm.h"
+#include "drivers/http.h"
 
 /*===========================================================================*/
 /* USB related stuff.                                                        */
@@ -452,6 +454,46 @@ static void cmd_gps(BaseSequentialStream *chp, int argc, char *argv[]) {
   chprintf(chp, "GPS stopped\r\n");
 }
 
+static void cmd_gsm(BaseSequentialStream *chp, int argc, char *argv[]) {
+  if (argc < 1) {
+    chprintf(chp, "Usage: gsm [start|cmd <str>]\r\n");
+    return;
+  }
+  if (0 == strcmp(argv[0], "apn")) {
+    gsm_set_apn(argv[1]);
+  } else if (0 == strcmp(argv[0], "start")) {
+    gsm_start();
+  } else if (0 == strcmp(argv[0], "cmd")) {
+    gsm_cmd(argv[1]);
+  }
+}
+
+static void cmd_http(BaseSequentialStream *chp, int argc, char *argv[]) {
+  HTTP_Response *http;
+  if (argc < 2) {
+    chprintf(chp, "Usage: http [apn <apn_name>] | [get <url>] | [post <url> <content> <content_type>]\r\n");
+    return;
+  }
+  if (0 == strcmp(argv[0], "get")) {
+    http = http_get(argv[1]);
+    if (http) {
+      chprintf(chp, "OK, Status %d\r\nContent-size: %d\r\nContent:\r\n%s\r\n", http->code, http->content_len, http->content);
+      http_free(http);
+    } else {
+      chprintf(chp, "Failed\r\n");
+    }
+  } else if (0 == strcmp(argv[0], "post")) {
+    chprintf(chp, "POST\r\nurl: %s\r\ntype: %s\r\ndata: %s\r\n", argv[1], argv[2], argv[3]);
+    http = http_post(argv[1], argv[2], argv[3]);
+    if (http) {
+      chprintf(chp, "OK, Status %d\r\nContent-size: %d\r\nContent:\r\n%s\r\n", http->code, http->content_len, http->content);
+      http_free(http);
+    } else {
+      chprintf(chp, "Failed\r\n");
+    }
+  }
+}
+
 
 static const ShellCommand commands[] = {
   {"mem", cmd_mem},
@@ -459,6 +501,8 @@ static const ShellCommand commands[] = {
   {"test", cmd_test},
   {"write", cmd_write},
   {"gps_test", cmd_gps},
+  {"gsm", cmd_gsm},
+  {"http", cmd_http},
   {NULL, NULL}
 };
 

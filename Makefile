@@ -89,6 +89,8 @@ CSRC = $(PORTSRC) \
        $(CHIBIOS)/os/various/syscalls.c \
        drivers/slre.c \
        drivers/gps.c \
+       drivers/gsm.c \
+	drivers/http.c \
        main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
