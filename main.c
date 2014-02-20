@@ -456,7 +456,7 @@ static void cmd_gps(BaseSequentialStream *chp, int argc, char *argv[]) {
 
 static void cmd_gsm(BaseSequentialStream *chp, int argc, char *argv[]) {
   if (argc < 1) {
-    chprintf(chp, "Usage: gsm [start|cmd <str>]\r\n");
+    chprintf(chp, "Usage: gsm [apn <apn_name>] | [start] | [cmd <str>]\r\n");
     return;
   }
   if (0 == strcmp(argv[0], "apn")) {
@@ -471,7 +471,7 @@ static void cmd_gsm(BaseSequentialStream *chp, int argc, char *argv[]) {
 static void cmd_http(BaseSequentialStream *chp, int argc, char *argv[]) {
   HTTP_Response *http;
   if (argc < 2) {
-    chprintf(chp, "Usage: http [apn <apn_name>] | [get <url>] | [post <url> <content> <content_type>]\r\n");
+    chprintf(chp, "Usage: http [get <url>] | [post <url> <content> <content_type>]\r\n");
     return;
   }
   if (0 == strcmp(argv[0], "get")) {
