@@ -73,20 +73,20 @@ static HTTP_Response *gsm_http_handle(method_t method, const char *url,
 	HTTP_Response *response = NULL;
 
 	if (gsm_http_init(url) != 0) {
-		_DEBUG("%s","GSM: Failed to initialize HTTP\n");
+		_DEBUG("%s","GSM: Failed to initialize HTTP\r\n");
 		goto HTTP_END;
 	}
 
 	if (content_type) {
 		if (gsm_http_send_content_type(content_type) != 0) {
-			_DEBUG("%s", "GSM: Failed to set content type\n");
+			_DEBUG("%s", "GSM: Failed to set content type\r\n");
 			goto HTTP_END;
 		}
 	}
 
 	if (data) {
 		if (gsm_http_send_data(data) != 0) {
-			_DEBUG("%s", "GSM: Failed to send http data\n");
+			_DEBUG("%s", "GSM: Failed to send http data\r\n");
 			goto HTTP_END;
 		}
 	}
@@ -96,7 +96,7 @@ static HTTP_Response *gsm_http_handle(method_t method, const char *url,
 	else
 		ret = gsm_cmd("AT+HTTPACTION=1");
 	if (ret != AT_OK) {
-		_DEBUG("GSM: HTTP Action failed\n");
+		_DEBUG("GSM: HTTP Action failed\r\n");
 		goto HTTP_END;
 	}
 
@@ -104,12 +104,12 @@ static HTTP_Response *gsm_http_handle(method_t method, const char *url,
 	gsm_request_serial_port();
 
 	if (gsm_wait_cpy("\\+HTTPACTION", TIMEOUT_HTTP, resp, sizeof(resp)) == AT_TIMEOUT) {
-		_DEBUG("GSM: HTTP Timeout\n");
+		_DEBUG("GSM: HTTP Timeout\r\n");
 		goto HTTP_END;
 	}
 
 	if (2 != sscanf(resp, "+HTTPACTION:%*d,%d,%d", &status, &len)) { /* +HTTPACTION:<method>,<result>,<lenght of data> */
-		_DEBUG("GSM: Failed to parse response\n");
+		_DEBUG("GSM: Failed to parse response\r\n");
 		goto HTTP_END;
 	}
 	_DEBUG("HTTP response %d len=%d\r\n", status, len);
@@ -119,7 +119,7 @@ static HTTP_Response *gsm_http_handle(method_t method, const char *url,
 		goto HTTP_END;
 
 	if (NULL == (response = malloc(len+1+sizeof(HTTP_Response)))) {
-		_DEBUG("GSM: Out of memory\n");
+		_DEBUG("GSM: Out of memory\r\n");
 		status = 602;               /* HTTP: 602 = Out of memory */
 		goto HTTP_END;
 	}
@@ -132,7 +132,7 @@ static HTTP_Response *gsm_http_handle(method_t method, const char *url,
 		;;
 	/* Rest of bytes are data */
 	if (len != gsm_read_raw(response->content, len)) {
-		_DEBUG("GSM: Timeout waiting for HTTP DATA\n");
+		_DEBUG("GSM: Timeout waiting for HTTP DATA\r\n");
 		http_free(response);
 		response = NULL;
 		goto HTTP_END;
