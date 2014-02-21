@@ -314,12 +314,18 @@ void usb_serial_init(void)
     sduStart(&SDU, &serusbcfg);
 
     /*
-     * Activates the USB driver and then the USB bus pull-up on D+.
-     * Note, a delay is inserted in order to not have to disconnect the cable
-     * after a reset.
+     * Force HOST re-detect device after DFU flashing by
+     * pulling D+ low so host assumes that device is disconnected.
      */
     usbDisconnectBus(serusbcfg.usbp);
-    chThdSleepMilliseconds(1500);
+    palSetPadMode(GPIOA, GPIOA_USB_DP, PAL_MODE_OUTPUT_PUSHPULL);
+    palClearPad(GPIOA, GPIOA_USB_DP);
+    chThdSleepMilliseconds(1000);
+    palSetPadMode(GPIOA, GPIOA_USB_DP, PAL_MODE_ALTERNATE(10));
+
+    /*
+     * Activates the USB driver and then the USB bus pull-up on D+.
+     */
     usbStart(serusbcfg.usbp, &usbcfg);
     usbConnectBus(serusbcfg.usbp);
 }
