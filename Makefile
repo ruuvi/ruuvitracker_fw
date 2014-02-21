@@ -90,7 +90,9 @@ CSRC = $(PORTSRC) \
        drivers/slre.c \
        drivers/gps.c \
        drivers/gsm.c \
-	drivers/http.c \
+       drivers/http.c \
+       drivers/usb_serial.c \
+       drivers/sha1.c \
        main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global

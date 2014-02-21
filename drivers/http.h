@@ -2,9 +2,9 @@
 #define _HTTP_H
 
 typedef struct HTTP_Response_t {
-     int code;
-     unsigned int content_len;
-     char content[0];
+    int code;
+    unsigned int content_len;
+    char content[0];
 } HTTP_Response;
 
 HTTP_Response *http_get(const char *url);
