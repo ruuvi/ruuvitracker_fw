@@ -75,6 +75,13 @@ fix_t gps_has_fix(void);
  * This function queries last known values parsed from GPS messages.
  * \return gps_data_t structure.
  */
+struct gps_data_t gps_get_data_nonblock(void);
+
+/**
+ * Request GPS data.
+ * This function waits for next GPS data to arrive.
+ * \return gps_data_t structure.
+ */
 struct gps_data_t gps_get_data(void);
 
 #endif

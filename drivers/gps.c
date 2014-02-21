@@ -391,7 +391,7 @@ fix_t gps_has_fix(void)
     return r;
 }
 
-struct gps_data_t gps_get_data(void) {
+struct gps_data_t gps_get_data_nonblock(void) {
     struct gps_data_t d;
     LOCK;
     d = gps_data;
