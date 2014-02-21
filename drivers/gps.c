@@ -398,3 +398,8 @@ struct gps_data_t gps_get_data_nonblock(void) {
     UNLOCK;
     return d;
 }
+
+struct gps_data_t gps_get_data(void) {
+    /* TODO: implement this */
+    return gps_get_data_nonblock();
+}
