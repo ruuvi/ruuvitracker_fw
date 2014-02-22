@@ -28,6 +28,7 @@
 #include "drivers/gps.h"
 #include "drivers/gsm.h"
 #include "drivers/http.h"
+#include "drivers/reset_button.h"
 
 
 /*===========================================================================*/
@@ -229,6 +230,9 @@ int main(void)
      * Initializes a serial-over-USB CDC driver.
      */
     usb_serial_init();
+
+    /* Initializes reset button PA0 */
+    button_init();
 
     /*
      * Shell manager initialization.
