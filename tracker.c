@@ -14,6 +14,7 @@
 #include "drivers/http.h"
 #include "drivers/sha1.h"
 #include "drivers/debug.h"
+#include "drivers/reset_button.h"
 
 
 #define SHA1_STR_LEN	40
@@ -36,6 +37,7 @@ static void get_hash(SHA1Context *sha, char *p)
 
 static char *sha1_hmac(const char *secret, const char *msg)
 {
+	static char response[SHA1_STR_LEN];
 	SHA1Context sha1,sha2;
 	char key[BLOCKSIZE];
 	char hash[SHA1_LEN];
@@ -80,11 +82,10 @@ static char *sha1_hmac(const char *secret, const char *msg)
 	SHA1Input(&sha2, (const unsigned char *)hash, SHA1_LEN);
 	SHA1Result(&sha2);
 
-	char *s = malloc(SHA1_STR_LEN);
 	for(i = 0; i < 5 ; i++) {
-		sprintf(s+i*8,"%.8x", sha2.Message_Digest[i]);
+		sprintf(response+i*8,"%.8x", sha2.Message_Digest[i]);
 	}
-	return s;
+	return response;
 }
 
 struct json_t {
@@ -93,6 +94,7 @@ struct json_t {
 };
 
 #define ELEMS_IN_EVENT 6
+#define MAC_INDEX 6
 struct json_t js_elems[ELEMS_IN_EVENT + 1] = {
      /* Names must be in alphabethical order */
      { "latitude",      NULL },
@@ -109,7 +111,7 @@ struct json_t js_elems[ELEMS_IN_EVENT + 1] = {
 void js_replace(char *name, char *value)
 {
      int i;
-     for (i=0;i<ELEMS_IN_EVENT+1;i++) {
+     for (i=0;i<ELEMS_IN_EVENT;i++) {
 	  if (0 == strcmp(name, js_elems[i].name)) {
 	       if (js_elems[i].value)
 		    free(js_elems[i].value);
@@ -130,8 +132,8 @@ void calculate_mac(char *secret)
 	  strcat(str, js_elems[i].value);
 	  strcat(str, "|");
      }
-     js_replace("mac", sha1_hmac(secret, str));
-     _DEBUG("Calculated MAC %s\r\nSTR: %s\r\n", js_elems[6].value, str);
+	 js_elems[MAC_INDEX].value = sha1_hmac(secret, str);
+     _DEBUG("Calculated MAC %s\r\nSTR: %s\r\n", js_elems[MAC_INDEX].value, str);
 }
 
 char *js_tostr(void)
@@ -156,7 +158,7 @@ char *js_tostr(void)
 static void send_event(struct gps_data_t *gps)
 {
      static char buf[255];
-     HTTP_Response *http;
+     HTTP_Response *response;
      char *json;
      static int first_time = 1;
 
@@ -175,11 +177,12 @@ static void send_event(struct gps_data_t *gps)
      json = js_tostr();
 
      _DEBUG("Sending JSON event:\r\n%s\r\nlen = %d\r\n", json, strlen(json));
-     http = http_post("http://dev-server.ruuvitracker.fi/api/v1-dev/events", json, "application/json");
-     if (!http) {
+     response = http_post("http://dev-server.ruuvitracker.fi/api/v1-dev/events", json, "application/json");
+     if (!response) {
 	  _DEBUG("HTTP POST failed\r\n");
      } else {
-	  _DEBUG("HTTP response %d:\r\n%s\r\n", http->code, http->content);
+	  _DEBUG("HTTP response %d:\r\n%s\r\n", response->code, response->content);
+	  http_free(response);
      }
 }
 
@@ -204,6 +207,7 @@ int main(void)
      halInit();
      chSysInit();
      usb_serial_init();
+	 button_init();
      gsm_start();
      gsm_set_apn("internet.saunalahti");
      gps_start();
