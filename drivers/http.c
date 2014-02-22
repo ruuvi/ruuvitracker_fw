@@ -10,13 +10,40 @@
 #define TIMEOUT_MS 2000
 #define TIMEOUT_HTTP 30000
 
+/* Allocate own http heap */
+static MemoryHeap http_heap;
+#define HTTP_HEAP_SIZE 10240  // 10 kB
+
 /* HTTP FUNCTIONS */
 
 typedef enum method_t { GET, POST } method_t; /* HTTP methods */
 
+/*
+ * Allocates memory for http_heap from core allocator.
+ * Must be called only once
+ */
+static int http_init_mem(void)
+{
+    void *p;
+    p = chCoreAlloc(HTTP_HEAP_SIZE);
+    if (!p) {
+        _DEBUG("Cannot initialize HTTP_HEAP, Out of memory\r\n");
+        return 1;
+    }
+    chHeapInit(&http_heap, p, HTTP_HEAP_SIZE);
+    return 0;
+}
+
 static int gsm_http_init(const char *url)
 {
+    static int mem_initialized = 0;
     int ret;
+
+    if (!mem_initialized) {
+        if (http_init_mem())
+            return 1;
+        mem_initialized = 1;
+    }
 
     if (AT_OK != gsm_gprs_enable())
         return -1;
@@ -118,7 +145,7 @@ static HTTP_Response *gsm_http_handle(method_t method, const char *url,
     if (len <= 0)
         goto HTTP_END;
 
-    if (NULL == (response = malloc(len+1+sizeof(HTTP_Response)))) {
+    if (NULL == (response = chHeapAlloc(&http_heap, len+1+sizeof(HTTP_Response)))) {
         _DEBUG("GSM: Out of memory\r\n");
         status = 602;               /* HTTP: 602 = Out of memory */
         goto HTTP_END;
@@ -151,19 +178,37 @@ HTTP_END:
 
 /* ======== API ============== */
 
+/**
+ * Send HTTP GET query.
+ * GSM modem must be initialized and int the network before this.
+ * \param url url of query.
+ * \return HTTP_Response structure. Must be freed with \ref http_free() after use.
+ */
 HTTP_Response *http_get(const char *url)
 {
     return gsm_http_handle(GET, url, NULL, NULL);
 }
 
+/**
+ * Sends HTTP POST.
+ * GSM modem must be initialized before this.
+ * \param url URL of query.
+ * \param data HTTP POST content
+ * \param content_type content type of POST data.
+ * \return Response from server as a HTTP_Response structure. Muts be freed with \ref http_free() after use.
+ */
 HTTP_Response *http_post(const char *url, const char *data, const char *content_type)
 {
     return gsm_http_handle(POST, url, data, content_type);
 }
 
+/**
+ * Releases allocated memory from HTTP_Response
+ * \param reponse pointer to HTTP_Response structure.
+ */
 void http_free(HTTP_Response *response)
 {
     if (!response)
         return;
-    free(response);
+    chHeapFree(response);
 }
