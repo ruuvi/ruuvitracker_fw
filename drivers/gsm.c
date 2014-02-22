@@ -415,7 +415,7 @@ int gsm_wait_cpy(const char *pattern, int timeout, char *line, size_t buf_size)
     msg_t c;
     int was_locked;
 
-    _DEBUG("wait=%s", pattern);
+    _DEBUG("wait=%s\r\n", pattern);
     was_locked = gsm_request_serial_port();
 
     i = 0;
@@ -476,10 +476,10 @@ int gsm_cmd_wait(const char *cmd, const char *response, int timeout)
 {
     int was_locked;
     int r;
-    was_locked =  gsm_request_serial_port();
+    _DEBUG("CMD: %s\r\n", cmd);
+    was_locked = gsm_request_serial_port();
     gsm_uart_write(cmd);
     gsm_uart_write(GSM_CMD_LINE_END);
-    _DEBUG("CMD: %s\r\n", cmd);
     r = gsm_wait(response, timeout);
     if (!was_locked)
         gsm_release_serial_port();
