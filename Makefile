@@ -221,6 +221,10 @@ else
   DDEFS += -DCORTEX_USE_FPU=FALSE
 endif
 
+ifeq ($(ENABLE_WFI_IDLE),yes)
+  DDEFS += -DCORTEX_ENABLE_WFI_IDLE=TRUE
+endif
+
 ifeq ($(USE_FWLIB),yes)
   include $(CHIBIOS)/ext/stm32lib/stm32lib.mk
   CSRC += $(STM32SRC)
