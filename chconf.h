@@ -54,9 +54,12 @@
  *
  * @note    Disabling the round robin preemption makes the kernel more compact
  *          and generally faster.
+ *
+ * @see     http://www.chibios.org/dokuwiki/doku.php?id=chibios:kb:round_robin
+ * @see     http://www.chibios.org/dokuwiki/doku.php?id=chibios:kb:power
  */
 #if !defined(CH_TIME_QUANTUM) || defined(__DOXYGEN__)
-#define CH_TIME_QUANTUM                 20
+#define CH_TIME_QUANTUM                 0
 #endif
 
 /**
@@ -107,9 +110,11 @@
  *
  * @note    This is not related to the compiler optimization options.
  * @note    The default is @p TRUE.
+ *
+ * @see     http://www.chibios.org/dokuwiki/doku.php?id=chibios:kb:power
  */
 #if !defined(CH_OPTIMIZE_SPEED) || defined(__DOXYGEN__)
-#define CH_OPTIMIZE_SPEED               FALSE
+#define CH_OPTIMIZE_SPEED               TRUE
 #endif
 
 /** @} */
