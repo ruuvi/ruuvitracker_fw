@@ -17,6 +17,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <stdlib.h>
+#include <time.h>
+
 #include "ch.h"
 #include "hal.h"
 #include "test.h"
@@ -30,6 +33,7 @@
 #include "drivers/gsm.h"
 #include "drivers/http.h"
 #include "drivers/reset_button.h"
+#include "drivers/rtchelpers.h"
 
 
 /*===========================================================================*/
@@ -73,6 +77,12 @@ static void cmd_threads(BaseSequentialStream *chp, int argc, char *argv[])
                  states[tp->p_state], (uint32_t)tp->p_time);
         tp = chRegNextThread(tp);
     } while (tp != NULL);
+#ifdef CORTEX_ENABLE_WFI_IDLE
+    chprintf(chp, "CRTX_ENABLE_WFI_IDLE=%d\r\n", CORTEX_ENABLE_WFI_IDLE);
+#endif
+#ifdef ENABLE_WFI_IDLE
+    chprintf(chp, "ENBL_WFI_IDLE=%d\r\n", ENABLE_WFI_IDLE);
+#endif
 }
 
 static void cmd_test(BaseSequentialStream *chp, int argc, char *argv[])
@@ -178,6 +188,9 @@ static const ShellCommand commands[] = {
     {"http", cmd_http},
     {"stop", cmd_stop},
     {"standby", cmd_standby},
+    {"date", cmd_date},
+    {"alarm", cmd_alarm},
+    {"wakeup", cmd_wakeup},
     {NULL, NULL}
 };
 
