@@ -26,4 +26,44 @@ void power_request(enum POWER_DOMAIN);
  */
 void power_release(enum POWER_DOMAIN);
 
+
+/**
+ * puts the MCU to STOP mode
+ *
+ * I/Os retain state but main clock is stopped
+ */
+void power_enter_stop(void);
+
+/**
+ * puts the MCU to STANDBY mode
+ *
+ * Everything is shut down, when the MCU comes back up it starts with frsh RAM etc
+ */
+void power_enter_standby(void);
+
+/**
+ * Helper to register a callback to the PA0 button and RTC wakeup
+ *
+ * Used by power_enter_stop() to register power_wakeup_callback()
+ */
+void register_power_wakeup_callback(extcallback_t cb);
+
+/**
+ * Callback that handles restarting clocks etc when coming back from STOP mode
+ *
+ * This will override any previous callback in the PA0 or RTC interrupts
+ */
+void power_wakeup_callback(EXTDriver *extp, expchannel_t channel);
+
+/**
+ * Shell command to enter STOP mode
+ */
+void cmd_stop(BaseSequentialStream *chp, int argc, char *argv[]);
+
+/**
+ * Shell command to enter STANDBY mode
+ */
+void cmd_standby(BaseSequentialStream *chp, int argc, char *argv[]);
+
+
 #endif /* POWER_H */

@@ -1,6 +1,8 @@
 #include "ch.h"
 #include "hal.h"
 #include "power.h"
+#include "chprintf.h"
+
 
 /* Prototypes */
 static void enable_ldo2(void);
@@ -94,4 +96,90 @@ static void enable_gsm_fet(void)
 static void disable_gsm_fet(void)
 {
      palSetPad(GPIOC, GPIOC_ENABLE_GSM_VBAT);
+}
+
+void power_enter_stop(void)
+{
+    register_power_wakeup_callback(power_wakeup_callback);
+
+    // PONDER: Should we use these locks ??
+    //chSysLock();
+    SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+    PWR->CR |= (PWR_CR_LPDS | PWR_CR_CSBF | PWR_CR_CWUF);
+    PWR->CR &= ~PWR_CR_PDDS;
+    __WFI();
+    //chSysUnlock();
+}
+
+void power_enter_standby(void)
+{
+    // Actually when coming back from standby we don't have this anymore since it's equivalent to a reset...
+    register_power_wakeup_callback(power_wakeup_callback);
+
+    // I copied this from an example, but I think the cleaner solution would be stop the os (as per  wiki) before entering standby
+    //chSysLock();
+    SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+    PWR->CR |= (PWR_CR_PDDS | PWR_CR_LPDS | PWR_CR_CSBF | PWR_CR_CWUF);
+    // Enable PA0 as wakeup pin
+    PWR->CSR |= PWR_CSR_EWUP;
+    RTC->ISR &= ~(RTC_ISR_ALRBF | RTC_ISR_ALRAF | RTC_ISR_WUTF | RTC_ISR_TAMP1F | RTC_ISR_TSOVF | RTC_ISR_TSF);
+    __WFI();
+}
+
+void register_power_wakeup_callback(extcallback_t cb)
+{
+    EXTChannelConfig button_cfg;
+    EXTChannelConfig rtc_cfg;
+
+    button_cfg.cb = cb;
+    button_cfg.mode = EXT_CH_MODE_RISING_EDGE | EXT_CH_MODE_AUTOSTART | EXT_MODE_GPIOA;
+    // PA0
+    extSetChannelMode(&EXTD1, 0, &button_cfg);
+    
+    rtc_cfg.cb = cb;
+    rtc_cfg.mode = EXT_CH_MODE_RISING_EDGE | EXT_CH_MODE_AUTOSTART;
+    // RTC_ALARM
+    extSetChannelMode(&EXTD1, 17, &rtc_cfg);
+    // RTC_WKUP
+    extSetChannelMode(&EXTD1, 22, &rtc_cfg);
+
+    // I'm not sure if this is required
+    extChannelEnable(&EXTD1, 0);
+    extChannelEnable(&EXTD1, 17);
+    extChannelEnable(&EXTD1, 22);
+}
+
+void power_wakeup_callback(EXTDriver *extp, expchannel_t channel)
+{
+    // TODO: Check if we actually were in STOP mode and only reinit clock in that case
+    chSysLockFromIsr();
+    // Disable deepsleep
+    SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+    // Disable wakeup and return the PA0 to normal IO usage
+    PWR->CSR &= ~PWR_CSR_EWUP;
+    stm32_clock_init();
+    chSysUnlockFromIsr();
+    // TODO: Raise an event (so other interested parties can know about the event that woke us up), for now just suppress the warnings
+    (void)extp;
+    (void)channel;
+}
+
+void cmd_stop(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    (void)argc;
+    (void)argv;
+    chprintf(chp, "Calling power_enter_stop()\r\n");
+    chThdSleepMilliseconds(100);
+    power_enter_stop();
+    chprintf(chp, "Back from power_enter_stop()\r\n");
+    chThdSleepMilliseconds(100);
+}
+
+void cmd_standby(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    (void)argc;
+    (void)argv;
+    chprintf(chp, "Calling power_enter_standby()\r\n");
+    chThdSleepMilliseconds(100);
+    power_enter_standby();
 }

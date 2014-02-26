@@ -17,11 +17,15 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <stdlib.h>
+#include <time.h>
+
 #include "ch.h"
 #include "hal.h"
 #include "test.h"
 
 #include "shell.h"
+#include "drivers/debug.h"
 #include "chprintf.h"
 #include "power.h"
 #include "drivers/usb_serial.h"
@@ -29,6 +33,7 @@
 #include "drivers/gsm.h"
 #include "drivers/http.h"
 #include "drivers/reset_button.h"
+#include "drivers/rtchelpers.h"
 
 
 /*===========================================================================*/
@@ -72,6 +77,12 @@ static void cmd_threads(BaseSequentialStream *chp, int argc, char *argv[])
                  states[tp->p_state], (uint32_t)tp->p_time);
         tp = chRegNextThread(tp);
     } while (tp != NULL);
+#ifdef CORTEX_ENABLE_WFI_IDLE
+    chprintf(chp, "CRTX_ENABLE_WFI_IDLE=%d\r\n", CORTEX_ENABLE_WFI_IDLE);
+#endif
+#ifdef ENABLE_WFI_IDLE
+    chprintf(chp, "ENBL_WFI_IDLE=%d\r\n", ENABLE_WFI_IDLE);
+#endif
 }
 
 static void cmd_test(BaseSequentialStream *chp, int argc, char *argv[])
@@ -168,7 +179,6 @@ static void cmd_http(BaseSequentialStream *chp, int argc, char *argv[])
     }
 }
 
-
 static const ShellCommand commands[] = {
     {"mem", cmd_mem},
     {"threads", cmd_threads},
@@ -176,6 +186,11 @@ static const ShellCommand commands[] = {
     {"gps_test", cmd_gps},
     {"gsm", cmd_gsm},
     {"http", cmd_http},
+    {"stop", cmd_stop},
+    {"standby", cmd_standby},
+    {"date", cmd_date},
+    {"alarm", cmd_alarm},
+    {"wakeup", cmd_wakeup},
     {NULL, NULL}
 };
 
@@ -212,6 +227,7 @@ static void Thread1(void *arg)
 /*
  * Application entry point.
  */
+static const EXTConfig extcfg; 
 int main(void)
 {
     Thread *shelltp = NULL;
@@ -232,7 +248,11 @@ int main(void)
     usb_serial_init();
 
     /* Initializes reset button PA0 */
+    /**
+     * This messes my button wakeup
     button_init();
+     */
+    extStart(&EXTD1, &extcfg);
 
     /*
      * Shell manager initialization.
