@@ -309,7 +309,7 @@ static void handle_fail(char *line)
     (void)line;
     gsm.reply = AT_FAIL;
     chBSemSignal(&gsm.waiting_reply);
-    printf("GSM: Fail\n");
+    _DEBUG("%s","GSM: Fail\n");
 }
 
 static void handle_error(char *line)
@@ -317,7 +317,7 @@ static void handle_error(char *line)
     (void)line;
     gsm.reply = AT_ERROR;
     chBSemSignal(&gsm.waiting_reply);
-    printf("GSM ERROR: %s\r\n", line);
+    _DEBUG("GSM ERROR: %s\r\n", line);
 }
 
 void gsm_toggle_power_pin(void)
