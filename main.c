@@ -35,6 +35,15 @@
 #include "drivers/reset_button.h"
 #include "drivers/rtchelpers.h"
 
+/* I2C interface #2 */
+static const I2CConfig i2cfg1 = {
+    OPMODE_I2C,
+    400000,
+    FAST_DUTY_CYCLE_2,
+};
+
+static i2cflags_t i2c_errors = 0;
+
 
 /*===========================================================================*/
 /* Command line related.                                                     */
@@ -179,6 +188,54 @@ static void cmd_http(BaseSequentialStream *chp, int argc, char *argv[])
     }
 }
 
+/**
+ * Test command to read first 6 registers of the accelerometer
+ */
+static void cmd_accread(BaseSequentialStream *chp, int argc, char *argv[])
+{
+    (void)argc;
+    (void)argv;
+    msg_t status = RDY_OK;
+    //uint8_t txbuff[1];
+    uint8_t rxbuff[6];
+    uint8_t txbuff[1];
+    txbuff[0] = 0x0; // register
+    uint8_t addr = 0x1d; // 7-bit address
+    i2cAcquireBus(&I2CD1);
+    i2cStart(&I2CD1, &i2cfg1);
+    status = i2cMasterTransmitTimeout(&I2CD1, addr, txbuff, 1, rxbuff, 6, MS2ST(500));
+    switch(status)
+    {
+        case RDY_OK:
+        {
+            uint8_t i;
+            for (i=0; i<6; i++)
+            {
+                chprintf(chp, "Device 0x%02X reg 0x%02X value 0x%02X\r\n", addr, txbuff[0]+i, rxbuff[i]);
+            }
+            break;
+        }
+        case RDY_RESET:
+            i2c_errors = i2cGetErrors(&I2CD1);
+            chprintf(chp, "error for device at 0x%02X, errors: 0x%02X I2C1->SR1=0x%04X\r\n", addr, i2c_errors, I2C1->SR1);
+            // Reset copied from http://forum.chibios.org/phpbb/viewtopic.php?f=2&t=777
+            i2cStop(&I2CD1);
+            I2C1->CR1 |= I2C_CR1_SWRST;
+            i2cStart(&I2CD1, &i2cfg1);
+            break;
+        case RDY_TIMEOUT:
+            chprintf(chp, "TIMEOUT for device at 0x%02X\r\n", addr, i2c_errors);
+            // Reset copied from http://forum.chibios.org/phpbb/viewtopic.php?f=2&t=777
+            i2cStop(&I2CD1);
+            I2C1->CR1 |= I2C_CR1_SWRST;
+            i2cStart(&I2CD1, &i2cfg1);
+            break;
+    }
+    i2cStop(&I2CD1);
+    i2cReleaseBus(&I2CD1);
+}    
+
+
 static const ShellCommand commands[] = {
     {"mem", cmd_mem},
     {"threads", cmd_threads},
@@ -191,6 +248,7 @@ static const ShellCommand commands[] = {
     {"date", cmd_date},
     {"alarm", cmd_alarm},
     {"wakeup", cmd_wakeup},
+    {"acc", cmd_accread},
     {NULL, NULL}
 };
 
