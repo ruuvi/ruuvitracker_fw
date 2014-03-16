@@ -279,8 +279,8 @@
                                      PIN_OTYPE_PUSHPULL(GPIOB_JTAG_TDO) | \
                                      PIN_OTYPE_PUSHPULL(GPIOB_JTAG_TRST)| \
                                      PIN_OTYPE_PUSHPULL(GPIOB_PIN5)     | \
-                                     PIN_OTYPE_PUSHPULL(GPIOB_SCL)      | \
-                                     PIN_OTYPE_PUSHPULL(GPIOB_SDA)      | \
+                                     PIN_OTYPE_OPENDRAIN(GPIOB_SCL)      | \
+                                     PIN_OTYPE_OPENDRAIN(GPIOB_SDA)      | \
                                      PIN_OTYPE_PUSHPULL(GPIOB_LED1) |       \
                                      PIN_OTYPE_PUSHPULL(GPIOB_LED2) |       \
 				     PIN_OTYPE_PUSHPULL(GPIOB_GSM_RXD) |    \
