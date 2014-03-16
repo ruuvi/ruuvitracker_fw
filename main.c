@@ -35,13 +35,14 @@
 #include "drivers/reset_button.h"
 #include "drivers/rtchelpers.h"
 
-/* I2C interface #2 */
+/* I2C interface #1 */
+// TODO: This should probably be defined in board.h or something. It needs to be globally accessible because in case of I2C timeout we *must* reinit the whole I2C subsystem
 static const I2CConfig i2cfg1 = {
     OPMODE_I2C,
     400000,
     FAST_DUTY_CYCLE_2,
 };
-
+// TODO: I guess this does not have to be global
 static i2cflags_t i2c_errors = 0;
 
 
