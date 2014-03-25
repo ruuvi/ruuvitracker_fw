@@ -6,7 +6,7 @@ BOARDINC = boards/ruuviC2
 
 # Having trouble with SWD ? http://kirjoitusalusta.fi/ruuvitracker-swd-vs-wfi
 ENABLE_WFI_IDLE = yes
-USE_FPU = yes
+USE_FPU = hard
 
 .DEFAULT_GOAL := all
 .PHONY: flash
