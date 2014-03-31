@@ -150,14 +150,14 @@
 #define VAL_GPIOA_MODER             (PIN_MODE_INPUT(GPIOA_BUTTON)         | \
                                      PIN_MODE_INPUT(GPIOA_ACC_INT2)       | \
                                      PIN_MODE_ALTERNATE(GPIOA_GPS_RXD)    | \
-				     PIN_MODE_ALTERNATE(GPIOA_GPS_TXD)    | \
-				     PIN_MODE_INPUT(GPIOA_GSM_DCD)        | \
-				     PIN_MODE_ALTERNATE(GPIOA_SPI_SCK)    | \
-				     PIN_MODE_ALTERNATE(GPIOA_SPI_MISO)   | \
-				     PIN_MODE_ALTERNATE(GPIOA_SPI_MOSI)   | \
-				     PIN_MODE_INPUT(GPIOA_GSM_RI)         | \
-				     PIN_MODE_ALTERNATE(GPIOA_USART1_TXD) | \
-				     PIN_MODE_ALTERNATE(GPIOA_USART1_RXD) | \
+                                     PIN_MODE_ALTERNATE(GPIOA_GPS_TXD)    | \
+                                     PIN_MODE_INPUT(GPIOA_GSM_DCD)        | \
+                                     PIN_MODE_ALTERNATE(GPIOA_SPI_SCK)    | \
+                                     PIN_MODE_ALTERNATE(GPIOA_SPI_MISO)   | \
+                                     PIN_MODE_ALTERNATE(GPIOA_SPI_MOSI)   | \
+                                     PIN_MODE_INPUT(GPIOA_GSM_RI)         | \
+                                     PIN_MODE_ALTERNATE(GPIOA_USART1_TXD) | \
+                                     PIN_MODE_ALTERNATE(GPIOA_USART1_RXD) | \
                                      PIN_MODE_ALTERNATE(GPIOA_USB_DM)     | \
                                      PIN_MODE_ALTERNATE(GPIOA_USB_DP)     | \
                                      PIN_MODE_ALTERNATE(GPIOA_JTAG_TMS)   | \
@@ -165,8 +165,8 @@
                                      PIN_MODE_ALTERNATE(GPIOA_JTAG_TDI))
 #define VAL_GPIOA_OTYPER            (PIN_OTYPE_PUSHPULL(GPIOA_BUTTON)     | \
                                      PIN_OTYPE_PUSHPULL(GPIOA_ACC_INT2)   | \
-				     PIN_OTYPE_PUSHPULL(GPIOA_GPS_TXD)    | \
-				     PIN_OTYPE_PUSHPULL(GPIOA_GPS_RXD)    | \
+                                     PIN_OTYPE_PUSHPULL(GPIOA_GPS_TXD)    | \
+                                     PIN_OTYPE_PUSHPULL(GPIOA_GPS_RXD)    | \
                                      PIN_OTYPE_PUSHPULL(GPIOA_USB_DM)     | \
                                      PIN_OTYPE_PUSHPULL(GPIOA_USB_DP)     | \
                                      PIN_OTYPE_PUSHPULL(GPIOA_JTAG_TMS)   | \
@@ -259,23 +259,23 @@
  */
 #define VAL_GPIOB_MODER             (PIN_MODE_INPUT(GPIOB_PIN0)          | \
                                      PIN_MODE_INPUT(GPIOB_PIN1)          | \
-                                     PIN_MODE_INPUT(GPIOB_PIN2) 	 | \
+                                     PIN_MODE_INPUT(GPIOB_PIN2)      | \
                                      PIN_MODE_ALTERNATE(GPIOB_JTAG_TDO)  | \
                                      PIN_MODE_ALTERNATE(GPIOB_JTAG_TRST) | \
-                                     PIN_MODE_INPUT(GPIOB_PIN5) 	 | \
-                                     PIN_MODE_ALTERNATE(GPIOB_SCL) 	 | \
-                                     PIN_MODE_ALTERNATE(GPIOB_SDA) 	 | \
-                                     PIN_MODE_OUTPUT(GPIOB_LED1) 	 | \
-                                     PIN_MODE_OUTPUT(GPIOB_LED2) 	 | \
-                                     PIN_MODE_ALTERNATE(GPIOB_GSM_RXD) 	 | \
-                                     PIN_MODE_ALTERNATE(GPIOB_GSM_TXD) 	 | \
-                                     PIN_MODE_INPUT(GPIOB_PIN12) 	 | \
-                                     PIN_MODE_ALTERNATE(GPIOB_GSM_RTS) 	 | \
-                                     PIN_MODE_ALTERNATE(GPIOB_GSM_CTS) 	 | \
+                                     PIN_MODE_INPUT(GPIOB_PIN5)      | \
+                                     PIN_MODE_ALTERNATE(GPIOB_SCL)   | \
+                                     PIN_MODE_ALTERNATE(GPIOB_SDA)   | \
+                                     PIN_MODE_OUTPUT(GPIOB_LED1)     | \
+                                     PIN_MODE_OUTPUT(GPIOB_LED2)     | \
+                                     PIN_MODE_ALTERNATE(GPIOB_GSM_RXD)   | \
+                                     PIN_MODE_ALTERNATE(GPIOB_GSM_TXD)   | \
+                                     PIN_MODE_INPUT(GPIOB_PIN12)     | \
+                                     PIN_MODE_ALTERNATE(GPIOB_GSM_RTS)   | \
+                                     PIN_MODE_ALTERNATE(GPIOB_GSM_CTS)   | \
                                      PIN_MODE_OUTPUT(GPIOB_MICROSD_CS))
-#define VAL_GPIOB_OTYPER            (PIN_OTYPE_PUSHPULL(GPIOB_PIN0)	| \
-                                     PIN_OTYPE_PUSHPULL(GPIOB_PIN1) 	| \
-                                     PIN_OTYPE_PUSHPULL(GPIOB_PIN2) 	| \
+#define VAL_GPIOB_OTYPER            (PIN_OTYPE_PUSHPULL(GPIOB_PIN0) | \
+                                     PIN_OTYPE_PUSHPULL(GPIOB_PIN1)     | \
+                                     PIN_OTYPE_PUSHPULL(GPIOB_PIN2)     | \
                                      PIN_OTYPE_PUSHPULL(GPIOB_JTAG_TDO) | \
                                      PIN_OTYPE_PUSHPULL(GPIOB_JTAG_TRST)| \
                                      PIN_OTYPE_PUSHPULL(GPIOB_PIN5)     | \
@@ -283,12 +283,12 @@
                                      PIN_OTYPE_OPENDRAIN(GPIOB_SDA)      | \
                                      PIN_OTYPE_PUSHPULL(GPIOB_LED1) |       \
                                      PIN_OTYPE_PUSHPULL(GPIOB_LED2) |       \
-				     PIN_OTYPE_PUSHPULL(GPIOB_GSM_RXD) |    \
-				     PIN_OTYPE_PUSHPULL(GPIOB_GSM_TXD) |    \
+                                     PIN_OTYPE_PUSHPULL(GPIOB_GSM_RXD) |    \
+                                     PIN_OTYPE_PUSHPULL(GPIOB_GSM_TXD) |    \
                                      PIN_OTYPE_PUSHPULL(GPIOB_PIN12) |      \
-				     PIN_OTYPE_PUSHPULL(GPIOB_GSM_RTS) |    \
-				     PIN_OTYPE_PUSHPULL(GPIOB_GSM_CTS) |    \
-				     PIN_OTYPE_PUSHPULL(GPIOB_MICROSD_CS))
+                                     PIN_OTYPE_PUSHPULL(GPIOB_GSM_RTS) |    \
+                                     PIN_OTYPE_PUSHPULL(GPIOB_GSM_CTS) |    \
+                                     PIN_OTYPE_PUSHPULL(GPIOB_MICROSD_CS))
 #define VAL_GPIOB_OSPEEDR           (PIN_OSPEED_50M(GPIOB_PIN0) |          \
                                      PIN_OSPEED_50M(GPIOB_PIN1) |          \
                                      PIN_OSPEED_50M(GPIOB_PIN2) |          \
@@ -299,31 +299,31 @@
                                      PIN_OSPEED_100M(GPIOB_SDA) |          \
                                      PIN_OSPEED_50M(GPIOB_LED1) |          \
                                      PIN_OSPEED_50M(GPIOB_LED2) |          \
-				     PIN_OSPEED_50M(GPIOB_GSM_RXD) |       \
-				     PIN_OSPEED_50M(GPIOB_GSM_TXD) |       \
-				     PIN_OSPEED_50M(GPIOB_PIN12)   |       \
-				     PIN_OSPEED_50M(GPIOB_GSM_RTS) |       \
-				     PIN_OSPEED_50M(GPIOB_GSM_CTS) |       \
-				     PIN_OSPEED_50M(GPIOB_MICROSD_CS))
+                                     PIN_OSPEED_50M(GPIOB_GSM_RXD) |       \
+                                     PIN_OSPEED_50M(GPIOB_GSM_TXD) |       \
+                                     PIN_OSPEED_50M(GPIOB_PIN12)   |       \
+                                     PIN_OSPEED_50M(GPIOB_GSM_RTS) |       \
+                                     PIN_OSPEED_50M(GPIOB_GSM_CTS) |       \
+                                     PIN_OSPEED_50M(GPIOB_MICROSD_CS))
 #define VAL_GPIOB_PUPDR             (PIN_PUPDR_PULLDOWN(GPIOB_PIN0)      | \
-				     PIN_PUPDR_PULLDOWN(GPIOB_PIN1) |      \
-				     PIN_PUPDR_FLOATING(GPIOB_PIN2) |      \
-				     PIN_PUPDR_PULLUP(GPIOB_JTAG_TDO)  |      \
-				     PIN_PUPDR_PULLUP(GPIOB_JTAG_TRST) | \
-				     PIN_PUPDR_PULLDOWN(GPIOB_PIN5) | \
-				     PIN_PUPDR_FLOATING(GPIOB_SCL)  | \
-				     PIN_PUPDR_FLOATING(GPIOB_SDA)  | \
-				     PIN_PUPDR_FLOATING(GPIOB_LED1) | \
-				     PIN_PUPDR_FLOATING(GPIOB_LED2) | \
-				     PIN_PUPDR_FLOATING(GPIOB_GSM_RXD) | \
-				     PIN_PUPDR_FLOATING(GPIOB_GSM_TXD) | \
-				     PIN_PUPDR_PULLDOWN(GPIOB_PIN12)   | \
-				     PIN_PUPDR_FLOATING(GPIOB_GSM_RTS) | \
-				     PIN_PUPDR_FLOATING(GPIOB_GSM_CTS) | \
-				     PIN_PUPDR_FLOATING(GPIOB_MICROSD_CS))
+                                     PIN_PUPDR_PULLDOWN(GPIOB_PIN1) |      \
+                                     PIN_PUPDR_FLOATING(GPIOB_PIN2) |      \
+                                     PIN_PUPDR_PULLUP(GPIOB_JTAG_TDO)  |      \
+                                     PIN_PUPDR_PULLUP(GPIOB_JTAG_TRST) | \
+                                     PIN_PUPDR_PULLDOWN(GPIOB_PIN5) | \
+                                     PIN_PUPDR_FLOATING(GPIOB_SCL)  | \
+                                     PIN_PUPDR_FLOATING(GPIOB_SDA)  | \
+                                     PIN_PUPDR_FLOATING(GPIOB_LED1) | \
+                                     PIN_PUPDR_FLOATING(GPIOB_LED2) | \
+                                     PIN_PUPDR_FLOATING(GPIOB_GSM_RXD) | \
+                                     PIN_PUPDR_FLOATING(GPIOB_GSM_TXD) | \
+                                     PIN_PUPDR_PULLDOWN(GPIOB_PIN12)   | \
+                                     PIN_PUPDR_FLOATING(GPIOB_GSM_RTS) | \
+                                     PIN_PUPDR_FLOATING(GPIOB_GSM_CTS) | \
+                                     PIN_PUPDR_FLOATING(GPIOB_MICROSD_CS))
 #define VAL_GPIOB_ODR               (PIN_ODR_LOW(GPIOB_LED1) | \
                                      PIN_ODR_LOW(GPIOB_LED2) | \
-				     PIN_ODR_LOW(GPIOB_MICROSD_CS))
+                                     PIN_ODR_LOW(GPIOB_MICROSD_CS))
 #define VAL_GPIOB_AFRL              (PIN_AFIO_AF(GPIOB_PIN0, 0) |           \
                                      PIN_AFIO_AF(GPIOB_PIN1, 0) |           \
                                      PIN_AFIO_AF(GPIOB_PIN2, 0) |           \
@@ -351,7 +351,7 @@
  * PC4  - GSM_PWRKEY                (output, open-drain, high).
  * PC5  - GSM_DTR                   (output, low).
  * PC6  - ENABLE_LDO3               (output, low).
- * PC7  - ENABLE_GSM_VBAT           (output, low).
+ * PC7  - ENABLE_GSM_VBAT           (output, open-drain, low).
  * PC8  - ENABLE_LDO2               (output, low).
  * PC9  - GPS_1PPS_SIGNAL           (input floating).
  * PC10 - SD_CARD_INSERTED          (input, pullup).
@@ -362,40 +362,40 @@
  * PC15 - GSM_STATUS                (input floating).
  */
 #define VAL_GPIOC_MODER             (PIN_MODE_OUTPUT(GPIOC_ENABLE_LDO4)    | \
-				     PIN_MODE_OUTPUT(GPIOC_GPS_WAKEUP)     | \
-				     PIN_MODE_INPUT(GPIOC_PIN2)		   | \
-				     PIN_MODE_INPUT(GPIOC_PIN3)		   | \
-				     PIN_MODE_OUTPUT(GPIOC_GSM_PWRKEY)	   | \
-				     PIN_MODE_OUTPUT(GPIOC_GSM_DTR)	   | \
-				     PIN_MODE_OUTPUT(GPIOC_ENABLE_LDO3)	   | \
-				     PIN_MODE_OUTPUT(GPIOC_ENABLE_GSM_VBAT)| \
-				     PIN_MODE_OUTPUT(GPIOC_ENABLE_LDO2)	   | \
-				     PIN_MODE_INPUT(GPIOC_GPS_1PPS_SIGNAL) | \
-				     PIN_MODE_INPUT(GPIOC_SD_CARD_INSERTED)| \
-				     PIN_MODE_INPUT(GPIOC_CHARGER_STATUS)  | \
-				     PIN_MODE_INPUT(GPIOC_DISABLE_CHARGER) | \
-				     PIN_MODE_OUTPUT(GPIOC_GPS_V_BACKUP_PWR) | \
-				     PIN_MODE_INPUT(GPIOC_GSM_NETLIGHT)    | \
-				     PIN_MODE_INPUT(GPIOC_GSM_STATUS))
+                                     PIN_MODE_OUTPUT(GPIOC_GPS_WAKEUP)     | \
+                                     PIN_MODE_INPUT(GPIOC_PIN2)        | \
+                                     PIN_MODE_INPUT(GPIOC_PIN3)        | \
+                                     PIN_MODE_OUTPUT(GPIOC_GSM_PWRKEY)     | \
+                                     PIN_MODE_OUTPUT(GPIOC_GSM_DTR)    | \
+                                     PIN_MODE_OUTPUT(GPIOC_ENABLE_LDO3)    | \
+                                     PIN_MODE_OUTPUT(GPIOC_ENABLE_GSM_VBAT)| \
+                                     PIN_MODE_OUTPUT(GPIOC_ENABLE_LDO2)    | \
+                                     PIN_MODE_INPUT(GPIOC_GPS_1PPS_SIGNAL) | \
+                                     PIN_MODE_INPUT(GPIOC_SD_CARD_INSERTED)| \
+                                     PIN_MODE_INPUT(GPIOC_CHARGER_STATUS)  | \
+                                     PIN_MODE_INPUT(GPIOC_DISABLE_CHARGER) | \
+                                     PIN_MODE_OUTPUT(GPIOC_GPS_V_BACKUP_PWR) | \
+                                     PIN_MODE_INPUT(GPIOC_GSM_NETLIGHT)    | \
+                                     PIN_MODE_INPUT(GPIOC_GSM_STATUS))
 #define VAL_GPIOC_OTYPER            (PIN_OTYPE_PUSHPULL(GPIOC_ENABLE_LDO4)   | \
-				     PIN_OTYPE_PUSHPULL(GPIOC_GPS_WAKEUP)    | \
-				     PIN_OTYPE_OPENDRAIN(GPIOC_GSM_PWRKEY)   | \
-				     PIN_OTYPE_PUSHPULL(GPIOC_GSM_DTR)	     | \
-				     PIN_OTYPE_PUSHPULL(GPIOC_ENABLE_LDO3)   | \
-				     PIN_OTYPE_OPENDRAIN(GPIOC_ENABLE_GSM_VBAT)| \
-				     PIN_OTYPE_PUSHPULL(GPIOC_ENABLE_LDO2)   | \
-				     PIN_OTYPE_PUSHPULL(GPIOC_GPS_V_BACKUP_PWR))
+                                     PIN_OTYPE_PUSHPULL(GPIOC_GPS_WAKEUP)    | \
+                                     PIN_OTYPE_OPENDRAIN(GPIOC_GSM_PWRKEY)   | \
+                                     PIN_OTYPE_PUSHPULL(GPIOC_GSM_DTR)       | \
+                                     PIN_OTYPE_PUSHPULL(GPIOC_ENABLE_LDO3)   | \
+                                     PIN_OTYPE_OPENDRAIN(GPIOC_ENABLE_GSM_VBAT)| \
+                                     PIN_OTYPE_PUSHPULL(GPIOC_ENABLE_LDO2)   | \
+                                     PIN_OTYPE_PUSHPULL(GPIOC_GPS_V_BACKUP_PWR))
 #define VAL_GPIOC_OSPEEDR           (0) /* Assume that low speed is enough for all outputs here */
 #define VAL_GPIOC_PUPDR             (PIN_PUPDR_PULLDOWN(GPIOC_PIN2)         | \
-				     PIN_PUPDR_PULLDOWN(GPIOC_PIN3)	    | \
-				     PIN_PUPDR_FLOATING(GPIOC_GPS_1PPS_SIGNAL) | \
-				     PIN_PUPDR_PULLUP(GPIOC_SD_CARD_INSERTED) | \
-				     PIN_PUPDR_FLOATING(GPIOC_CHARGER_STATUS) | \
-				     PIN_PUPDR_FLOATING(GPIOC_DISABLE_CHARGER) | \
-				     PIN_PUPDR_FLOATING(GPIOC_GSM_NETLIGHT) | \
-				     PIN_PUPDR_FLOATING(GPIOC_GSM_STATUS))
+                                     PIN_PUPDR_PULLDOWN(GPIOC_PIN3)     | \
+                                     PIN_PUPDR_FLOATING(GPIOC_GPS_1PPS_SIGNAL) | \
+                                     PIN_PUPDR_PULLUP(GPIOC_SD_CARD_INSERTED) | \
+                                     PIN_PUPDR_FLOATING(GPIOC_CHARGER_STATUS) | \
+                                     PIN_PUPDR_FLOATING(GPIOC_DISABLE_CHARGER) | \
+                                     PIN_PUPDR_FLOATING(GPIOC_GSM_NETLIGHT) | \
+                                     PIN_PUPDR_FLOATING(GPIOC_GSM_STATUS))
 #define VAL_GPIOC_ODR               (PIN_ODR_HIGH(GPIOC_GSM_PWRKEY)   | \
-				     PIN_ODR_HIGH(GPIOC_ENABLE_GSM_VBAT))
+                                     PIN_ODR_HIGH(GPIOC_ENABLE_GSM_VBAT))
 #define VAL_GPIOC_AFRL              (0)
 #define VAL_GPIOC_AFRH              (0)
 

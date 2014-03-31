@@ -34,6 +34,7 @@
 #include "drivers/http.h"
 #include "drivers/reset_button.h"
 #include "drivers/rtchelpers.h"
+#include "drivers/sdcard.h"
 
 /* I2C interface #1 */
 // TODO: This should probably be defined in board.h or something. It needs to be globally accessible because in case of I2C timeout we *must* reinit the whole I2C subsystem
@@ -250,6 +251,9 @@ static const ShellCommand commands[] = {
     {"alarm", cmd_alarm},
     {"wakeup", cmd_wakeup},
     {"acc", cmd_accread},
+    {"mount", sdcard_cmd_mount},
+    {"unmount", sdcard_cmd_unmount},
+    {"ls", sdcard_cmd_ls},
     {NULL, NULL}
 };
 
