@@ -194,7 +194,7 @@
                                      PIN_PUPDR_FLOATING(GPIOA_GPS_TXD)    | \
                                      PIN_PUPDR_FLOATING(GPIOA_GSM_DCD)    | \
                                      PIN_PUPDR_FLOATING(GPIOA_SPI_SCK)    | \
-                                     PIN_PUPDR_FLOATING(GPIOA_SPI_MISO)   | \
+                                     PIN_PUPDR_PULLUP(GPIOA_SPI_MISO)   | \
                                      PIN_PUPDR_FLOATING(GPIOA_SPI_MOSI)   | \
                                      PIN_PUPDR_FLOATING(GPIOA_GSM_RI)     | \
                                      PIN_PUPDR_FLOATING(GPIOA_USART1_TXD) | \
