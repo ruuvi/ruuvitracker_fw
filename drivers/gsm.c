@@ -327,6 +327,17 @@ void gsm_toggle_power_pin(void)
     palSetPad(POWER_PORT, POWER_PIN);
 }
 
+static void sleep_enable(void)
+{
+    palSetPad(DTR_PORT, DTR_PIN);
+}
+
+static void sleep_disable(void)
+{
+    palClearPad(DTR_PORT, DTR_PIN);
+    chThdSleepMilliseconds(50);
+}
+
 void gsm_uart_write(const char *str)
 {
     while(*str)
@@ -343,6 +354,7 @@ int gsm_cmd(const char *cmd)
     int retry;
 
     _DEBUG("%s\r\n", cmd);
+    sleep_disable();
 
     /* Reset semaphore so we are sure that next time it is signalled
      * it is reply to this command */
@@ -360,6 +372,7 @@ int gsm_cmd(const char *cmd)
     if (gsm.reply != AT_OK)
         _DEBUG("'%s' failed (%d)\r\n", cmd, gsm.reply);
 
+    sleep_enable();
     if (retry == 3) {             /* Modem not responding */
         _DEBUG("%s", "Modem not responding!\r\n");
         return AT_TIMEOUT;
@@ -391,6 +404,7 @@ int gsm_request_serial_port(void)
     }
     chIQResetI(&(&SD3)->iqueue);
     chSysUnlock();
+    sleep_disable();
     chThdSleepMilliseconds(10);
     D_EXIT();
     return 0;
@@ -400,6 +414,7 @@ void gsm_release_serial_port(void)
 {
     D_ENTER();
     is_raw_mode = 0;
+    sleep_enable();
     chBSemSignal(&gsm.serial_sem);
     D_EXIT();
 }
@@ -544,7 +559,7 @@ static void gsm_enable_hw_flow()
         gsm_set_serial_flow_control(1);
         gsm.flags |= HW_FLOW_ENABLED;
         gsm_cmd("ATE0"); 		/* Disable ECHO */
-        gsm_cmd("AT+CSCLK=0");      /* Do not allow module to sleep */
+        gsm_cmd("AT+CSCLK=1");      /* Allow module to sleep */
     }
     _DEBUG("%s","HW flow enabled\r\n");
     D_EXIT();
@@ -558,10 +573,12 @@ void gsm_set_power_state(enum Power_mode mode)
     switch(mode) {
     case POWER_ON:
         if (0 == status_pin) {
+            sleep_disable();
             gsm_toggle_power_pin();
             gsm_enable_hw_flow();
         } else {                    /* Modem already on. Possibly warm reset */
             if (gsm.state == STATE_OFF) {   /* Responses of these will feed the state machine */
+                sleep_disable();
                 gsm_cmd("AT+CPIN?");        /* Check PIN */
                 gsm_cmd("AT+CFUN?");        /* Functionality mode */
                 gsm_cmd("AT+COPS?");        /* Registered to network */
@@ -643,6 +660,7 @@ static void gsm_set_serial_flow_control(int enabled)
     if (enabled) {
         USART3->CR3 |= USART_CR3_RTSE;
         USART3->CR3 |= USART_CR3_CTSE;
+        sleep_enable();
     } else {
         USART3->CR3 &= ~USART_CR3_RTSE;
         USART3->CR3 &= ~USART_CR3_RTSE;
