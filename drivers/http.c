@@ -114,12 +114,14 @@ static int gsm_http_send_content_type(const char *content_type)
 static int gsm_http_send_data(const char *data)
 {
     int r;
+    gsm_request_serial_port();
     r = gsm_cmd_wait_fmt("DOWNLOAD", TIMEOUT_MS, "AT+HTTPDATA=%d,1000", strlen(data));
-    if (AT_OK != r) {
-        return r;
-    }
-    gsm_uart_write(data);
-    return gsm_cmd(GSM_CMD_LINE_END);
+    if (AT_OK != r)
+        goto END;
+    r = gsm_cmd_wait(data, "OK", TIMEOUT_MS);
+END:
+    gsm_release_serial_port();
+    return r;
 }
 
 static HTTP_Response *gsm_http_handle(method_t method, const char *url,
