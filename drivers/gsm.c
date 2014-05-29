@@ -38,7 +38,6 @@
 #include "power.h"
 #include "debug.h"
 
-
 /* ============ DEFINE GPIO PINS HERE =========*/
 #define STATUS_PIN  GPIOC_GSM_STATUS
 #define STATUS_PORT GPIOC
@@ -56,6 +55,7 @@
 #define TIMEOUT_HTTP 35000      /* Http timeout, 35s */
 
 /* Modem state */
+// TODO: expose these as global api to avoid magic numbers, needs to be renamed since it conflicts with gps state...
 enum State {
     STATE_UNKNOWN = 0,
     STATE_OFF = 1,
@@ -65,7 +65,6 @@ enum State {
     STATE_READY,
     STATE_ERROR,
 };
-
 
 enum CFUN {
     CFUN_0 = 0,
@@ -81,6 +80,9 @@ enum GSM_FLAGS {
     INCOMING_CALL   = 0x20,
     TCP_ENABLED     = 0x40,
 };
+
+gsm_sms_t gsm_sms_default_container;
+EVENTSOURCE_DECL(gsm_evt_sms_arrived);
 
 /* Modem Status */
 struct gsm_modem {
@@ -100,6 +102,10 @@ static struct gsm_modem gsm = {		/* Initial status */
     .state = STATE_OFF,
 };
 
+int gsm_get_state(void)
+{
+    return gsm.state;
+}
 
 /* Handler functions for AT replies*/
 static void handle_ok(char *line);
@@ -135,7 +141,7 @@ static Message urc_messages[] = {
     /* Unsolicited Result Codes (URC messages) */
     { "RDY",                    .next_state=STATE_BOOTING },
     { "NORMAL POWER DOWN",      .next_state=STATE_OFF },
-    { "^\\+CPIN: NOT INSERTED", .next_state=STATE_ERROR,        .func = no_sim },
+    { "\\+CPIN: NOT INSERTED",  .next_state=STATE_ERROR,        .func = no_sim },
     { "\\+CPIN: READY",         .next_state=STATE_WAIT_NETWORK, .func = sim_inserted },
     { "\\+CPIN: SIM PIN",       .next_state=STATE_ASK_PIN,      .func = sim_inserted },
     { "\\+CFUN:",                                               .func = parse_cfun },
@@ -144,6 +150,14 @@ static Message urc_messages[] = {
     { "\\+COPS:",        .func = parse_network },
     { "\\+SAPBR:",       .func = parse_sapbr },
     { "\\+PDP: DEACT",   .func = pdp_off },
+    /* TODO:
+    +CREG // cell and location IDs, these are going to be handy if we try to do something like SUPL
+    *PSUTTZ // network time, sync STM32 RTC to this when available (probably need to set AT+CLTS=1)
+    +CBTE // Battery temp (though this can and probably should be just a request/response command)
+    +CBC // Battery voltage (though this can and probably should be just a request/response command)
+    +CNETLIGHT // Netlight status (not URC, just a command, but implement it, LEDs precious suck power...)
+    +CMTE // abnormal temperature (probably should cool down for a while)
+    */
     /* Return codes */
     { "OK",           .func = handle_ok },
     { "FAIL",         .func = handle_fail },
@@ -225,6 +239,11 @@ static void gsm_state_parser(void)
             m->func(buf);
         }
     }
+
+    // TODO: make the buffer available globally and send a signal indicating we have new URC ??
+    // This would allow threads to set enable URC for various parameters without messing 
+    // with the URC parser and state machine.
+
 }
 
 static void pdp_off(char *line)
@@ -248,10 +267,154 @@ static void call_ended(char *line)
 
 static void parse_sms_in(char *line)
 {
-    if (1 == sscanf(line, "+CMTI: \"SM\",%d", &gsm.last_sms_index)) {
-        //TODO: implement this
+    D_ENTER();
+    if (1 == sscanf(line, "+CMTI: \"SM\",%d", &gsm.last_sms_index))
+    {
+        _DEBUG("Parsed index %d\r\n", gsm.last_sms_index);
+        chEvtBroadcastFlags(&gsm_evt_sms_arrived, gsm.last_sms_index);
     }
+    else
+    {
+        _DEBUG("FAILED to parse SMS index\r\n");
+    }
+    D_EXIT();
 }
+
+int gsm_delete_sms(int index)
+{
+    // TODO: Make sure the modem is in correct state before attempting SIM operations
+    return gsm_cmd_wait_fmt("OK", 500,"AT+CMGD=%d", index);
+}
+
+static const char ctrlZ[] = {26, 0};
+int gsm_send_sms(gsm_sms_t *message)
+{
+    int stat;
+    int was_locked;
+    was_locked = gsm_request_serial_port();
+
+    // TODO: Verify the modem is in a suitable state first
+    stat = gsm_cmd_wait("AT+CMGF=1", "OK", 500);
+    if (stat != AT_OK)
+    {
+        _DEBUG("gsm_cmd_wait(AT+CMGF=1) returned %d\r\n", stat);
+        goto CMD_ERROR;
+    }
+
+    char cmd[256];
+    // Here we must send on CR, *no LF*
+    snprintf(cmd, 255, "AT+CMGS=\"%s\"\r", message->number);
+    gsm_uart_write(cmd);
+    _DEBUG("Sent %s as CMD, waiting for '>'\r\n", cmd);
+    // Just so our debug gets output first
+    chThdSleepMilliseconds(50);
+    stat = gsm_wait(">", 5000);
+    if (stat != AT_OK)
+    {
+        _DEBUG("Failed when waiting for > after sending number, stat=%s\r\n", stat);
+        goto CMD_ERROR;
+    }
+    gsm_uart_write(message->msg);
+    
+    // TODO: wait for "+CMGS: <mr>" (and parse to message->mr) and then OK.
+	stat = gsm_cmd_wait(ctrlZ, "OK", 5000);		/* CTRL-Z ends message. Wait for 'OK' */
+    if (stat != AT_OK)
+    {
+        _DEBUG("Failed when waiting OK after sending message, stat=%s\r\n", stat);
+        goto CMD_ERROR;
+    }
+
+    if (!was_locked)
+        gsm_release_serial_port();
+
+    return AT_OK;
+CMD_ERROR:
+    if (!was_locked)
+        gsm_release_serial_port();
+    return stat;    
+}
+
+int gsm_read_sms(int index, gsm_sms_t *message)
+{
+    uint16_t tmp_strlen;
+    char tmp[256];
+    int stat;
+	const char *slre_err;
+    int was_locked;
+    was_locked = gsm_request_serial_port();
+
+    // TODO: Verify the modem is in a suitable state first
+    stat = gsm_cmd_wait("AT+CMGF=1", "OK", 500);
+    if (stat != AT_OK)
+    {
+        _DEBUG("gsm_cmd_wait(AT+CMGF=1) returned %d\r\n", stat);
+        goto CMD_ERROR;
+    }
+
+    snprintf(tmp, 255, "AT+CMGR=%d" GSM_CMD_LINE_END, index);
+    gsm_uart_write(tmp);
+    _DEBUG("Sent %s as CMD, waiting for '+CMGR:'\r\n", tmp);
+    // Just so our debug gets output first
+    chThdSleepMilliseconds(50);
+
+	stat = gsm_wait_cpy("\\+CMGR:", 500, tmp, sizeof(tmp));
+    if (stat != AT_OK)
+    {
+        _DEBUG("gsm_wait_cpy(\\+CMGR:) returned %d\r\n", stat);
+        goto CMD_ERROR;
+    }
+
+	/* Example: +CMGR: "REC READ","+358403445818","","13/05/13,18:00:15+12" */
+	slre_err = slre_match(0, "\\+CMGR:\\s\"[^\"]+\",\"([^\"]+)\",\"[^\"]*\",\"([^\"]+)\"", tmp, strlen(tmp),
+	                 SLRE_STRING, sizeof(message->number)-1, message->number,
+	                 SLRE_STRING, sizeof(message->time)-1, message->time
+	           );
+	if (NULL != slre_err)
+	{
+        _DEBUG("Could not parse headers, slre_match returned %s for %s\r\n", slre_err, tmp);
+        goto CMD_ERROR;
+	}
+
+	// Read the message itself
+	_DEBUG("Starting to read the message body\r\n");
+    // Just so our debug gets output first
+    chThdSleepMilliseconds(50);
+    // There's a full empty like and OK to mark end of message, so look for anything ending in two nrbr sequences with a following OK
+    // PDU mode might be a better idea afterall, though this match will handle a message that has only "OK" as content it will probably choke on "OK\r\nmessage continues"
+	stat = gsm_wait_cpy("." GSM_CMD_LINE_END GSM_CMD_LINE_END "OK", 5000, tmp, sizeof(tmp)-1);
+    if (stat != AT_OK)
+    {
+        _DEBUG("Failed to read message contents gsm_wait_cpy returned %d\r\n", stat);
+        goto CMD_ERROR;
+    }
+    // Strip the last nlbrs
+    tmp_strlen = strlen(tmp);
+    _DEBUG("tmp_strlen=%d\r\n", tmp_strlen);
+    if (tmp_strlen >= sizeof(message->msg))
+    {
+        _DEBUG("tmp is too long, limiting lenght\r\n");
+        strncpy(message->msg, tmp, sizeof(message->msg)-1);
+    }
+    else
+    {
+        // three nlbrs and something mysterious (maybe a lone CR)
+        strncpy(message->msg, tmp, tmp_strlen-7);
+        // And make sure the string is terminated
+        message->msg[tmp_strlen-7] = 0x0;
+    }
+    _DEBUG("message->msg strlen=%d\r\n", strlen(message->msg));
+
+    if (!was_locked)
+        gsm_release_serial_port();
+
+    return AT_OK;
+CMD_ERROR:
+    if (!was_locked)
+        gsm_release_serial_port();
+    return stat;    
+}
+
+
 
 static void parse_network(char *line)
 {
@@ -429,6 +592,7 @@ int gsm_request_serial_port(void)
     chIQResetI(&(&SD3)->iqueue);
     chSysUnlock();
     sleep_disable();
+    // TODO: Why is this sleep here ?!? sleep_disable already sleeps...
     chThdSleepMilliseconds(10);
     D_EXIT();
     return 0;
@@ -478,13 +642,16 @@ int gsm_wait_cpy(const char *pattern, int timeout, char *line, size_t buf_size)
         }
         if (i == 256) //Buffer full, start new
             i = 0;
+        /**
+         * This is bad! we can't do mathing like empty line and *then* OK, I hope nothing supposes this behaviour
         if (c == '\n') //End of line, start new buffer at next char
             i = 0;
+         */
     }
 
 
     if (line) {
-        strcpy(line, buf);
+        strncpy(line, buf, sizeof(buf));
         i = strlen(line);
         while (1) {
             if ( i == (buf_size-1) )
@@ -584,6 +751,12 @@ static void gsm_enable_hw_flow()
         gsm.flags |= HW_FLOW_ENABLED;
         gsm_cmd("ATE0"); 		/* Disable ECHO */
         gsm_cmd("AT+CSCLK=1");      /* Allow module to sleep */
+        // TODO: Do we have a better place for this command ??
+        gsm_cmd("AT+CREG=2");      /* Enable cell-location URC */
+    }
+    else
+    {
+        // TODO: report error ? choke and die ?? Try again ??
     }
     _DEBUG("%s","HW flow enabled\r\n");
     D_EXIT();
@@ -594,6 +767,8 @@ void gsm_set_power_state(enum Power_mode mode)
 {
     int status_pin = palReadPad(STATUS_PORT, STATUS_PIN);
 
+    // TODO: Add minimum functionality and flight-mode states (minimum functionality is usefull for checking battery voltage for example...)
+
     switch(mode) {
     case POWER_ON:
         if (0 == status_pin) {
@@ -603,14 +778,14 @@ void gsm_set_power_state(enum Power_mode mode)
         } else {                    /* Modem already on. Possibly warm reset */
             if (gsm.state == STATE_OFF) {   /* Responses of these will feed the state machine */
                 sleep_disable();
-                gsm_cmd("AT+CPIN?");        /* Check PIN */
-                gsm_cmd("AT+CFUN?");        /* Functionality mode */
-                gsm_cmd("AT+COPS?");        /* Registered to network */
-                gsm_cmd("AT+SAPBR=2,1"); /* Query GPRS status */
                 gsm_enable_hw_flow();
-                /* We should now know modem's real status */
             }
         }
+        gsm_cmd("AT+CPIN?");        /* Check PIN */
+        gsm_cmd("AT+CFUN?");        /* Functionality mode */
+        gsm_cmd("AT+COPS?");        /* Registered to network */
+        gsm_cmd("AT+SAPBR=2,1"); /* Query GPRS status */
+        /* We should now know modem's real status */
         break;
     case POWER_OFF:
         if (1 == status_pin) {
@@ -706,6 +881,10 @@ static void gsm_thread(void *arg)
 
 /* ============ GENERAL ========================== */
 
+// TODO: separate the thread from power control
+// TODO: commands to put the module to off state (and then shutdown the the parser thread and serial peripheral) and cut-off too
+// In fact probably the power state function should handle all this...
+
 void gsm_start(void)
 {
     chBSemInit(&gsm.waiting_reply, TRUE);
@@ -714,4 +893,33 @@ void gsm_start(void)
     power_request(GSM);
     worker = chThdCreateStatic(waGSM, sizeof(waGSM), NORMALPRIO, (tfunc_t)gsm_thread, NULL);
     gsm_set_power_state(POWER_ON);
+}
+
+void gsm_stop(void)
+{
+    if (worker)
+    {
+        _DEBUG("Telling worker to terminate\r\n");
+        chThdTerminate(worker);
+        _DEBUG("Telling serial semaphore to reset\r\n");
+        chBSemReset(&gsm.serial_sem, FALSE);
+        _DEBUG("Telling serial port itself to reset\r\n");
+        sdStop(&SD3);
+        _DEBUG("Waiting for worker to exit\r\n");
+        chThdWait(worker);
+        /**
+         * Reminder: static threads cannot be released
+        chThdRelease(worker); 
+         */
+        worker = NULL;
+    }
+    _DEBUG("Turning modem off\r\n");
+    gsm_set_power_state(POWER_OFF);
+}
+
+void gsm_kill(void)
+{
+    gsm_stop();
+    _DEBUG("Releasing modem power\r\n");
+    power_release(GSM);
 }

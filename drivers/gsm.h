@@ -30,11 +30,26 @@
 
 #ifndef _GSM_H
 #define _GSM_H
+#include "ch.h"
 
 #define GSM_CMD_LINE_END "\r\n"
 
 enum Power_mode { POWER_OFF=0, POWER_ON, CUT_OFF };
 enum Reply { AT_OK=0, AT_FAIL, AT_ERROR, AT_TIMEOUT };
+
+typedef struct 
+{
+    char number[100]; // PONDER: this is probably way too large
+    char msg[161];
+    char time[26]; // When receiving
+    int  mr; // Message-reference (when sending)
+} gsm_sms_t;
+
+extern gsm_sms_t gsm_sms_default_container;
+
+// Event signal flag
+extern EventSource gsm_evt_sms_arrived;
+
 
 /* C-API */
 int gsm_cmd(const char *cmd);                                            /* Send AT command to modem. Returns AT_OK, AT_FAIL or AT_ERROR */
@@ -50,6 +65,13 @@ int gsm_read_raw(char *buf, int max_len);                                /* Read
 int gsm_gprs_enable(void);                                               /* Enable GPRS data */
 int gsm_gprs_disable(void);                                              /* Disable GPRS data */
 void gsm_start(void);                                                    /* Start the modem */
+void gsm_stop(void);                                                     /* Stop the modem, leaving power domain on */
+void gsm_kill(void);                                                     /* Stop the modem, taking all power out */
+int gsm_get_state(void);                                                 /* Read state value */
+int gsm_delete_sms(int index);                                           /* Delete SMS in index */
+int gsm_send_sms(gsm_sms_t *message);                                    /* Send SMS message */
+int gsm_read_sms(int index, gsm_sms_t *message);                         /* Read SMS message from index */
+
 
 /* Internals */
 void gsm_set_power_state(enum Power_mode mode);
