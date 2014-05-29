@@ -40,6 +40,7 @@
 #include "power.h"
 #include "chprintf.h"
 #include "debug.h"
+#include <time.h>
 
 #define GPS_BUFF_SIZE	128
 #define GPRMC (1<<0)
@@ -464,4 +465,14 @@ struct gps_data_t gps_get_data_nonblock(void) {
 struct gps_data_t gps_get_data(void) {
     /* TODO: implement this */
     return gps_get_data_nonblock();
+}
+
+void gps_datetime2tm(struct tm *timp, gps_datetime *gpstime)
+{
+    timp->tm_sec = gpstime->sec;
+    timp->tm_min = gpstime->mm;
+    timp->tm_hour = gpstime->hh;
+    timp->tm_mday = gpstime->day;
+    timp->tm_mon = gpstime->month-1;
+    timp->tm_year = gpstime->year-1900;
 }

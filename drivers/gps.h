@@ -30,6 +30,8 @@
 
 #ifndef _GPS_H_
 #define _GPS_H_
+#include <time.h>
+
 
 /* GPS Fix type */
 typedef enum {
@@ -125,6 +127,11 @@ void gps_uart_write(const char *str);
  * @return int status code
  */
 int gps_cmd(const char *cmd);
+
+/**
+ * Convert GPS datetime to time.h format
+ */
+void gps_datetime2tm(struct tm *timp, gps_datetime *gpstime);
 
 /*
 TODO:
