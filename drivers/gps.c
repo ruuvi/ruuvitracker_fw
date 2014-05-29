@@ -148,6 +148,7 @@ void gps_uart_write(const char *str)
 int gps_cmd(const char *cmd)
 {
     // TODO: parse the replies
+    // TODO: auto-handle NMEA checksumming
     gps_uart_write(cmd);
     gps_uart_write(GPS_CMD_LINE_END);
     return 0;

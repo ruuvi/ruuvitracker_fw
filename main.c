@@ -34,8 +34,6 @@
 #include "drivers/http.h"
 #include "drivers/reset_button.h"
 #include "drivers/rtchelpers.h"
-#include "drivers/sdcard.h"
-#include "drivers/testplatform.h"
 
 /* I2C interface #1 */
 // TODO: This should probably be defined in board.h or something. It needs to be globally accessible because in case of I2C timeout we *must* reinit the whole I2C subsystem
@@ -159,59 +157,8 @@ static void cmd_gps(BaseSequentialStream *chp, int argc, char *argv[])
     }
 }
 
-/**
- * Incoming SMS notifier
- */
-static WORKING_AREA(wa_sms_thd, 2048);
-
-static void sms_thd(void *arg)
-{
-    (void)arg;
-    chRegSetThreadName("sms_thd");
-    EventListener smslisten;
-    eventmask_t   events;
-    int sms_index;
-    int stat;
-    /*
-     * Register the event listener with the event source.  This is the only
-     * event this thread will be waiting for, so we choose the lowest eid.
-     * However, the eid can be anything from 0 - 31.
-     */
-    chEvtRegister(&gsm_evt_sms_arrived, &smslisten, 0);
-    while (!chThdShouldTerminate())
-    {
-        //_DEBUG("Waiting for SMS event\r\n");
-        /*
-         * We can now wait for our event.  Since we will only be waiting for
-         * a single event, we should use chEvtWaitOne()
-         */
-        events = chEvtWaitOneTimeout(EVENT_MASK(0), 100);
-        if (events != EVENT_MASK(0))
-        {
-            // Timed out
-            continue;
-        }
-        _DEBUG("SMS event received\r\n");
-        sms_index = chEvtGetAndClearFlags(&smslisten);
-        _DEBUG("New SMS in index %d\r\n", sms_index);
-        chThdSleepMilliseconds(100);
-        stat = gsm_read_sms(sms_index, &gsm_sms_default_container);
-        if (stat != AT_OK)
-        {
-            // The read func will report the errors for now.
-            continue;
-        }
-        _DEBUG("Message from '%s' is: '%s'\r\n", gsm_sms_default_container.number, gsm_sms_default_container.msg);
-    }
-    chEvtUnregister(&gsm_evt_sms_arrived, &smslisten);
-    chThdExit(0);
-}
-
-
 static void cmd_gsm(BaseSequentialStream *chp, int argc, char *argv[])
 {
-    static Thread *smsworker = NULL;
-    int i;
     if (argc < 1) {
         chprintf(chp, "Usage: gsm [apn <apn_name>] | [start] | [cmd <str>]\r\n");
         return;
@@ -220,42 +167,7 @@ static void cmd_gsm(BaseSequentialStream *chp, int argc, char *argv[])
         gsm_set_apn(argv[1]);
     } else if (0 == strcmp(argv[0], "start")) {
         // SMS notifier thread
-        smsworker = chThdCreateStatic(wa_sms_thd, sizeof(wa_sms_thd), NORMALPRIO, (tfunc_t)sms_thd, NULL);
         gsm_start();
-    } else if (0 == strcmp(argv[0], "stop")) {
-        gsm_stop();
-        chThdTerminate(smsworker);
-        chThdWait(smsworker);
-        /**
-         * Reminder: static threads cannot be released
-        chThdRelease(smsworker);
-         */
-        smsworker = NULL;
-    } else if (0 == strcmp(argv[0], "smsread")) {
-        i = gsm_read_sms(atoi(argv[1]), &gsm_sms_default_container);
-        if (i != AT_OK)
-        {
-            // The read func will report the errors for now.
-            return;
-        }
-        chprintf(chp, "Message from '%s' is: '%s'\r\n", gsm_sms_default_container.number, gsm_sms_default_container.msg);
-    } else if (0 == strcmp(argv[0], "smsdel")) {
-        gsm_delete_sms(atoi(argv[1]));
-    } else if (0 == strcmp(argv[0], "smssend")) {
-        strncpy(gsm_sms_default_container.number, argv[1], sizeof(gsm_sms_default_container.number)-1);
-        gsm_sms_default_container.msg[0] = 0x0;
-        gsm_sms_default_container.mr = 0;
-        for (i=2; i<argc; i++)
-        {
-            strcat(gsm_sms_default_container.msg, argv[i]);
-            if (i<(argc-1))
-            {
-                strcat(gsm_sms_default_container.msg, " ");
-            }
-        }
-        gsm_send_sms(&gsm_sms_default_container);
-    } else if (0 == strcmp(argv[0], "kill")) {
-        gsm_kill();
     } else if (0 == strcmp(argv[0], "cmd")) {
         gsm_cmd(argv[1]);
     } else {
@@ -351,10 +263,6 @@ static const ShellCommand commands[] = {
     {"alarm", cmd_alarm},
     {"wakeup", cmd_wakeup},
     {"acc", cmd_accread},
-    {"mount", sdcard_cmd_mount},
-    {"ls", sdcard_cmd_ls},
-    {"tp_sync", cmd_tp_sync},
-    {"tp_set_syncpin", cmd_tp_set_syncpin},
     {NULL, NULL}
 };
 
@@ -412,11 +320,6 @@ int main(void)
      */
     halInit();
     chSysInit();
-
-    /**
-     * initialize the HAL stuff the testplatform needs
-     */
-    tp_init();
 
     /*
      * Initializes a serial-over-USB CDC driver.
