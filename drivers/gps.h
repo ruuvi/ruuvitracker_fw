@@ -50,6 +50,7 @@ enum GPS_state {
     STATE_HAS_3D_FIX = 4,
     STATE_ERROR = 5
 };
+// TODO: Add the standby states too
 
 // Event signal flag
 extern EventSource gps_fix_updated;
@@ -101,6 +102,10 @@ void gps_stop(void);
  * \return Fix type.
  */
 fix_t gps_has_fix(void);
+
+int gps_get_state(void);
+int gps_get_serial_port_validated(void);
+
 
 /**
  * Request GPS data.

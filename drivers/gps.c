@@ -289,6 +289,16 @@ static int parse_gpgga(const char *line)
     }
 }
 
+int gps_get_state(void)
+{
+    return gps.state;
+}
+
+int gps_get_serial_port_validated(void)
+{
+    return gps.serial_port_validated;
+}
+
 static int parse_gpgsa(const char *line)
 {
     int gps_fix_type;
