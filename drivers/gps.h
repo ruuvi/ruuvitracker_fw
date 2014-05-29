@@ -30,6 +30,7 @@
 
 #ifndef _GPS_H_
 #define _GPS_H_
+#include "ch.h"
 #include <time.h>
 
 
@@ -49,6 +50,9 @@ enum GPS_state {
     STATE_HAS_3D_FIX = 4,
     STATE_ERROR = 5
 };
+
+// Event signal flag
+extern EventSource gps_fix_updated;
 
 /* Date and time data */
 typedef struct _gps_datetime {

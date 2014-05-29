@@ -47,6 +47,9 @@
 #define GPGSA (1<<1)
 #define GPGGA (1<<2)
 
+EVENTSOURCE_DECL(gps_fix_updated);
+
+
 /* Prototypes */
 static void gps_read_lines(void);
 static void gps_parse_line(const char *line);
@@ -275,6 +278,8 @@ static int parse_gpgsa(const char *line)
         switch(gps_fix_type) {
         case GPS_FIX_TYPE_NONE:
             if(gps_data.fix_type != GPS_FIX_TYPE_NONE)
+                // Send the "fix lost" only once
+                chEvtBroadcastFlags(&gps_fix_updated, GPS_FIX_TYPE_NONE);
                 _DEBUG("GPS: No GPS fix\r\n");
             gps_data.fix_type = GPS_FIX_TYPE_NONE;
             gps.state = STATE_ON;
@@ -285,12 +290,14 @@ static int parse_gpgsa(const char *line)
         case GPS_FIX_TYPE_2D:
             if(gps_data.fix_type != GPS_FIX_TYPE_2D)
                 _DEBUG("GPS: fix type 2D\r\n");
+            // The fix signal is sent from parse_gprmc after we have parsed to location
             gps_data.fix_type = GPS_FIX_TYPE_2D;
             gps.state = STATE_HAS_2D_FIX;
             break;
         case GPS_FIX_TYPE_3D:
             if(gps_data.fix_type != GPS_FIX_TYPE_3D)
                 _DEBUG("GPS: fix type 3D\r\n");
+            // The fix signal is sent from parse_gprmc after we have parsed to location
             gps_data.fix_type = GPS_FIX_TYPE_3D;
             gps.state = STATE_HAS_3D_FIX;
             break;
@@ -354,12 +361,18 @@ static int parse_gprmc(const char *line)
         switch(gps.state) {
         case STATE_HAS_2D_FIX:
             gps_data.fix_type = GPS_FIX_TYPE_2D;
+            chEvtBroadcastFlags(&gps_fix_updated, GPS_FIX_TYPE_2D);
             break;
         case STATE_HAS_3D_FIX:
             gps_data.fix_type = GPS_FIX_TYPE_3D;
+            chEvtBroadcastFlags(&gps_fix_updated, GPS_FIX_TYPE_3D);
             break;
         default:
             gps_data.fix_type = GPS_FIX_TYPE_NONE;
+            /**
+             * We send this in parse_gpgsa (and only once)
+            chEvtBroadcastFlags(&gps_fix_updated, GPS_FIX_TYPE_NONE);
+             */
         }
         UNLOCK;
         return 0;
