@@ -34,6 +34,8 @@
 #include "drivers/http.h"
 #include "drivers/reset_button.h"
 #include "drivers/rtchelpers.h"
+#include "drivers/sdcard.h"
+#include "drivers/testplatform.h"
 
 /* I2C interface #1 */
 // TODO: This should probably be defined in board.h or something. It needs to be globally accessible because in case of I2C timeout we *must* reinit the whole I2C subsystem
@@ -123,32 +125,93 @@ static void cmd_gps(BaseSequentialStream *chp, int argc, char *argv[])
     struct gps_data_t gps;
     char buf[255];
     (void)argc;
-    (void)argv;
-    chprintf(chp, "Enabling GPS module.\r\nPress enter to stop\r\n\r\n");
-    gps_start();
-    while (chnGetTimeout((BaseChannel *)chp, TIME_IMMEDIATE) == Q_TIMEOUT) {
-        chprintf(chp, "\x1B[2J-------[GPS Tracking,  press enter to stop]----\r\n");
-        if (GPS_FIX_TYPE_NONE != gps_has_fix()) {
-            gps = gps_get_data();
-            snprintf(buf, sizeof(buf),
-                     "lat: %f\r\n"
-                     "lon: %f\r\n"
-                     "satellites: %d\r\n"
-                     "time: %d-%d-%d %d:%d:%d\r\n",
-                     (float)gps.lat,(float)gps.lon, gps.n_satellites,
-                     gps.dt.year, gps.dt.month, gps.dt.day, gps.dt.hh, gps.dt.mm, gps.dt.sec);
-            chprintf(chp, buf);
-        } else {
-            chprintf(chp, "waiting for fix\r\n");
+
+    if (0 == strcmp(argv[0], "start")) {
+        gps_start();
+    } else if (0 == strcmp(argv[0], "stop")) {
+        gps_stop();
+    } else if (0 == strcmp(argv[0], "cmd")) {
+        gps_cmd(argv[1]);
+    } else if (0 == strcmp(argv[0], "test")) {
+        chprintf(chp, "Enabling GPS module.\r\nPress enter to stop\r\n\r\n");
+        gps_start();
+        while (chnGetTimeout((BaseChannel *)chp, TIME_IMMEDIATE) == Q_TIMEOUT) {
+            chprintf(chp, "\x1B[2J-------[GPS Tracking,  press enter to stop]----\r\n");
+            if (GPS_FIX_TYPE_NONE != gps_has_fix()) {
+                gps = gps_get_data();
+                snprintf(buf, sizeof(buf),
+                         "lat: %f\r\n"
+                         "lon: %f\r\n"
+                         "satellites: %d\r\n"
+                         "time: %d-%d-%d %d:%d:%d\r\n",
+                         (float)gps.lat,(float)gps.lon, gps.n_satellites,
+                         gps.dt.year, gps.dt.month, gps.dt.day, gps.dt.hh, gps.dt.mm, gps.dt.sec);
+                chprintf(chp, buf);
+            } else {
+                chprintf(chp, "waiting for fix\r\n");
+            }
+            chThdSleepMilliseconds(1000);
         }
-        chThdSleepMilliseconds(1000);
+        gps_stop();
+        chprintf(chp, "GPS stopped\r\n");
+    } else {
+        chprintf(chp, "Unsupported subcommand %s\r\n", argv[0]);
     }
-    gps_stop();
-    chprintf(chp, "GPS stopped\r\n");
 }
+
+/**
+ * Incoming SMS notifier
+ */
+static WORKING_AREA(wa_sms_thd, 2048);
+
+static void sms_thd(void *arg)
+{
+    (void)arg;
+    chRegSetThreadName("sms_thd");
+    EventListener smslisten;
+    eventmask_t   events;
+    int sms_index;
+    int stat;
+    /*
+     * Register the event listener with the event source.  This is the only
+     * event this thread will be waiting for, so we choose the lowest eid.
+     * However, the eid can be anything from 0 - 31.
+     */
+    chEvtRegister(&gsm_evt_sms_arrived, &smslisten, 0);
+    while (!chThdShouldTerminate())
+    {
+        //_DEBUG("Waiting for SMS event\r\n");
+        /*
+         * We can now wait for our event.  Since we will only be waiting for
+         * a single event, we should use chEvtWaitOne()
+         */
+        events = chEvtWaitOneTimeout(EVENT_MASK(0), 100);
+        if (events != EVENT_MASK(0))
+        {
+            // Timed out
+            continue;
+        }
+        _DEBUG("SMS event received\r\n");
+        sms_index = chEvtGetAndClearFlags(&smslisten);
+        _DEBUG("New SMS in index %d\r\n", sms_index);
+        chThdSleepMilliseconds(100);
+        stat = gsm_read_sms(sms_index, &gsm_sms_default_container);
+        if (stat != AT_OK)
+        {
+            // The read func will report the errors for now.
+            continue;
+        }
+        _DEBUG("Message from '%s' is: '%s'\r\n", gsm_sms_default_container.number, gsm_sms_default_container.msg);
+    }
+    chEvtUnregister(&gsm_evt_sms_arrived, &smslisten);
+    chThdExit(0);
+}
+
 
 static void cmd_gsm(BaseSequentialStream *chp, int argc, char *argv[])
 {
+    static Thread *smsworker = NULL;
+    int i;
     if (argc < 1) {
         chprintf(chp, "Usage: gsm [apn <apn_name>] | [start] | [cmd <str>]\r\n");
         return;
@@ -156,9 +219,47 @@ static void cmd_gsm(BaseSequentialStream *chp, int argc, char *argv[])
     if (0 == strcmp(argv[0], "apn")) {
         gsm_set_apn(argv[1]);
     } else if (0 == strcmp(argv[0], "start")) {
+        // SMS notifier thread
+        smsworker = chThdCreateStatic(wa_sms_thd, sizeof(wa_sms_thd), NORMALPRIO, (tfunc_t)sms_thd, NULL);
         gsm_start();
+    } else if (0 == strcmp(argv[0], "stop")) {
+        gsm_stop();
+        chThdTerminate(smsworker);
+        chThdWait(smsworker);
+        /**
+         * Reminder: static threads cannot be released
+        chThdRelease(smsworker);
+         */
+        smsworker = NULL;
+    } else if (0 == strcmp(argv[0], "smsread")) {
+        i = gsm_read_sms(atoi(argv[1]), &gsm_sms_default_container);
+        if (i != AT_OK)
+        {
+            // The read func will report the errors for now.
+            return;
+        }
+        chprintf(chp, "Message from '%s' is: '%s'\r\n", gsm_sms_default_container.number, gsm_sms_default_container.msg);
+    } else if (0 == strcmp(argv[0], "smsdel")) {
+        gsm_delete_sms(atoi(argv[1]));
+    } else if (0 == strcmp(argv[0], "smssend")) {
+        strncpy(gsm_sms_default_container.number, argv[1], sizeof(gsm_sms_default_container.number)-1);
+        gsm_sms_default_container.msg[0] = 0x0;
+        gsm_sms_default_container.mr = 0;
+        for (i=2; i<argc; i++)
+        {
+            strcat(gsm_sms_default_container.msg, argv[i]);
+            if (i<(argc-1))
+            {
+                strcat(gsm_sms_default_container.msg, " ");
+            }
+        }
+        gsm_send_sms(&gsm_sms_default_container);
+    } else if (0 == strcmp(argv[0], "kill")) {
+        gsm_kill();
     } else if (0 == strcmp(argv[0], "cmd")) {
         gsm_cmd(argv[1]);
+    } else {
+        chprintf(chp, "Unsupported subcommand %s\r\n", argv[0]);
     }
 }
 
@@ -241,7 +342,7 @@ static const ShellCommand commands[] = {
     {"mem", cmd_mem},
     {"threads", cmd_threads},
     {"test", cmd_test},
-    {"gps_test", cmd_gps},
+    {"gps", cmd_gps},
     {"gsm", cmd_gsm},
     {"http", cmd_http},
     {"stop", cmd_stop},
@@ -250,6 +351,10 @@ static const ShellCommand commands[] = {
     {"alarm", cmd_alarm},
     {"wakeup", cmd_wakeup},
     {"acc", cmd_accread},
+    {"mount", sdcard_cmd_mount},
+    {"ls", sdcard_cmd_ls},
+    {"tp_sync", cmd_tp_sync},
+    {"tp_set_syncpin", cmd_tp_set_syncpin},
     {NULL, NULL}
 };
 
@@ -265,23 +370,30 @@ static const ShellConfig shell_cfg1 = {
 /*
  * Red LED blinker thread, times are in milliseconds.
  */
-static WORKING_AREA(waThread1, 128);
+static WORKING_AREA(waBlinkerThd, 128);
 
 __attribute__((noreturn))
-static void Thread1(void *arg)
+static void BlinkerThd(void *arg)
 {
     (void)arg;
     chRegSetThreadName("blinker");
-    while (TRUE) {
-        systime_t time;
-
+    systime_t time;
+    /** 
+     * Remove the noreturn attribute if using this check
+    while (!chThdShouldTerminate())
+    */
+    while (TRUE)
+    {
         time = SDU.config->usbp->state == USB_ACTIVE ? 250 : 500;
         palClearPad(GPIOB, GPIOB_LED1);
         chThdSleepMilliseconds(time);
         palSetPad(GPIOB, GPIOB_LED1);
         chThdSleepMilliseconds(time);
     }
+    //chThdExit(0);
 }
+
+
 
 /*
  * Application entry point.
@@ -300,6 +412,11 @@ int main(void)
      */
     halInit();
     chSysInit();
+
+    /**
+     * initialize the HAL stuff the testplatform needs
+     */
+    tp_init();
 
     /*
      * Initializes a serial-over-USB CDC driver.
@@ -321,12 +438,14 @@ int main(void)
     /*
      * Creates the blinker thread.
      */
-    chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO, (tfunc_t)Thread1, NULL);
+    chThdCreateStatic(waBlinkerThd, sizeof(waBlinkerThd), NORMALPRIO, (tfunc_t)BlinkerThd, NULL);
     palClearPad(GPIOB, GPIOB_LED2);
+
+
 
     /*
      * Normal main() thread activity, in this demo it does nothing except
-     * sleeping in a loop and check the button state.
+     * sleeping in a loop and check the USB state.
      */
     while (TRUE) {
         if (!shelltp && (SDU.config->usbp->state == USB_ACTIVE)) {
