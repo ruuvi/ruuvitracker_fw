@@ -131,17 +131,20 @@ void gps_uart_write(const char *str);
  * @return int status code
  */
 int gps_cmd(const char *cmd);
+int gps_cmd_fmt(const char *fmt, ...);
 
 /**
  * Convert GPS datetime to time.h format
  */
 void gps_datetime2tm(struct tm *timp, gps_datetime *gpstime);
 
+int gps_set_update_interval(int ms); // PMTK300
+int gps_set_standby(bool state); // PMTK161
+
+
 /*
 TODO:
-add gps_set_update_interval(int ms); // PMTK300
 add gps_query_update_interval(); // PMTK400
-add gps_set_standby(boolean state); // PMTK161
 
 Add support for the ACK messages to gps_cmd
 */ 

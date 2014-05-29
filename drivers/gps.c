@@ -151,13 +151,46 @@ void gps_uart_write(const char *str)
 
 int gps_cmd(const char *cmd)
 {
-    // TODO: parse the replies
-    // TODO: auto-handle NMEA checksumming
-    gps_uart_write(cmd);
+    char cmd_wchecksum[256];
+    char checksum = 0;
+    if (strstr(cmd, "*") == NULL)
+    {
+        // No checksum, add it (we suppose no starting $ either)
+        sprintf(cmd_wchecksum, "$%s*", cmd);
+        checksum = calculate_gps_checksum(cmd_wchecksum);
+        sprintf(cmd_wchecksum, "$%s*%2x", cmd, checksum);
+        gps_uart_write(cmd_wchecksum);
+        _DEBUG("Sent '%s' to GPS\r\n", cmd_wchecksum);
+    }
+    else
+    {
+        gps_uart_write(cmd);
+        _DEBUG("Sent '%s' to GPS\r\n", cmd);
+    }
     gps_uart_write(GPS_CMD_LINE_END);
+    // TODO: parse the replies
     return 0;
 }
 
+int gps_cmd_fmt(const char *fmt, ...)
+{
+    char cmd[256];
+    va_list ap;
+    va_start( ap, fmt );
+    vsnprintf( cmd, 256, fmt, ap );
+    va_end( ap );
+    return gps_cmd(cmd);
+}
+
+int gps_set_update_interval(int ms)
+{
+    return gps_cmd_fmt("PMTK300,%d,0,0,0,0", ms);
+}
+
+int gps_set_standby(bool state)
+{
+    return gps_cmd_fmt("PMTK161,%d", state);
+}
 
 /**
  * Parse received line.

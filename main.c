@@ -122,12 +122,26 @@ static void cmd_gps(BaseSequentialStream *chp, int argc, char *argv[])
 {
     struct gps_data_t gps;
     char buf[255];
+    int i;
     (void)argc;
 
     if (0 == strcmp(argv[0], "start")) {
         gps_start();
     } else if (0 == strcmp(argv[0], "stop")) {
         gps_stop();
+    } else if (0 == strcmp(argv[0], "standby")) {
+        i = atoi(argv[1]);
+        if (i)
+        {
+            gps_set_standby(TRUE);
+        }
+        else
+        {
+            gps_set_standby(FALSE);
+        }
+    } else if (0 == strcmp(argv[0], "interval")) {
+        i = atoi(argv[1]);
+        gps_set_update_interval(i);
     } else if (0 == strcmp(argv[0], "cmd")) {
         gps_cmd(argv[1]);
     } else if (0 == strcmp(argv[0], "test")) {
