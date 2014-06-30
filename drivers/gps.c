@@ -39,18 +39,22 @@
 #include "slre.h"
 #include "power.h"
 #include "chprintf.h"
-
-#define printf(...) while(0){}
+#include "debug.h"
+#include <time.h>
 
 #define GPS_BUFF_SIZE	128
 #define GPRMC (1<<0)
 #define GPGSA (1<<1)
 #define GPGGA (1<<2)
 
+EVENTSOURCE_DECL(gps_fix_updated);
+
+
 /* Prototypes */
 static void gps_read_lines(void);
 static void gps_parse_line(const char *line);
-static int calculate_gps_checksum(const char *data);
+static char calculate_gps_checksum(const char *data);
+static int verify_gps_checksum(const char *data);
 static int parse_gpgga(const char *line);
 static int parse_gpgsa(const char *line);
 static int parse_gprmc(const char *line);
@@ -95,12 +99,15 @@ static void gps_power_on(void)
 {
     power_request(LDO3);
     power_request(LDO2);
+    power_request(GPS_VBACKUP);
 }
 
 static void gps_power_off(void)
 {
     power_release(LDO3);
     power_release(LDO2);
+    // Intentionally leave backup power on
+    // TODO: Make a separate function (or pass an argument) to turn everything off
 }
 
 
@@ -136,6 +143,55 @@ static void gps_read_lines(void)
     }
 }
 
+void gps_uart_write(const char *str)
+{
+    while(*str)
+        sdPut(&SD2, *str++);
+}
+
+int gps_cmd(const char *cmd)
+{
+    char cmd_wchecksum[256];
+    char checksum = 0;
+    if (strstr(cmd, "*") == NULL)
+    {
+        // No checksum, add it (we suppose no starting $ either)
+        sprintf(cmd_wchecksum, "$%s*", cmd);
+        checksum = calculate_gps_checksum(cmd_wchecksum);
+        sprintf(cmd_wchecksum, "$%s*%2x", cmd, checksum);
+        gps_uart_write(cmd_wchecksum);
+        _DEBUG("Sent '%s' to GPS\r\n", cmd_wchecksum);
+    }
+    else
+    {
+        gps_uart_write(cmd);
+        _DEBUG("Sent '%s' to GPS\r\n", cmd);
+    }
+    gps_uart_write(GPS_CMD_LINE_END);
+    // TODO: parse the replies
+    return 0;
+}
+
+int gps_cmd_fmt(const char *fmt, ...)
+{
+    char cmd[256];
+    va_list ap;
+    va_start( ap, fmt );
+    vsnprintf( cmd, 256, fmt, ap );
+    va_end( ap );
+    return gps_cmd(cmd);
+}
+
+int gps_set_update_interval(int ms)
+{
+    return gps_cmd_fmt("PMTK300,%d,0,0,0,0", ms);
+}
+
+int gps_set_standby(bool state)
+{
+    return gps_cmd_fmt("PMTK161,%d", state);
+}
+
 /**
  * Parse received line.
  */
@@ -144,7 +200,7 @@ static void gps_parse_line(const char *line)
     if(strstr(line, "IIII")) {
         return;	// GPS module outputs a 'IIII' as the first string, skip it
     }
-    if(calculate_gps_checksum(line)) {
+    if(verify_gps_checksum(line)) {
         gps.serial_port_validated = TRUE;
         if(strstr(line, "RMC")) {         // Required minimum data
             parse_gprmc(line);
@@ -155,25 +211,25 @@ static void gps_parse_line(const char *line)
         } else if(strstr(line, "GSA")) {  // GPS DOP and active satellites
             parse_gpgsa(line);
             gps.msgs_received |= GPGSA;
+        } else if(strstr(line, "GSV")) {  // GNSS satellite in view
+            // TODO: parse
+        } else if(strstr(line, "VTG")) {  // Course over ground and ground speed
+            // TODO: parse
         }
+        else
+        {
+            _DEBUG("Unhandled response: %s\r\n", line);
+        }
+    }
+    else
+    {
+        _DEBUG("GPS Checksum failed: %s\r\n", line);
     }
 }
 
-static int calculate_gps_checksum(const char *data)
+static char calculate_gps_checksum(const char *data)
 {
     char checksum = 0;
-    char received_checksum = 0;
-    char *checksum_index;
-
-    if((checksum_index = strstr(data, "*")) == NULL) { // Find the beginning of checksum
-        //printf("GPS: error, cannot find the beginning of checksum from input line '%s'\n", data);
-        return FALSE;
-    }
-    sscanf(checksum_index + 1, "%02hhx", &received_checksum);
-    /*	checksum_index++;
-    	*(checksum_index + 2) = 0;
-    	received_checksum = strtol(checksum_index, NULL, 16);*/
-
     /* Loop through data, XORing each character to the next */
     data = strstr(data, "$");
     data++;
@@ -181,6 +237,25 @@ static int calculate_gps_checksum(const char *data)
         checksum ^= *data;
         data++;
     }
+    return checksum;
+}
+
+static int verify_gps_checksum(const char *data)
+{
+    char checksum = 0;
+    char received_checksum = 0;
+    char *checksum_index;
+
+    if((checksum_index = strstr(data, "*")) == NULL) { // Find the beginning of checksum
+        //_DEBUG("GPS: error, cannot find the beginning of checksum from input line '%s'\n", data);
+        return FALSE;
+    }
+    sscanf(checksum_index + 1, "%02hhx", &received_checksum);
+    /*	checksum_index++;
+    	*(checksum_index + 2) = 0;
+    	received_checksum = strtol(checksum_index, NULL, 16);*/
+
+    checksum = calculate_gps_checksum(data);
 
     if(checksum == received_checksum) {
         return TRUE;
@@ -200,11 +275,11 @@ static int parse_gpgga(const char *line)
                        SLRE_INT, sizeof(n_sat), &n_sat,
                        SLRE_FLOAT, sizeof(altitude), &altitude);
     if(error != NULL) {
-        //printf("GPS: Error parsing GPGGA string '%s': %s\n", line, error);
+        //_DEBUG("GPS: Error parsing GPGGA string '%s': %s\n", line, error);
         return -1;
     } else {
         if(gps_data.n_satellites != n_sat) {
-            printf("GPS: Number of satellites in view: %d\r\n", n_sat);
+            _DEBUG("GPS: Number of satellites in view: %d\r\n", n_sat);
         }
         LOCK;
         gps_data.n_satellites = n_sat;
@@ -212,6 +287,16 @@ static int parse_gpgga(const char *line)
         UNLOCK;
         return 0;
     }
+}
+
+int gps_get_state(void)
+{
+    return gps.state;
+}
+
+int gps_get_serial_port_validated(void)
+{
+    return gps.serial_port_validated;
 }
 
 static int parse_gpgsa(const char *line)
@@ -229,14 +314,16 @@ static int parse_gpgsa(const char *line)
 
     if(error != NULL) {
         // TODO: add a check for incomplete sentence
-        //printf("GPS: Error parsing GPGSA string '%s': %s\n", line error);
+        //_DEBUG("GPS: Error parsing GPGSA string '%s': %s\n", line error);
         return -1;
     } else {
         LOCK;
         switch(gps_fix_type) {
         case GPS_FIX_TYPE_NONE:
             if(gps_data.fix_type != GPS_FIX_TYPE_NONE)
-                printf("GPS: No GPS fix\r\n");
+                // Send the "fix lost" only once
+                chEvtBroadcastFlags(&gps_fix_updated, GPS_FIX_TYPE_NONE);
+                _DEBUG("GPS: No GPS fix\r\n");
             gps_data.fix_type = GPS_FIX_TYPE_NONE;
             gps.state = STATE_ON;
             gps_data.lat = 0.0;
@@ -245,18 +332,20 @@ static int parse_gpgsa(const char *line)
             break;
         case GPS_FIX_TYPE_2D:
             if(gps_data.fix_type != GPS_FIX_TYPE_2D)
-                printf("GPS: fix type 2D\r\n");
+                _DEBUG("GPS: fix type 2D\r\n");
+            // The fix signal is sent from parse_gprmc after we have parsed to location
             gps_data.fix_type = GPS_FIX_TYPE_2D;
             gps.state = STATE_HAS_2D_FIX;
             break;
         case GPS_FIX_TYPE_3D:
             if(gps_data.fix_type != GPS_FIX_TYPE_3D)
-                printf("GPS: fix type 3D\r\n");
+                _DEBUG("GPS: fix type 3D\r\n");
+            // The fix signal is sent from parse_gprmc after we have parsed to location
             gps_data.fix_type = GPS_FIX_TYPE_3D;
             gps.state = STATE_HAS_3D_FIX;
             break;
         default:
-            printf("GPS: Error, unknown GPS fix type!\r\n");
+            _DEBUG("GPS: Error, unknown GPS fix type!\r\n");
             return -1;
             break;
         }
@@ -266,9 +355,9 @@ static int parse_gpgsa(const char *line)
         gps_data.vdop = vdop;
         UNLOCK;
         /*
-        printf("GPS: pdop: %f\n", gps_data.pdop);
-        printf("GPS: hdop: %f\n", gps_data.hdop);
-        printf("GPS: vdop: %f\n", gps_data.vdop);
+        _DEBUG("GPS: pdop: %f\n", gps_data.pdop);
+        _DEBUG("GPS: hdop: %f\n", gps_data.hdop);
+        _DEBUG("GPS: vdop: %f\n", gps_data.vdop);
         */
         return 0;
     }
@@ -293,7 +382,7 @@ static int parse_gprmc(const char *line)
                        SLRE_STRING, sizeof(date), date);
 
     if(error != NULL) {
-        printf("GPS: Error parsing GPRMC string '%s': %s\n", line, error);
+        _DEBUG("GPS: Error parsing GPRMC string '%s': %s\n", line, error);
         return -1;
     } else {
         if(strcmp(status, "A") != 0) {
@@ -315,12 +404,18 @@ static int parse_gprmc(const char *line)
         switch(gps.state) {
         case STATE_HAS_2D_FIX:
             gps_data.fix_type = GPS_FIX_TYPE_2D;
+            chEvtBroadcastFlags(&gps_fix_updated, GPS_FIX_TYPE_2D);
             break;
         case STATE_HAS_3D_FIX:
             gps_data.fix_type = GPS_FIX_TYPE_3D;
+            chEvtBroadcastFlags(&gps_fix_updated, GPS_FIX_TYPE_3D);
             break;
         default:
             gps_data.fix_type = GPS_FIX_TYPE_NONE;
+            /**
+             * We send this in parse_gpgsa (and only once)
+            chEvtBroadcastFlags(&gps_fix_updated, GPS_FIX_TYPE_NONE);
+             */
         }
         UNLOCK;
         return 0;
@@ -426,4 +521,14 @@ struct gps_data_t gps_get_data_nonblock(void) {
 struct gps_data_t gps_get_data(void) {
     /* TODO: implement this */
     return gps_get_data_nonblock();
+}
+
+void gps_datetime2tm(struct tm *timp, gps_datetime *gpstime)
+{
+    timp->tm_sec = gpstime->sec;
+    timp->tm_min = gpstime->mm;
+    timp->tm_hour = gpstime->hh;
+    timp->tm_mday = gpstime->day;
+    timp->tm_mon = gpstime->month-1;
+    timp->tm_year = gpstime->year-1900;
 }

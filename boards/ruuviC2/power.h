@@ -2,10 +2,11 @@
 #define POWER_H
 
 enum POWER_DOMAIN {
-     LDO2=0,
-     LDO3,
-     LDO4,
+     LDO2=0,    // MicroSD, GPS Antenna
+     LDO3,      // GPS_VCC
+     LDO4,      // Expansion port
      GSM,
+     GPS_VBACKUP, // GPS backup power, for warm starts...
 };
 
 /**

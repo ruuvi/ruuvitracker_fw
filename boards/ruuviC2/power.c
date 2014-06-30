@@ -13,6 +13,8 @@ static void enable_ldo4(void);
 static void disable_ldo4(void);
 static void enable_gsm_fet(void);
 static void disable_gsm_fet(void);
+static void enable_gps_vbackup(void);
+static void disable_gps_vbackup(void);
 
 struct power_domains_t {
      enum POWER_DOMAIN domain;
@@ -27,6 +29,7 @@ static struct power_domains_t power_domains[] = {
      { LDO3, enable_ldo3, disable_ldo3, 0 },
      { LDO4, enable_ldo4, disable_ldo4, 0 },
      { GSM, enable_gsm_fet, disable_gsm_fet, 0 },
+     { GPS_VBACKUP, enable_gps_vbackup, disable_gps_vbackup, 0 },
 };
 
 static BinarySemaphore sem;
@@ -97,6 +100,17 @@ static void disable_gsm_fet(void)
 {
      palSetPad(GPIOC, GPIOC_ENABLE_GSM_VBAT);
 }
+
+static void enable_gps_vbackup(void)
+{
+     palSetPad(GPIOC, GPIOC_GPS_V_BACKUP_PWR);
+}
+
+static void disable_gps_vbackup(void)
+{
+     palClearPad(GPIOC, GPIOC_GPS_V_BACKUP_PWR);
+}
+
 
 void power_enter_stop(void)
 {
