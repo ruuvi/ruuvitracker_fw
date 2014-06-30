@@ -30,6 +30,9 @@
 
 #ifndef _GPS_H_
 #define _GPS_H_
+#include "ch.h"
+#include <time.h>
+
 
 /* GPS Fix type */
 typedef enum {
@@ -47,6 +50,10 @@ enum GPS_state {
     STATE_HAS_3D_FIX = 4,
     STATE_ERROR = 5
 };
+// TODO: Add the standby states too
+
+// Event signal flag
+extern EventSource gps_fix_updated;
 
 /* Date and time data */
 typedef struct _gps_datetime {
@@ -76,6 +83,8 @@ struct gps_data_t {
 };
 
 
+#define GPS_CMD_LINE_END "\r\n"
+
 /******** API ***************/
 
 /**
@@ -94,6 +103,10 @@ void gps_stop(void);
  */
 fix_t gps_has_fix(void);
 
+int gps_get_state(void);
+int gps_get_serial_port_validated(void);
+
+
 /**
  * Request GPS data.
  * This function queries last known values parsed from GPS messages.
@@ -107,6 +120,39 @@ struct gps_data_t gps_get_data_nonblock(void);
  * \return gps_data_t structure.
  */
 struct gps_data_t gps_get_data(void);
+
+/**
+ * Writes to the GPS uart
+ * @param char* string to write
+ */
+void gps_uart_write(const char *str);
+
+/**
+ * Sends a command to GPS and reads reply
+ *
+ * NOTE: reply checking is not yet implemented!!
+ *
+ * @param char* command to write, linebreaks are added automatically
+ * @return int status code
+ */
+int gps_cmd(const char *cmd);
+int gps_cmd_fmt(const char *fmt, ...);
+
+/**
+ * Convert GPS datetime to time.h format
+ */
+void gps_datetime2tm(struct tm *timp, gps_datetime *gpstime);
+
+int gps_set_update_interval(int ms); // PMTK300
+int gps_set_standby(bool state); // PMTK161
+
+
+/*
+TODO:
+add gps_query_update_interval(); // PMTK400
+
+Add support for the ACK messages to gps_cmd
+*/ 
 
 #endif
 

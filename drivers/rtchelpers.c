@@ -2,6 +2,7 @@
 #include "chprintf.h"
 #include <string.h>
 #include <stdlib.h>
+#include "chrtclib.h"
 #include <time.h>
 
 void cmd_alarm(BaseSequentialStream *chp, int argc, char *argv[])
