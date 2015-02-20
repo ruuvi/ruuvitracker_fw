@@ -1,16 +1,14 @@
 # Usage:
 # import cycle_leds
-# Interruct by control-C
 
 import time
 import leds
 
 green = leds.Led('green')
 red = leds.Led('red')
+green.on()
+red.off()
 while True:
-    green.on()
-    red.off()
-    time.sleep(1)
-    green.off()
-    red.on()
+    green.toggle()
+    red.toggle()
     time.sleep(1)
