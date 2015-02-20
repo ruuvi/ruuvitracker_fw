@@ -1,0 +1,42 @@
+Instructions for running MicroPython on RuuviTracker board
+
+This directory contains differences to sources from MicroPython.org 
+https://github.com/micropython/micropython
+
+*** Firmware upload ***
+0) Alternatively compilation can be skipped if you want to use
+   already compiled firmware. In that case skip to dfu-util command
+   and adjust firmware.dfu path to compiled-firmware/firmware.dfu
+1) Copy/merge this directory on top of micropython directory
+2) Prepare RuuviTracker to firmware upload by removing battery 
+   and usb and pressing second button from battery connector while
+   connecting battery again and then connecting usb
+3) Use shell
+
+$ cd micropython
+$ cd stmhal
+$ export BOARD=RUUVITRACKER_C3
+$ make
+# DOES NOT WORK: make deploy
+# INSTEAD USE:
+$ sudo dfu-util -a 0 -d 0483:df11 -D build-RUUVITRACKER_C3/firmware.dfu 
+
+4) Disconnect battery and usb to reboot
+
+*** Console connection ***
+1) Connect battery and usb
+2) Use shell
+
+# For Mac
+$ screen /dev/tty.usbmodem*
+# For Linux
+$ screen /dev/ttyACM0
+
+3) Press extra enter if blank page
+4) Type python commands like 1+2
+
+*** Running MicroPython scripts ***
+1) Connect battery and usb
+2) RuuviTracker appears as USB drive in Linux and Mac
+3) Copy script files from sample directory to that drive
+4) Test scripts by following help in them

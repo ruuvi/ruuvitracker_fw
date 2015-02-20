@@ -1,0 +1,7 @@
+# Using SDcard in RuuviTracker
+
+import pyb, sdcard, os
+sd = sdcard.SDCard(pyb.SPI(1), pyb.Pin.board.Y8)
+pyb.mount(sd, '/sd2')
+os.listdir('/sd2')
+open('/sd2/hello.py','r').read()
