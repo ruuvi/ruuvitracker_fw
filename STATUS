@@ -1,0 +1,45 @@
+Status of RuuviTracker software
+
+MicroPython
+- working
+- file: firmware
+
+Leds
+- working
+- file: leds.py
+
+SDcard
+- working
+- SPI
+- file: sdcard.py
+
+GSM
+- work not started
+
+GPS
+- work not started
+- 
+- UART is in different pins compared to pyboard
+
+HTTP
+- work not started
+- might be ready
+
+Accelerometers
+- work not started
+- i2c
+- MMA8652FC
+
+Charging info
+- work not started
+- is charging: io-pin
+- charge status: uart
+
+Log writing utility
+- work not started
+
+Sending position to map server
+- work not started
+
+iProtoXi sensors
+- work has started
