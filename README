@@ -38,5 +38,5 @@ $ screen /dev/ttyACM0
 *** Running MicroPython scripts ***
 1) Connect battery and usb
 2) RuuviTracker appears as USB drive in Linux and Mac
-3) Copy script files from sample directory to that drive
+3) Copy script files from scripts directory to that drive
 4) Test scripts by following help in them
