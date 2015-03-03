@@ -11,9 +11,9 @@ class Led:
 
   def __init__(self, color):
     if (color == 'green'):
-      self.pin = pyb.Pin('LED2', pyb.Pin.OUT_PP)
+      self.pin = pyb.Pin('LED_GREEN', pyb.Pin.OUT_PP)
     elif (color == 'red'):
-      self.pin = pyb.Pin('LED1', pyb.Pin.OUT_PP)
+      self.pin = pyb.Pin('LED_RED', pyb.Pin.OUT_PP)
     else:
       print('Unknown led color')
 
