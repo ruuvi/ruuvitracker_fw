@@ -23,6 +23,8 @@
 
 // map RT WKUP to USRSW 
 #define MICROPY_HW_USRSW_PIN        (pin_A0)
+// map RT "boot1" (I think it's boot0) to USRSW 
+//#define MICROPY_HW_USRSW_PIN        (pin_B2)
 #define MICROPY_HW_USRSW_PULL       (GPIO_PULLUP)
 #define MICROPY_HW_USRSW_EXTI_MODE  (GPIO_MODE_IT_FALLING)
 #define MICROPY_HW_USRSW_PRESSED    (0)
@@ -37,10 +39,12 @@
 #define MICROPY_HW_LED_OFF(pin)     (pin->gpio->BSRRH = pin->pin_mask)
 
 // SD card detect switch
-#define MICROPY_HW_SDCARD_DETECT_PIN        (PC10)
+#define MICROPY_HW_SDCARD_DETECT_PIN        (pin_C10)
 #define MICROPY_HW_SDCARD_DETECT_PULL       (GPIO_PULLUP)
 #define MICROPY_HW_SDCARD_DETECT_PRESENT    (GPIO_PIN_RESET)
 
 // USB config
+/*
 #define MICROPY_HW_USB_VBUS_DETECT_PIN (pin_A9)
 #define MICROPY_HW_USB_OTG_ID_PIN      (pin_A10)
+*/
