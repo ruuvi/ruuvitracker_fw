@@ -5,6 +5,7 @@
 #define MICROPY_PY_SYS_PLATFORM     "ruuvitracker"
 
 #define MICROPY_HW_HAS_SWITCH       (1)
+// 2015-03-03 rambo: I am not 100% we should enable this since we do not support SDIO, only SPI...
 #define MICROPY_HW_HAS_SDCARD       (1)
 #define MICROPY_HW_HAS_MMA7660      (0)
 #define MICROPY_HW_HAS_LIS3DSH      (0)
@@ -20,23 +21,23 @@
 #define MICROPY_HW_ENABLE_SPI3      (0)
 #define MICROPY_HW_ENABLE_CAN       (1)
 
-// USRSW has no pullup or pulldown, and pressing the switch makes the input go low
-#define MICROPY_HW_USRSW_PIN        (pin_B3)
+// map RT WKUP to USRSW 
+#define MICROPY_HW_USRSW_PIN        (pin_A0)
 #define MICROPY_HW_USRSW_PULL       (GPIO_PULLUP)
 #define MICROPY_HW_USRSW_EXTI_MODE  (GPIO_MODE_IT_FALLING)
 #define MICROPY_HW_USRSW_PRESSED    (0)
 
 // The pyboard has 4 LEDs
-#define MICROPY_HW_LED1             (pin_A13) // red
-#define MICROPY_HW_LED2             (pin_A14) // green
-#define MICROPY_HW_LED3             (pin_A15) // yellow
-#define MICROPY_HW_LED4             (pin_B4)  // blue
+#define MICROPY_HW_LED1             (pin_B8) // red
+#define MICROPY_HW_LED2             (pin_B9) // green
+#define MICROPY_HW_LED3             (pin_B8) // yellow (just map the red)
+#define MICROPY_HW_LED4             (pin_B9)  // blue  (just map the green)
 #define MICROPY_HW_LED_OTYPE        (GPIO_MODE_OUTPUT_PP)
 #define MICROPY_HW_LED_ON(pin)      (pin->gpio->BSRRL = pin->pin_mask)
 #define MICROPY_HW_LED_OFF(pin)     (pin->gpio->BSRRH = pin->pin_mask)
 
 // SD card detect switch
-#define MICROPY_HW_SDCARD_DETECT_PIN        (pin_A8)
+#define MICROPY_HW_SDCARD_DETECT_PIN        (PC10)
 #define MICROPY_HW_SDCARD_DETECT_PULL       (GPIO_PULLUP)
 #define MICROPY_HW_SDCARD_DETECT_PRESENT    (GPIO_PIN_RESET)
 
