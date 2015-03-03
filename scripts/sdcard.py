@@ -7,7 +7,7 @@ methods so the device can be mounted as a filesystem.
 Example usage:
 
     import pyb, sdcard, os
-    sd = sdcard.SDCard(pyb.SPI(1), pyb.Pin.board.X5)
+    sd = sdcard.SDCard(pyb.SPI(1), pyb.Pin.board.MICROSD_CS)
     pyb.mount(sd, '/sd2')
     os.listdir('/')
 
