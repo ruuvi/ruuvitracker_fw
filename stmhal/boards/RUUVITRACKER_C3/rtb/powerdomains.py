@@ -4,22 +4,29 @@ class powerdomains_base:
 
     def __init__(self, pin):
         self.pin = pin
+        # For some weird reason the pin was already up, make sure we track that...
+        if self.pin.value():
+            self.reservations += 1
 
     def request(self):
+        """Requests a power domain, this will enable the domain if not already enabled, returns boolean indicating whether pin was actually changed."""
         if self.reservations >= 254:
             raise RuntimeError("Trying to request domain for the 255th time, something must be wrong")
-        if self.reservations == 0:
-            self.pin.high()
         self.reservations += 1
-        return True
+        if self.reservations == 1:
+            self.pin.high()
+            return True
+        return False
 
     def release(self):
+        """Release a power domain, this will disable the domain if there are no other requests for it, returns boolean indicating whether pin was actually changed."""
         if self.reservations <= 0:
             raise RuntimeError("Trying to release a domain that is already fully released")
         self.reservations -= 1
         if self.reservations == 0:
             self.pin.low()
-        return True
+            return True
+        return False
 
     def status(self):
         return bool(self.pin.value())
@@ -42,7 +49,8 @@ class powermanager:
     def all_released(self):
         """Checks all known domains, returns True if all are released, False otherwise"""
         for d in self.domains:
-            if not d.status:
+            if d.status():
+                #print("pin %s is enabled" % d.pin)
                 return False
         return True
 
