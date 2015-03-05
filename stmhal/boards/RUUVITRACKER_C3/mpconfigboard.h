@@ -21,13 +21,13 @@
 #define MICROPY_HW_ENABLE_SPI3      (0)
 #define MICROPY_HW_ENABLE_CAN       (1)
 
-// map RT WKUP to USRSW 
+// map RT WKUP to USRSW (though this may be a bad idea when using accelerometer wakeup...
 #define MICROPY_HW_USRSW_PIN        (pin_A0)
 // map RT "boot1" (I think it's boot0) to USRSW 
 //#define MICROPY_HW_USRSW_PIN        (pin_B2)
-#define MICROPY_HW_USRSW_PULL       (GPIO_PULLUP)
-#define MICROPY_HW_USRSW_EXTI_MODE  (GPIO_MODE_IT_FALLING)
-#define MICROPY_HW_USRSW_PRESSED    (0)
+#define MICROPY_HW_USRSW_PULL       (GPIO_PULLDOWN)
+#define MICROPY_HW_USRSW_EXTI_MODE  (GPIO_MODE_IT_RISING)
+#define MICROPY_HW_USRSW_PRESSED    (1)
 
 // The pyboard has 4 LEDs
 #define MICROPY_HW_LED1             (pin_B8) // red
