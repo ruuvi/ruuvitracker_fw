@@ -30,6 +30,9 @@
 
 #define STM32F4xx_MCUCONF
 
+// VBUS sense is not used on C2
+#define BOARD_OTG_NOVBUSSENS
+
 /*
  * HAL driver system settings.
  */
