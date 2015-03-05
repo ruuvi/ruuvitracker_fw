@@ -1,4 +1,4 @@
-Best practises for developing on RuuviTracker with MicroPython
+# Best practises for developing on RuuviTracker with MicroPython
 
 Importing python modules after making changes to them may seem problematic.
 They are not imported again if they are imported earlier to same python
