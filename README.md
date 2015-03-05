@@ -4,13 +4,15 @@
 
 See [MicroPython documentation](http://docs.micropython.org/en/latest/quickref.html) for details about execution environment.
 
-TODO: Document the board specific python modules as they get more functionality.
+TODO: Document the board specific python modules via [gh-pages](https://pages.github.com/) as they get more functionality.
+
 
 ### REPL quickstart
 
 On Linux the REPL is on ACM device, `/dev/ttyACM0` if you don't have any other CDC serial ports.
 
 On OSX it's on `/dev/tty.usbmodemXXXX` (exact number is probably board specific).
+
 
 ## Flashing == Installing
 
@@ -29,6 +31,8 @@ Building is simple, run `./ruuvi_build.sh`
 
 If you want to build for a different board than RUUVITRACKER_C3 (which is revC2 compatible if you happen to have C2) run `BOARD=MYBOARD ./ruuvi_build.sh`,
 in this case you must have your board files in the standard location under `stmhal/boards/`.
+
+TODO: List build dependencies, meanwhile check out <http://kirjoitusalusta.fi/ruuvitracker-ubuntu1404>
 
 
 [upy]: http://micropython.org/
