@@ -1,7 +1,9 @@
 # Best practises for developing on RuuviTracker with MicroPython
 
-Importing python modules after making changes to them may seem problematic.
-They are not imported again if they are imported earlier to same python
-instance. Therefore it is easiest to reset python memory by pressing
-control-D in console, which keeps all connections (terminal and usb-drive)
-but cleans python memory.
+## Reloading modules
+
+Re-importing will not (usually) work, best way is to use ctrl-D in the REPL to
+do a soft reboot, this keeps all connections (terminal and flash-drive) intact
+but clears Python memory. **NOTE**: this does *not* reset GPIOs either so
+if your module initializations make assumptions about GPIO status' after reset
+you will be in a world of pain.
