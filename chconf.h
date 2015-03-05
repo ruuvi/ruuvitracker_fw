@@ -28,6 +28,13 @@
 #ifndef _CHCONF_H_
 #define _CHCONF_H_
 
+/*
+ * Increase stack size
+ */
+#ifndef PORT_INT_REQUIRED_STACK
+#define PORT_INT_REQUIRED_STACK 48
+#endif
+
 /*===========================================================================*/
 /**
  * @name Kernel parameters and options
