@@ -51,6 +51,7 @@ class UARTParser():
         getattr(self.recv_bytes, method)
         self._line_cbs.append((method, checkstr, cb))
 
+    # TODO: This loop loses bytes for some reason, probably we're too slow even when we do no processing...
     def start(self):
         self._run = True
         while self._run:
@@ -65,8 +66,8 @@ class UARTParser():
                 continue
             # DEBUG
             print(chr(recv), end="")
-            self.recv_bytes += chr(recv)
-            get_event_loop().call_soon(self.parse_buffer)
+            #self.recv_bytes += chr(recv)
+            #self.parse_buffer()
             if not self.uart.any():
                 # No data, sleep a bit
                 yield from sleep(self.sleep_time)
