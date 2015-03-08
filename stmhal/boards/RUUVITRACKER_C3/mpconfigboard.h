@@ -5,8 +5,11 @@
 #define MICROPY_PY_SYS_PLATFORM     "ruuvitracker"
 
 #define MICROPY_HW_HAS_SWITCH       (1)
-// 2015-03-03 rambo: I am not 100% we should enable this since we do not support SDIO, only SPI...
+/**
+ * Until micropython supports SPI interface in addition to SDIO, we do not have SDCARD as far as the kernel is concerned
 #define MICROPY_HW_HAS_SDCARD       (1)
+*/
+#define MICROPY_HW_HAS_SDCARD       (0)
 #define MICROPY_HW_HAS_MMA7660      (0)
 #define MICROPY_HW_HAS_LIS3DSH      (0)
 #define MICROPY_HW_HAS_LCD          (1)
