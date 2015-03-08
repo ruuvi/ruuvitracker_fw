@@ -9,7 +9,21 @@ if not rtb.pwr.GPS_VCC.status():
 if not rtb.pwr.GPS_ANT.status():
     rtb.pwr.GPS_ANT.request()
 
+# Works
 while True:
     if gps.any():
         received = gps.readchar()
         print(chr(received), end="")
+
+# Does not work (hangs)
+#while True:
+#    if gps.any():
+#        received = gps.read()
+#        print(received, end="")
+
+# Sorta works, the print just prints the buffer funny
+while True:
+    if gps.any():
+        received = gps.read(1)
+        print(received, end="")
+
