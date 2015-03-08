@@ -27,7 +27,7 @@ class UARTParser():
             self.line = self.recv_bytes[self._sol:-len(self.EOL)]
             for cbinfo in self._line_cbs:
                 if getattr(self.line, cbinfo[0])(cbinfo[1]):
-                    get_event_loop().call_soon(cbinfo[2], self.line)
+                    get_event_loop().call_soon(cbinfo[2], self.line, self)
             # And finally point the start-of-line to current byte
             self._sol = len(self.recv_bytes)
         
@@ -35,7 +35,7 @@ class UARTParser():
             #print("Checking %s with %s" % (repr(self.recv_bytes), repr(cbinfo[0])))
             match = cbinfo[0](self.recv_bytes)
             if match:
-                 get_event_loop().call_soon(cbinfo[1], match)
+                 get_event_loop().call_soon(cbinfo[1], match, self)
 
     def add_re_callback(self, regex, cb, method='search'):
         """Adds a regex callback for checking the buffer every time we receive data (this obviously can get a bit expensive), takes the regex as string and callback function.
