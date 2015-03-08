@@ -56,16 +56,21 @@ class UARTParser():
         while self._run:
             # Apparently we can't do this...
             #recv = yield from self.uart.read(1)
-            recv = self.uart.read(1)
+            #recv = self.uart.read(1)
+            recv = self.uart.readchar()
             # Timed out
-            if len(recv) == 0:
+            if recv < 0:
+            #if len(recv) == 0:
                 yield from sleep(self.sleep_time)
                 continue
-            self.recv_bytes += recv
+            # DEBUG
+            print(chr(recv), end="")
+            self.recv_bytes += chr(recv)
             get_event_loop().call_soon(self.parse_buffer)
             if not self.uart.any():
                 # No data, sleep a bit
                 yield from sleep(self.sleep_time)
+                continue
             # Otherwise just yield (so the callbacks get processed)
             yield
 
