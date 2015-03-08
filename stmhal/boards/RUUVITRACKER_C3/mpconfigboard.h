@@ -23,8 +23,6 @@
 
 // map RT WKUP to USRSW (though this may be a bad idea when using accelerometer wakeup...
 #define MICROPY_HW_USRSW_PIN        (pin_A0)
-// map RT "boot1" (I think it's boot0) to USRSW 
-//#define MICROPY_HW_USRSW_PIN        (pin_B2)
 #define MICROPY_HW_USRSW_PULL       (GPIO_PULLDOWN)
 #define MICROPY_HW_USRSW_EXTI_MODE  (GPIO_MODE_IT_RISING)
 #define MICROPY_HW_USRSW_PRESSED    (1)
@@ -44,7 +42,8 @@
 #define MICROPY_HW_SDCARD_DETECT_PRESENT    (GPIO_PIN_RESET)
 
 // USB config
-/*
+/**
+ * We do not have VUSB detect nor OTG
 #define MICROPY_HW_USB_VBUS_DETECT_PIN (pin_A9)
 #define MICROPY_HW_USB_OTG_ID_PIN      (pin_A10)
 */
