@@ -26,6 +26,8 @@ class GPS:
         
         # The parsers start method is a generator so it's called like this
         get_event_loop().call_soon(self.uart.start())
+
+    # TODO: Add GPS command methods (like setting the interval, putting the module to various sleep modes etc)
     
     def print_line(self, line, parser):
         print(line)
