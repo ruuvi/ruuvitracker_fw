@@ -22,17 +22,19 @@ class UARTParser():
         _sol = 0
 
     def parse_buffer(self):
-        if (self.recv_bytes[-len(self.EOL):] == self.EOL):
+        eolpos = self.recv_bytes.find(self.EOL, self._sol)
+        while eolpos > -1:
             # End Of Line detected
-            self.line = self.recv_bytes[self._sol:-len(self.EOL)]
+            self.line = self.recv_bytes[self._sol:eolpos]
             for cbinfo in self._line_cbs:
                 if getattr(self.line, cbinfo[0])(cbinfo[1]):
                     get_event_loop().call_soon(cbinfo[2], self.line, self)
-            # And finally point the start-of-line to current byte
-            self._sol = len(self.recv_bytes)
-        
+            # Point the start-of-line to next line
+            self._sol = eolpos+len(self.EOL)
+            # And loop, just in case we have multiple lines in the buffer...
+            eolpos = self.recv_bytes.find(self.EOL, self._sol)
+
         for cbinfo in self._re_cbs:
-            #print("Checking %s with %s" % (repr(self.recv_bytes), repr(cbinfo[0])))
             match = cbinfo[0](self.recv_bytes)
             if match:
                  get_event_loop().call_soon(cbinfo[1], match, self)
@@ -55,25 +57,18 @@ class UARTParser():
     def start(self):
         self._run = True
         while self._run:
-            # Apparently we can't do this...
-            #recv = yield from self.uart.read(1)
-            #recv = self.uart.read(1)
-            recv = self.uart.readchar()
-            # Timed out
-            if recv < 0:
-            #if len(recv) == 0:
-                yield from sleep(self.sleep_time)
-                continue
-            # DEBUG
-            print(chr(recv), end="")
-            #self.recv_bytes += chr(recv)
-            #self.parse_buffer()
             if not self.uart.any():
-                # No data, sleep a bit
                 yield from sleep(self.sleep_time)
                 continue
-            # Otherwise just yield (so the callbacks get processed)
-            yield
+            recv = self.uart.read(100)
+            #recv = self.uart.readchar()
+            #if recv < 0:
+            if len(recv) == 0:
+                # Timed out (it should be impossible though...)
+                continue
+            self.recv_bytes += recv
+            # TODO: We may want to inline the parsing due to cost of method calls
+            self.parse_buffer()
 
     def stop(self):
         self._run = False

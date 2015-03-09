@@ -1,5 +1,5 @@
 import rtb
-gps = pyb.UART(rtb.GPS_UART_N, 115200)
+gps = pyb.UART(rtb.GPS_UART_N, 115200, timeout=0, read_buf_len=256)
 
 if not rtb.pwr.GPS_VBACKUP.status():
     rtb.pwr.GPS_VBACKUP.request()
@@ -20,7 +20,7 @@ def print_line(line, parser):
     print("== LINE ===")
     print(line)
     print("===")
-#    parser.flush()
+    parser.flush()
 
 
 def print_match(match, parser):
@@ -33,12 +33,13 @@ def print_match(match, parser):
         except IndexError:
             break
     print("===")
-    parser.flush()
+    #parser.flush()
 
 
 p = uartparser.UARTParser(gps)
 p.add_line_callback('startswith', '$GPRMC', print_line)
-#p.add_re_callback('GPGGA,(.*?),.*,(.*?)\r\n', print_match)
+p.add_line_callback('startswith', '$GPVTG', print_line)
+p.add_re_callback('GPGGA,(.*?),.*?,(.*?)\r\n', print_match)
 loop = get_event_loop()
 loop.call_soon(p.start())
 loop.run_forever()
@@ -60,7 +61,10 @@ while True:
 # Sorta works, the print just prints the buffer funny
 while True:
     if gps.any():
-        received = gps.read(10) # Using 10 as the "at most" seems to result in single result almost always anyway
+        received = gps.read(100) # Using 10 as the "at most" seems to result in single result almost always anyway
         print(received)
+    else:
+        print("Sleeping")
+        pyb.delay(10)
 
 
