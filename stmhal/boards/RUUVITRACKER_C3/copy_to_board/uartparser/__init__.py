@@ -18,8 +18,8 @@ class UARTParser():
 
     def flush(self):
         self.recv_bytes = b''
-        line = b''
-        _sol = 0
+        self.line = b''
+        self._sol = 0
 
     def parse_buffer(self):
         eolpos = self.recv_bytes.find(self.EOL, self._sol)
@@ -29,6 +29,7 @@ class UARTParser():
             for cbinfo in self._line_cbs:
                 if getattr(self.line, cbinfo[0])(cbinfo[1]):
                     get_event_loop().call_soon(cbinfo[2], self.line, self)
+
             # Point the start-of-line to next line
             self._sol = eolpos+len(self.EOL)
             # And loop, just in case we have multiple lines in the buffer...
@@ -39,11 +40,15 @@ class UARTParser():
             if match:
                  get_event_loop().call_soon(cbinfo[1], match, self)
 
+    # TODO: We need some way to remove a callback, or a way to add&handle single-shot callbacks
+
     def add_re_callback(self, regex, cb, method='search'):
         """Adds a regex callback for checking the buffer every time we receive data (this obviously can get a bit expensive), takes the regex as string and callback function.
         Optionally you can specify 'match' instead of search as the method to use for matching. The callback will receive the match object."""
         import ure
+        # Compile the regex
         re = ure.compile(regex)
+        # And add the the callback list
         self._re_cbs.append((getattr(re, method), cb))
 
     def add_line_callback(self, method, checkstr, cb):
@@ -51,9 +56,9 @@ class UARTParser():
         The check is performed (and callback will receive  the matched line) with End Of Line removed."""
         # Check that the method is valid
         getattr(self.recv_bytes, method)
+        # And add the the callback list
         self._line_cbs.append((method, checkstr, cb))
 
-    # TODO: This loop loses bytes for some reason, probably we're too slow even when we do no processing...
     def start(self):
         self._run = True
         while self._run:
@@ -61,8 +66,6 @@ class UARTParser():
                 yield from sleep(self.sleep_time)
                 continue
             recv = self.uart.read(100)
-            #recv = self.uart.readchar()
-            #if recv < 0:
             if len(recv) == 0:
                 # Timed out (it should be impossible though...)
                 continue
