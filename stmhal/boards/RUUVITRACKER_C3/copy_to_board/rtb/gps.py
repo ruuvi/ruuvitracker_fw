@@ -32,7 +32,6 @@ class GPS:
         parser.flush()
     
     def stop(self):
-        # Stop is not generator, called like this
         self.uart.stop()
         self.uart_lld.deinit()
         rtb.pwr.GPS_VCC.release()
