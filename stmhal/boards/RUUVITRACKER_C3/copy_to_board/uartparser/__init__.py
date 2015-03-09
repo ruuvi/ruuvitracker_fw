@@ -28,6 +28,7 @@ class UARTParser():
             self.line = self.recv_bytes[self._sol:eolpos]
             for cbinfo in self._line_cbs:
                 if getattr(self.line, cbinfo[0])(cbinfo[1]):
+                    # PONDER: Maybe we do not want to pass the parser reference around...
                     get_event_loop().call_soon(cbinfo[2], self.line, self)
 
             # Point the start-of-line to next line
@@ -38,6 +39,7 @@ class UARTParser():
         for cbinfo in self._re_cbs:
             match = cbinfo[0](self.recv_bytes)
             if match:
+                # PONDER: Maybe we do not want to pass the parser reference around...
                  get_event_loop().call_soon(cbinfo[1], match, self)
 
     # TODO: We need some way to remove a callback, or a way to add&handle single-shot callbacks
