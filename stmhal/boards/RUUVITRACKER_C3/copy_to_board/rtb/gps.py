@@ -29,9 +29,9 @@ class GPS:
 
     # TODO: Add GPS command methods (like setting the interval, putting the module to various sleep modes etc)
     
-    def print_line(self, line, flush_func, parser):
+    def print_line(self, line, parser):
         print(line)
-        flush_func()
+        return True
     
     def stop(self):
         self.uart.stop()
