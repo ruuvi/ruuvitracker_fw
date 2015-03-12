@@ -25,7 +25,7 @@ class GPS:
         self.uart.add_line_callback('startswith', '$', self.print_line)
         
         # The parsers start method is a generator so it's called like this
-        get_event_loop().call_soon(self.uart.start())
+        get_event_loop().create_task(self.uart.start())
 
     # TODO: Add GPS command methods (like setting the interval, putting the module to various sleep modes etc)
     
