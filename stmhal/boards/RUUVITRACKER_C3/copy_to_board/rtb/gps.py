@@ -22,7 +22,7 @@ class GPS:
         self.uart = uartparser.UARTParser(self.uart_lld)
         
         # TODO: Add NMEA parsing callbacks here
-        self.uart.add_line_callback('mollah', 'startswith', '$', self.print_line)
+        self.uart.add_line_callback('all', 'startswith', '$', self.print_line)
         
         # The parsers start method is a generator so it's called like this
         get_event_loop().create_task(self.uart.start())
@@ -34,7 +34,7 @@ class GPS:
         return True
     
     def stop(self):
-        self.uart.del_line_callback('mollah')
+        self.uart.del_line_callback('all')
         self.uart.stop()
         self.uart_lld.deinit()
         rtb.pwr.GPS_VCC.release()

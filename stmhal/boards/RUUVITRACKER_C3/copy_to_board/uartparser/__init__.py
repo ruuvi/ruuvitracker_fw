@@ -69,7 +69,10 @@ class UARTParser():
 
     def del_re_callback(self, cbid):
         """Removes a regex callback"""
-        del(self._re_cbs[cbid])
+        if cbid in self._re_cbs:
+            del(self._re_cbs[cbid])
+            return True
+        return False
 
     def add_line_callback(self, cbid, method, checkstr, cb):
         """Adds a callback for checking full lines, the method can be name of any valid bytearray method but 'startswith' and 'endswith' are probably the good choices.
@@ -81,7 +84,10 @@ class UARTParser():
 
     def del_line_callback(self, cbid):
         """Removes a line callback"""
-        del(self._line_cbs[cbid])
+        if cbid in self._line_cbs:
+            del(self._line_cbs[cbid])
+            return True
+        return False
 
     def start(self):
         self._run = True
