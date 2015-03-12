@@ -10,8 +10,8 @@ class UARTParser():
 
     _run = False
     _sol = 0 # Start of line
-    _line_cbs = [] # list of 3 value tuples (function, comparevalue, callback)
-    _re_cbs = [] # list of 2 value tuples (re, callback)
+    _line_cbs = {} # map of 3 value tuples (function, comparevalue, callback)
+    _re_cbs = {} # map of 2 value tuples (re, callback)
 
     def __init__(self, uart):
         self.uart = uart
@@ -33,7 +33,8 @@ class UARTParser():
             # End Of Line detected
             self.line = self.recv_bytes[self._sol:eolpos]
             flushnow = False
-            for cbinfo in self._line_cbs:
+            for cbid in self._line_cbs:
+                cbinfo =  self._line_cbs[cbid]
                 if getattr(self.line, cbinfo[0])(cbinfo[1]):
                     # PONDER: Maybe we do not want to pass the parser reference around...
                     if (cbinfo[2](self.line, self)):
@@ -46,7 +47,8 @@ class UARTParser():
             # And loop, just in case we have multiple lines in the buffer...
             eolpos = self.recv_bytes.find(self.EOL, self._sol)
 
-        for cbinfo in self._re_cbs:
+        for cbid in self._re_cbs:
+            cbinfo =  self._line_cbs[cbid]
             match = cbinfo[0](self.recv_bytes)
             flushnow = False
             if match:
@@ -56,24 +58,30 @@ class UARTParser():
             if flushnow:
                 self.flush()
 
-    # TODO: We need some way to remove a callback, or a way to add&handle single-shot callbacks
-
-    def add_re_callback(self, regex, cb, method='search'):
+    def add_re_callback(self, cbid, regex, cb, method='search'):
         """Adds a regex callback for checking the buffer every time we receive data (this obviously can get a bit expensive), takes the regex as string and callback function.
         Optionally you can specify 'match' instead of search as the method to use for matching. The callback will receive the match object and reference to this parser. Return True from the callback to flush the buffer"""
         import ure
         # Compile the regex
         re = ure.compile(regex)
         # And add the the callback list
-        self._re_cbs.append((getattr(re, method), cb))
+        self._re_cbs[cbid] = (getattr(re, method), cb)
 
-    def add_line_callback(self, method, checkstr, cb):
+    def del_re_callback(self, cbid):
+        """Removes a regex callback"""
+        del(self._re_cbs[cbid])
+
+    def add_line_callback(self, cbid, method, checkstr, cb):
         """Adds a callback for checking full lines, the method can be name of any valid bytearray method but 'startswith' and 'endswith' are probably the good choices.
         The check is performed (and callback will receive  the matched line) with End Of Line removed and reference to this parser. Return True from the callback to flush the buffer"""
         # Check that the method is valid
         getattr(self.recv_bytes, method)
         # And add the the callback list
-        self._line_cbs.append((method, checkstr, cb))
+        self._line_cbs[cbid] = (method, checkstr, cb)
+
+    def del_line_callback(self, cbid):
+        """Removes a line callback"""
+        del(self._line_cbs[cbid])
 
     def start(self):
         self._run = True
