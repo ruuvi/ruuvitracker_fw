@@ -23,31 +23,28 @@ class GPS:
         self.uart = uartparser.UARTParser(self.uart_lld)
         
         # TODO: Add NMEA parsing callbacks here
-        #self.uart.add_line_callback('all', 'startswith', '$', self.print_line)
+        self.uart.add_line_callback('all', 'startswith', '$', self.print_line)
 
-        self.uart.add_re_callback('RMC', '\\$G[PLN]RMC,.*\r\n', self.gprmc_received)
-        self.uart.add_re_callback('RMC', '\\$G[PLN]GGA,.*\r\n', self.gpgga_received)
-        self.uart.add_re_callback('RMC', '\\$G[PLN]GSA,.*\r\n', self.gpgsa_received)
+        self.uart.add_re_callback('RMC', '^\\$G[PLN]RMC,.*', self.gprmc_received)
+        self.uart.add_re_callback('GGA', '^\\$G[PLN]GGA,.*', self.gpgga_received)
+        self.uart.add_re_callback('GSA', '^\\$G[PLN]GSA,.*', self.gpgsa_received)
         
         # The parsers start method is a generator so it's called like this
         get_event_loop().create_task(self.uart.start())
 
     # TODO: Add GPS command methods (like setting the interval, putting the module to various sleep modes etc)
 
-    def gprmc_received(self, match, parser):
-        line = match.group(0)[:-3]
-        print("$G[PLN]RMC=%s" %line)
-        return True
+    def gprmc_received(self, match):
+        line = match.group(0)
+        print("$G[PLN]RMC=%s" % line)
 
-    def gpgga_received(self, match, parser):
-        line = match.group(0)[:-3]
-        print("$G[PLN]GGA=%s" %line)
-        return True
+    def gpgga_received(self, match):
+        line = match.group(0)
+        print("$G[PLN]GGA=%s" % line)
 
-    def gpgsa_received(self, match, parser):
-        line = match.group(0)[:-3]
-        print("$G[PLN]GSA=%s" %line)
-        return True
+    def gpgsa_received(self, match):
+        line = match.group(0)
+        print("$G[PLN]GSA=%s" % line)
 
     def set_interval(self, ms):
         """Set update interval in milliseconds"""
@@ -59,11 +56,14 @@ class GPS:
         self.uart_lld.write(nmea.checksum("$PMTK161,%d\r\n" % ms))
         # TODO: Check the response somehow ?
 
-    def print_line(self, line, parser):
+    def print_line(self, line):
         print(line)
         return True
     
     def stop(self):
+        self.uart.del_re_callback('RMC')
+        self.uart.del_re_callback('GGA')
+        self.uart.del_re_callback('GSA')
         self.uart.del_line_callback('all')
         self.uart.stop()
         self.uart_lld.deinit()
