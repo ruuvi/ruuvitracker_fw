@@ -15,3 +15,9 @@ loop.run_forever()
 gps.stop()
 rtb.pwr.GPS_VCC.status()
 
+
+import nmea
+s = b'$GPRMC,235954.800,V,,,,,0.00,0.00,050180,,,N*45'
+nmea.checksum(s)
+nmea.checksum(s[:-3])
+
