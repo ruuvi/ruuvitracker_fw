@@ -23,12 +23,31 @@ class GPS:
         self.uart = uartparser.UARTParser(self.uart_lld)
         
         # TODO: Add NMEA parsing callbacks here
-        self.uart.add_line_callback('all', 'startswith', '$', self.print_line)
+        #self.uart.add_line_callback('all', 'startswith', '$', self.print_line)
+
+        self.uart.add_re_callback('RMC', '\\$G[PLN]RMC,.*\r\n', self.gprmc_received)
+        self.uart.add_re_callback('RMC', '\\$G[PLN]GGA,.*\r\n', self.gpgga_received)
+        self.uart.add_re_callback('RMC', '\\$G[PLN]GSA,.*\r\n', self.gpgsa_received)
         
         # The parsers start method is a generator so it's called like this
         get_event_loop().create_task(self.uart.start())
 
     # TODO: Add GPS command methods (like setting the interval, putting the module to various sleep modes etc)
+
+    def gprmc_received(self, match, parser):
+        line = match.group(0)[:-3]
+        print("$G[PLN]RMC=%s" %line)
+        return True
+
+    def gpgga_received(self, match, parser):
+        line = match.group(0)[:-3]
+        print("$G[PLN]GGA=%s" %line)
+        return True
+
+    def gpgsa_received(self, match, parser):
+        line = match.group(0)[:-3]
+        print("$G[PLN]GSA=%s" %line)
+        return True
 
     def set_interval(self, ms):
         """Set update interval in milliseconds"""
