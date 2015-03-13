@@ -10,8 +10,9 @@ class UARTParser():
 
     _run = False
     _sol = 0 # Start of line
-    _line_cbs = {} # map of 3 value tuples (function, comparevalue, callback)
-    _re_cbs = {} # map of 2 value tuples (re, callback)
+    _str_cbs = {} # map of 3 value tuples (functionname, comparevalue, callback)
+    _re_cbs = {} # map of 2 value tuples (compiled_re, callback)
+    _raw_cb = None
 
     def __init__(self, uart):
         self.uart = uart
@@ -27,18 +28,38 @@ class UARTParser():
             self.line = b''
             self._sol = 0
 
+    def enter_raw(self, cb):
+        """Enters "raw mode" where the given callback is called (with reference to the parser as argument) whenever there is new data, all other parsing is suspended, remember to flush the buffers manually too!"""
+        self._raw_cb = cb
+
+    def exit_raw(self, flush=True):
+        """Exits raw mode, automatically flushes the buffer unless told not to"""
+        self.flush()
+        self._raw_cb = None
+
     def parse_buffer(self):
+        if self._raw_cb:
+            # PONDER: Should we raise an exception ?
+            return
+
         eolpos = self.recv_bytes.find(self.EOL, self._sol)
         while eolpos > -1:
             # End Of Line detected
             self.line = self.recv_bytes[self._sol:eolpos]
-            flushnow = False
-            for cbid in self._line_cbs:
-                cbinfo =  self._line_cbs[cbid]
+            flushnow = True
+            for cbid in self._str_cbs:
+                cbinfo =  self._str_cbs[cbid]
                 if getattr(self.line, cbinfo[0])(cbinfo[1]):
-                    # PONDER: Maybe we do not want to pass the parser reference around...
-                    if (cbinfo[2](self.line, self)):
-                        flushnow = True
+                    if (cbinfo[2](self.line)):
+                        flushnow = False
+
+            for cbid in self._re_cbs:
+                cbinfo =  self._re_cbs[cbid]
+                match = cbinfo[0](self.line)
+                if match:
+                    if (cbinfo[1](match)):
+                        flushnow = False
+
             if flushnow:
                 self.flushto(eolpos+len(self.EOL))
             else:
@@ -47,24 +68,13 @@ class UARTParser():
             # And loop, just in case we have multiple lines in the buffer...
             eolpos = self.recv_bytes.find(self.EOL, self._sol)
 
-        # The flushing strategy here won't work, we always end up flushign too much
-        # Maybe we should only parse in line context and leave multiline parsing for the 
-        # "raw mode" consumer to do as they deem fit.
-        for cbid in self._re_cbs:
-            cbinfo =  self._re_cbs[cbid]
-            match = cbinfo[0](self.recv_bytes)
-            flushnow = False
-            if match:
-                # PONDER: Maybe we do not want to pass the parser reference around...
-                if (cbinfo[1](match, self)):
-                    flushnow = True
-            if flushnow:
-                self.flush()
-
     def add_re_callback(self, cbid, regex, cb, method='search'):
-        """Adds a regex callback for checking the buffer every time we receive data (this obviously can get a bit expensive), takes the regex as string and callback function.
-        Optionally you can specify 'match' instead of search as the method to use for matching. The callback will receive the match object and reference to this parser. Return True from the callback to flush the buffer"""
+        """Adds a regex callback for checking full lines, takes the regex as string and callback function. Optionally you can specify 'match' instead of 'search' as the method to use for matching.
+        The callback will receive the match object. Return True from the callback to prevent flushing the buffer. NOTE: End Of Line is not part of the line, omit that from your regex too"""
         import ure
+        # Sanity-check
+        if cbid in self._re_cbs:
+            raise RuntimeError("Trying to add same callback twice")
         # Compile the regex
         re = ure.compile(regex)
         # And add the the callback list
@@ -79,16 +89,19 @@ class UARTParser():
 
     def add_line_callback(self, cbid, method, checkstr, cb):
         """Adds a callback for checking full lines, the method can be name of any valid bytearray method but 'startswith' and 'endswith' are probably the good choices.
-        The check is performed (and callback will receive  the matched line) with End Of Line removed and reference to this parser. Return True from the callback to flush the buffer"""
+        The check is performed (and callback will receive  the matched line) with End Of Line removed. Return True from the callback to flush the buffer"""
+        # Sanity-check
+        if cbid in self._str_cbs:
+            raise RuntimeError("Trying to add same callback twice")
         # Check that the method is valid
         getattr(self.recv_bytes, method)
         # And add the the callback list
-        self._line_cbs[cbid] = (method, checkstr, cb)
+        self._str_cbs[cbid] = (method, checkstr, cb)
 
     def del_line_callback(self, cbid):
         """Removes a line callback"""
-        if cbid in self._line_cbs:
-            del(self._line_cbs[cbid])
+        if cbid in self._str_cbs:
+            del(self._str_cbs[cbid])
             return True
         return False
 
@@ -103,8 +116,11 @@ class UARTParser():
                 # Timed out (it should be impossible though...)
                 continue
             self.recv_bytes += recv
-            # TODO: We may want to inline the parsing due to cost of method calls
-            self.parse_buffer()
+            if not self._raw_cb:
+                # TODO: We may want to inline the parsing due to cost of method calls
+                self.parse_buffer()
+            else:
+                self._raw_cb(self)
 
     def stop(self):
         self._run = False
