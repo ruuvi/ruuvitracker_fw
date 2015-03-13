@@ -47,8 +47,11 @@ class UARTParser():
             # And loop, just in case we have multiple lines in the buffer...
             eolpos = self.recv_bytes.find(self.EOL, self._sol)
 
+        # The flushing strategy here won't work, we always end up flushign too much
+        # Maybe we should only parse in line context and leave multiline parsing for the 
+        # "raw mode" consumer to do as they deem fit.
         for cbid in self._re_cbs:
-            cbinfo =  self._line_cbs[cbid]
+            cbinfo =  self._re_cbs[cbid]
             match = cbinfo[0](self.recv_bytes)
             flushnow = False
             if match:
