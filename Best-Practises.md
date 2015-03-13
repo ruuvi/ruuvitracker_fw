@@ -1,5 +1,17 @@
 # Best practises for developing on RuuviTracker with MicroPython
 
+## Coroutines & generators FTW
+
+Read the following
+
+  - <http://www.dabeaz.com/generators/>
+  - <http://www.dabeaz.com/coroutines/> (this especially will help to understand uasyncio)
+  - <http://www.dabeaz.com/finalgenerator/>
+
+Many list-comprehensions can be written as generator expressions, this saves memory (and increases performance).
+
+Some OOP patterns can be reworked to be coroutines, this may increase performance (and save memory).
+
 ## Reloading modules
 
 Re-importing will not (usually) work, best way is to use ctrl-D in the REPL to
