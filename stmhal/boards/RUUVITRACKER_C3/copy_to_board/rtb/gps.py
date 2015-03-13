@@ -4,6 +4,7 @@ import pyb
 import rtb
 import uartparser
 from uasyncio.core import get_event_loop, sleep
+import nmea
 
 class GPS:
     uart_lld = None # Low-Level UART
@@ -28,7 +29,17 @@ class GPS:
         get_event_loop().create_task(self.uart.start())
 
     # TODO: Add GPS command methods (like setting the interval, putting the module to various sleep modes etc)
-    
+
+    def set_interval(self, ms):
+        """Set update interval in milliseconds"""
+        self.uart_lld.write(nmea.checksum("$PMTK300,%d,0,0,0,0\r\n" % ms))
+        # TODO: Check the response somehow ?
+
+    def set_standby(self, state):
+        """Set or exit the standby mode, set to True or False"""
+        self.uart_lld.write(nmea.checksum("$PMTK161,%d\r\n" % ms))
+        # TODO: Check the response somehow ?
+
     def print_line(self, line, parser):
         print(line)
         return True
