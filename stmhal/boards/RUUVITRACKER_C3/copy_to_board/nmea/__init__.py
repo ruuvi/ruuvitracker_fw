@@ -1,6 +1,6 @@
 # Simplified NMEA parser, implements only what we need
 
-class FormatError(Exception):
+class FormatError(RuntimeError):
     pass
 
 def checksum(s):
