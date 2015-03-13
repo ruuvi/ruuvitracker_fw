@@ -58,8 +58,7 @@ class GPS:
 
     def print_line(self, line):
         print(line)
-        return True
-    
+
     def stop(self):
         self.uart.del_re_callback('RMC')
         self.uart.del_re_callback('GGA')
