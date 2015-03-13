@@ -4,6 +4,7 @@ import pyb
 import rtb
 import uartparser
 from uasyncio.core import get_event_loop, sleep
+import nmea
 
 class GPS:
     uart_lld = None # Low-Level UART
@@ -23,17 +24,46 @@ class GPS:
         
         # TODO: Add NMEA parsing callbacks here
         self.uart.add_line_callback('all', 'startswith', '$', self.print_line)
+
+        self.uart.add_re_callback('RMC', '^\\$G[PLN]RMC,.*', self.gprmc_received)
+        self.uart.add_re_callback('GGA', '^\\$G[PLN]GGA,.*', self.gpgga_received)
+        self.uart.add_re_callback('GSA', '^\\$G[PLN]GSA,.*', self.gpgsa_received)
         
         # The parsers start method is a generator so it's called like this
         get_event_loop().create_task(self.uart.start())
 
     # TODO: Add GPS command methods (like setting the interval, putting the module to various sleep modes etc)
-    
-    def print_line(self, line, parser):
+
+    def gprmc_received(self, match):
+        line = match.group(0)
+        print("$G[PLN]RMC=%s" % line)
+
+    def gpgga_received(self, match):
+        line = match.group(0)
+        print("$G[PLN]GGA=%s" % line)
+
+    def gpgsa_received(self, match):
+        line = match.group(0)
+        print("$G[PLN]GSA=%s" % line)
+
+    def set_interval(self, ms):
+        """Set update interval in milliseconds"""
+        self.uart_lld.write(nmea.checksum("$PMTK300,%d,0,0,0,0\r\n" % ms))
+        # TODO: Check the response somehow ?
+
+    def set_standby(self, state):
+        """Set or exit the standby mode, set to True or False"""
+        self.uart_lld.write(nmea.checksum("$PMTK161,%d\r\n" % ms))
+        # TODO: Check the response somehow ?
+
+    def print_line(self, line):
         print(line)
         return True
     
     def stop(self):
+        self.uart.del_re_callback('RMC')
+        self.uart.del_re_callback('GGA')
+        self.uart.del_re_callback('GSA')
         self.uart.del_line_callback('all')
         self.uart.stop()
         self.uart_lld.deinit()
