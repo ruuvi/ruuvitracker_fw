@@ -1,11 +1,10 @@
 import pyb
 from .powerdomains import powermanager_singleton
-# TODO: How to import as module ??
 from . import powerdomains_config as pwr
 
 pwrmgr = powermanager_singleton
 
-# 2015-03-08 rambo: I *think* these are correct UART numbers but have not tested them yet
+# 2015-03-08 rambo: I *think* these are correct UART numbers, GPS at least is.
 GSM_UART_N = 3 # PB10/PB11 and PB13/PB14 (flow control), see http://forum.micropython.org/viewtopic.php?t=376
 GPS_UART_N = 2 # PA2/PA3
 # We probably need to remap this with some alternate-function system or something...
