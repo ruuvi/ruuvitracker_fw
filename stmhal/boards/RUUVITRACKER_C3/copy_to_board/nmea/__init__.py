@@ -185,6 +185,12 @@ def parse_gpgga(line, fix=None):
 
     parts = line[start+4:-3].split(',')
 
+    fix.n_satellites = int(parts[6], 10)
+    if not fix.n_satellites:
+        # We have not satellites in view, data is not valid, abort early
+        fix.fix_type = FIX_TYPE_NONE
+        return fix
+
     # If fix does not have RMC fields already take what we can get
     if not (fix.received_messages & MSG_GPRMC):
         # We have only time, no date :(
@@ -198,10 +204,10 @@ def parse_gpgga(line, fix=None):
         if parts[4] == 'W':
             fix.lon = -fix.lon
 
-    fix.n_satellites = int(parts[6], 10)
-    # TODO: is it possible for this unit to be something else ? in that case add conversions to meters
-    if parts[9] == 'M':
+    if parts[8] != '':
         fix.altitude = float(parts[8])
+        # TODO: is it possible for this unit to be something else ? in that case add conversions to meters
+        #if parts[9] == 'M':
 
     fix.received_messages |= MSG_GPGGA
     return fix
