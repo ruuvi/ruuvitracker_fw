@@ -167,8 +167,13 @@ def parse_gprmc(line, fix=None):
 
     # We ignore "magnetic variation" and it's direction
 
+    # Assume 2D fix if we got this far and no fix_type was set
+    if fix.fix_type == FIX_TYPE_NONE:
+        fix.fix_type = FIX_TYPE_2D
+
     fix.received_messages |= MSG_GPRMC
     return fix
+
 
 def parse_gpgga(line, fix=None):
     """Parses G[PLN]GGA sentence, returns a Fix object. NOTE: The line must be a string, not bytearray. Cast before passing"""
@@ -209,5 +214,44 @@ def parse_gpgga(line, fix=None):
         # TODO: is it possible for this unit to be something else ? in that case add conversions to meters
         #if parts[9] == 'M':
 
+    # Assume 2D fix if we got this far and no fix_type was set
+    if fix.fix_type == FIX_TYPE_NONE:
+        fix.fix_type = FIX_TYPE_2D
+
     fix.received_messages |= MSG_GPGGA
+    return fix
+
+
+def parse_gpgsa(line, fix=None):
+    """Parses G[PLN]GSA sentence, returns a Fix object. NOTE: The line must be a string, not bytearray. Cast before passing"""
+    if not fix:
+        fix = Fix()
+
+    if not checksum(line):
+        raise ChecksumError()
+
+    # We skip the GP/GL/GN part since we want to avoid regexes
+    start = line.find('GSA')
+    if start < 0:
+        raise FormatError("GSA not found")
+
+    parts = line[start+4:-3].split(',')
+
+    if parts[0] != 'A':
+        # Somethings fsckd up, this should always(?) be A
+        fix.fix_type = FIX_TYPE_NONE
+        return fix
+    
+    fix.fix_type = int(parts[1], 10)
+    if fix.fix_type == FIX_TYPE_NONE:
+        return fix
+
+    if parts[14] != '':
+        pdop = float(parts[14])
+    if parts[15] != '':
+        hdop = float(parts[15])
+    if parts[16] != '':
+        vdop = float(parts[16])
+
+    fix.received_messages |= MSG_GPGSA
     return fix

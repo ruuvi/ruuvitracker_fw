@@ -45,6 +45,7 @@ class GPS:
         if not nmea.checksum(line):
             return
         # Reset the last_fix
+        # TODO: Actually I think we get GGA/GSA first and RMC after them so this might not be the correct order (OTOH without RMC we can't do much...)
         self.last_fix = nmea.Fix()
         nmea.parse_gprmc(line, self.last_fix)
         self.last_fix.last_update = pyb.millis()
@@ -65,7 +66,9 @@ class GPS:
         # Skip checksum failures
         if not nmea.checksum(line):
             return
-        print("$G[PLN]GSA=%s" % line)
+        nmea.parse_gpgsa(line, self.last_fix)
+        # TODO: Check if anyone wants to see the fix yet
+        print("===\r\nGSA lat=%s lon=%s altitude=%s fix_type=%s\r\n==" % (self.last_fix.lat, self.last_fix.lon, self.last_fix.altitude, self.last_fix.fix_type))
 
     def set_interval(self, ms):
         """Set update interval in milliseconds"""
