@@ -132,7 +132,7 @@ def dm_to_sd(dm):
 
 
 def parse_gprmc(line, fix=None):
-    """Parses G[PLN]RMC sentence, returns a Fix object. NOTE: The line must be a string, not bytearray cat before passing"""
+    """Parses G[PLN]RMC sentence, returns a Fix object. NOTE: The line must be a string, not bytearray. Cast before passing"""
     if not fix:
         fix = Fix()
 
@@ -168,4 +168,40 @@ def parse_gprmc(line, fix=None):
     # We ignore "magnetic variation" and it's direction
 
     fix.received_messages |= MSG_GPRMC
+    return fix
+
+def parse_gpgga(line, fix=None):
+    """Parses G[PLN]RMC sentence, returns a Fix object. NOTE: The line must be a string, not bytearray. Cast before passing"""
+    if not fix:
+        fix = Fix()
+
+    if not checksum(line):
+        raise ChecksumError()
+
+    # We skip the GP/GL/GN part since we want to avoid regexes
+    start = line.find('GGA')
+    if start < 0:
+        raise FormatError("GGA not found")
+
+    parts = line[start+4:-3].split(',')
+
+    # If fix does not have RMC fields already take what we can get
+    if not (fix.received_messages & MSG_GPRMC):
+        # We have only time, no date :(
+        fix.dt = parse_time(parts[0])
+
+        # Parse lat/lon
+        fix.lat = dm_to_sd(parts[1])
+        if parts[2] == 'S':
+            fix.lat = -fix.lat
+        fix.lon = dm_to_sd(parts[3])
+        if parts[4] == 'W':
+            fix.lon = -fix.lon
+
+    fix.n_satellites = int(parts[6], 10)
+    # TODO: is it possible for this unit to be something else ? in that case add conversions to meters
+    if parts[9] == 'M':
+        fix.altitude = float(parts[8])
+
+    fix.received_messages |= MSG_GPGGA
     return fix

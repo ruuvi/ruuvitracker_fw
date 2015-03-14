@@ -56,7 +56,9 @@ class GPS:
         # Skip checksum failures
         if not nmea.checksum(line):
             return
-        print("$G[PLN]GGA=%s" % line)
+        nmea.parse_gpgga(line, self.last_fix)
+        # TODO: Check if anyone wants to see the fix yet
+        print("===\r\nGGA lat=%s lon=%s altitude=%s\r\n==" % (self.last_fix.lat, self.last_fix.lon, self.last_fix.altitude))
 
     def gpgsa_received(self, match):
         line = match.group(0)
