@@ -171,7 +171,7 @@ def parse_gprmc(line, fix=None):
     return fix
 
 def parse_gpgga(line, fix=None):
-    """Parses G[PLN]RMC sentence, returns a Fix object. NOTE: The line must be a string, not bytearray. Cast before passing"""
+    """Parses G[PLN]GGA sentence, returns a Fix object. NOTE: The line must be a string, not bytearray. Cast before passing"""
     if not fix:
         fix = Fix()
 
