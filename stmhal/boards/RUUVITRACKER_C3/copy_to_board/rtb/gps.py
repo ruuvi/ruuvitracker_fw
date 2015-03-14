@@ -5,10 +5,15 @@ import rtb
 import uartparser
 from uasyncio.core import get_event_loop, sleep
 import nmea
+from nmea import FIX_TYPE_NONE, FIX_TYPE_2D, FIX_TYPE_3D
+from nmea import MSG_GPRMC, MSG_GPGSA, MSG_GPGGA
 
+
+# The handler class
 class GPS:
     uart_lld = None # Low-Level UART
     uart = None # This is the parser
+    last_fix = None
 
     def __init__(self):
         pass
@@ -23,11 +28,11 @@ class GPS:
         self.uart = uartparser.UARTParser(self.uart_lld)
         
         # TODO: Add NMEA parsing callbacks here
-        self.uart.add_line_callback('all', 'startswith', '$', self.print_line)
+        self.uart.add_line_callback(r'all', r'startswith', r'$', self.print_line)
 
-        self.uart.add_re_callback('RMC', '^\\$G[PLN]RMC,.*', self.gprmc_received)
-        self.uart.add_re_callback('GGA', '^\\$G[PLN]GGA,.*', self.gpgga_received)
-        self.uart.add_re_callback('GSA', '^\\$G[PLN]GSA,.*', self.gpgsa_received)
+        self.uart.add_re_callback(r'RMC', r'^\$G[PLN]RMC,.*', self.gprmc_received)
+        self.uart.add_re_callback(r'GGA', r'^\$G[PLN]GGA,.*', self.gpgga_received)
+        self.uart.add_re_callback(r'GSA', r'^\$G[PLN]GSA,.*', self.gpgsa_received)
         
         # The parsers start method is a generator so it's called like this
         get_event_loop().create_task(self.uart.start())
@@ -36,14 +41,28 @@ class GPS:
 
     def gprmc_received(self, match):
         line = match.group(0)
-        print("$G[PLN]RMC=%s" % line)
+        # Skip checksum failures
+        if not nmea.checksum(line):
+            return
+        # Reset the last_fix
+        self.last_fix = nmea.Fix()
+        nmea.parse_gprmc(line, self.last_fix)
+        self.last_fix.last_update = pyb.millis()
+        # TODO: Check if anyone wants to see the fix yet
+        print("===\r\nRMC lat=%s lon=%s\r\n==" % (self.last_fix.lat, self.last_fix.lon))
 
     def gpgga_received(self, match):
         line = match.group(0)
+        # Skip checksum failures
+        if not nmea.checksum(line):
+            return
         print("$G[PLN]GGA=%s" % line)
 
     def gpgsa_received(self, match):
         line = match.group(0)
+        # Skip checksum failures
+        if not nmea.checksum(line):
+            return
         print("$G[PLN]GSA=%s" % line)
 
     def set_interval(self, ms):

@@ -17,7 +17,9 @@ rtb.pwr.GPS_VCC.status()
 
 
 import nmea
-s = b'$GPRMC,235954.800,V,,,,,0.00,0.00,050180,,,N*45'
-nmea.checksum(s)
-nmea.checksum(s[:-3])
+rmc = b'$GNRMC,193202.000,A,6007.2666,N,02423.8747,E,0.16,354.15,140315,,,A*76'
+f = nmea.parse_gprmc(rmc.format()) # use .format to cast to string
+
+gsa = b'$GNGSA,A,3,20,06,10,31,02,,,,,,,,1.79,1.54,0.92*1D'
+gga = b'$GPGGA,193202.000,6007.2666,N,02423.8747,E,1,8,1.97,19.4,M,19.8,M,,*62'
 
