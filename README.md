@@ -6,6 +6,7 @@ See [MicroPython documentation](http://docs.micropython.org/en/latest/quickref.h
 
 TODO: Document the board specific python modules via [gh-pages](https://pages.github.com/) as they get more functionality.
 
+Schematics, datasheets and other hardware related references are in the [ruuvitracker_hw](https://github.com/RuuviTracker/ruuvitracker_hw/tree/revC3) -repo.
 
 ### REPL quickstart
 
