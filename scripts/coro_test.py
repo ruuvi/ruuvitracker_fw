@@ -12,6 +12,7 @@ def heartbeat(ledno=1):
     sleep2 = 0.1
     sleep3 = 0.2
     while True:
+        # TODO: find out why this also prevents the other hearbeat task from running (leading to effective 4s delay for single task [and worse, all other tasks are fscked too ??])
         yield from sleep(sleep1)
         led.on()
         yield from sleep(sleep2)
