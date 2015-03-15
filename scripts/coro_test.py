@@ -22,8 +22,13 @@ def heartbeat(ledno=1):
         yield from sleep(sleep2)
         led.off()
 
+def busylooper():
+    while True:
+        # TODO: Find out why even though we do yield we manage to block the sleeping tasks...
+        yield
 
 get_event_loop().create_task(heartbeat(1))
+#get_event_loop().create_task(busylooper())
 get_event_loop().create_task(heartbeat(2))
 
 get_event_loop().run_forever()
