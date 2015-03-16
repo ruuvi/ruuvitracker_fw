@@ -33,8 +33,9 @@
 // The pyboard has 4 LEDs
 #define MICROPY_HW_LED1             (pin_B8) // red
 #define MICROPY_HW_LED2             (pin_B9) // green
-#define MICROPY_HW_LED3             (pin_B8) // yellow (just map the red)
-#define MICROPY_HW_LED4             (pin_B9)  // blue  (just map the green)
+// Apparently we do not have to map 4 LEDs
+//#define MICROPY_HW_LED3             (pin_B8) // yellow (just map the red)
+//#define MICROPY_HW_LED4             (pin_B9)  // blue  (just map the green)
 #define MICROPY_HW_LED_OTYPE        (GPIO_MODE_OUTPUT_PP)
 #define MICROPY_HW_LED_ON(pin)      (pin->gpio->BSRRL = pin->pin_mask)
 #define MICROPY_HW_LED_OFF(pin)     (pin->gpio->BSRRH = pin->pin_mask)
