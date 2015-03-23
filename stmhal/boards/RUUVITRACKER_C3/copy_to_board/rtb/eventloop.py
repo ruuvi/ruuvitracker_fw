@@ -8,7 +8,7 @@ class RTEventLoop(uasyncio.core.EventLoop):
     def wait(self, delay):
         start = pyb.millis()
         while pyb.elapsed_millis(start) < delay:
-            pyb.delay(10)
+            pyb.delay(1)
 
 uasyncio.core._event_loop = None
 uasyncio.core._event_loop_class = RTEventLoop

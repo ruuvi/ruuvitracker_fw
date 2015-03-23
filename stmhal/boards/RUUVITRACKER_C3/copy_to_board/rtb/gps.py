@@ -3,6 +3,8 @@
 import pyb
 import rtb
 import uartparser
+#uartparser already import this
+#import rtb.eventloop
 from uasyncio.core import get_event_loop, sleep
 import nmea
 from nmea import FIX_TYPE_NONE, FIX_TYPE_2D, FIX_TYPE_3D

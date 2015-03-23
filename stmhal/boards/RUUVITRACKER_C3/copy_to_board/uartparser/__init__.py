@@ -1,12 +1,13 @@
 """UART parser helper, requires uasyncio"""
 import pyb
+import rtb.eventloop
 from uasyncio.core import get_event_loop, sleep
 
 class UARTParser():
     recv_bytes = b''
     EOL = b'\r\n'
     line = b'' # Last detected complete line without EOL marker
-    sleep_time = 0.01 # When we have no data sleep this long
+    sleep_time = 10 # When we have no data sleep this long
 
     _run = False
     _sol = 0 # Start of line
