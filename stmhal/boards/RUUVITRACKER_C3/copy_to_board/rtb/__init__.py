@@ -1,4 +1,6 @@
 import pyb
+# Muck the uasyncio default eventloop as soon as rtb is imported
+from . import eventloop
 from .powerdomains import powermanager_singleton
 from . import powerdomains_config as pwr
 

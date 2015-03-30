@@ -1,8 +1,10 @@
 import pyb
+import rtb
 
 import logging
 #logging.basicConfig(logging.DEBUG)
-import rtb.eventloop
+# rtb module patched the eventloop already
+#import rtb.eventloop
 from uasyncio.core import get_event_loop, sleep
 
 # This is a coroutine, we do not use the decorator to indicate that due to resource constrainst of pyboard
