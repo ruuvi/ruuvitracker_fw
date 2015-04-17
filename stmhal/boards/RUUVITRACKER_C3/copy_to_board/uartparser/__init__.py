@@ -14,6 +14,8 @@ class UARTParser():
     _str_cbs = {} # map of 3 value tuples (functionname, comparevalue, callback)
     _re_cbs = {} # map of 2 value tuples (compiled_re, callback)
     _raw_cb = None
+    _cmd_cb = None
+    _cmd_line = None
 
     def __init__(self, uart):
         self.uart = uart
@@ -38,6 +40,21 @@ class UARTParser():
         self.flush()
         self._raw_cb = None
 
+    def cmd(self, cmd):
+        """Send a command string to the uart and returns next line as response, call with value = yield from parser.cmd("AT"), linebreak is added automatically"""
+        print("cmd called")
+        _cmd_line = None
+        # TODO: handle timeouts
+        def _cb(recv):
+            print("in _cb")
+            self._cmd_line = recv
+        self._cmd_cb = _cb
+        self.uart.write(b'%s%s' % (cmd, self.EOL))
+        while not self._cmd_line:
+            print("Waiting for line")
+            yield from sleep(self.sleep_time)
+        return self._cmd_line
+
     def parse_buffer(self):
         if self._raw_cb:
             # PONDER: Should we raise an exception ?
@@ -48,6 +65,19 @@ class UARTParser():
             # End Of Line detected
             self.line = self.recv_bytes[self._sol:eolpos]
             flushnow = True
+            print("_line=%s" % self.line)
+            
+            # The special case of a command callback
+            if self._cmd_cb:
+                if self._cmd_cb(self.line):
+                    flushnow = False
+                if flushnow:
+                    self.flushto(eolpos+len(self.EOL))
+                else:
+                    # Point the start-of-line to next line
+                    self._sol = eolpos+len(self.EOL)
+                continue
+
             for cbid in self._str_cbs:
                 cbinfo =  self._str_cbs[cbid]
                 if getattr(self.line, cbinfo[0])(cbinfo[1]):

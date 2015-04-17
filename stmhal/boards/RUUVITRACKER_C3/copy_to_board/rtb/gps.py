@@ -38,6 +38,7 @@ class GPS:
         
         # The parsers start method is a generator so it's called like this
         get_event_loop().create_task(self.uart.start())
+        get_event_loop().call_later(100, self.set_interval, 5000)
 
     # TODO: Add GPS command methods (like setting the interval, putting the module to various sleep modes etc)
 
@@ -52,7 +53,8 @@ class GPS:
         nmea.parse_gprmc(line, self.last_fix)
         self.last_fix.last_update = pyb.millis()
         # TODO: Check if anyone wants to see the fix yet
-        print("===\r\nRMC lat=%s lon=%s\r\n==" % (self.last_fix.lat, self.last_fix.lon))
+        if self.last_fix:
+            print("===\r\nRMC lat=%s lon=%s\r\n==" % (self.last_fix.lat, self.last_fix.lon))
 
     def gpgga_received(self, match):
         line = match.group(0)
@@ -61,7 +63,8 @@ class GPS:
             return
         nmea.parse_gpgga(line, self.last_fix)
         # TODO: Check if anyone wants to see the fix yet
-        print("===\r\nGGA lat=%s lon=%s altitude=%s\r\n==" % (self.last_fix.lat, self.last_fix.lon, self.last_fix.altitude))
+        if self.last_fix:
+            print("===\r\nGGA lat=%s lon=%s altitude=%s\r\n==" % (self.last_fix.lat, self.last_fix.lon, self.last_fix.altitude))
 
     def gpgsa_received(self, match):
         line = match.group(0)
@@ -70,11 +73,14 @@ class GPS:
             return
         nmea.parse_gpgsa(line, self.last_fix)
         # TODO: Check if anyone wants to see the fix yet
-        print("===\r\nGSA lat=%s lon=%s altitude=%s fix_type=%s\r\n==" % (self.last_fix.lat, self.last_fix.lon, self.last_fix.altitude, self.last_fix.fix_type))
+        if self.last_fix:
+            print("===\r\nGSA lat=%s lon=%s altitude=%s fix_type=%s\r\n==" % (self.last_fix.lat, self.last_fix.lon, self.last_fix.altitude, self.last_fix.fix_type))
 
     def set_interval(self, ms):
         """Set update interval in milliseconds"""
-        self.uart_lld.write(nmea.checksum("$PMTK300,%d,0,0,0,0\r\n" % ms))
+        print("set_interval called")
+        resp = yield from self.uart.cmd(nmea.checksum("$PMTK300,%d,0,0,0,0\r\n" % ms))
+        print("Got response: %s" % resp)
         # TODO: Check the response somehow ?
 
     def set_standby(self, state):
