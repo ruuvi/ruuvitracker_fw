@@ -12,6 +12,17 @@ Many list-comprehensions can be written as generator expressions, this saves mem
 
 Some OOP patterns can be reworked to be coroutines, this may increase performance (and save memory).
 
+## Preallocate memory for exceptions in interrupt handlers
+
+This will make debugging easier, add to `boot.py`
+
+    import micropython
+    micropython.alloc_emergency_exception_buf(100)
+
+See [MicroPython documentation][emergbuf] for more info.
+
+[emergbuf]: http://micropython.readthedocs.org/en/latest/library/micropython.html#micropython.alloc_emergency_exception_buf
+
 ## Reloading modules
 
 Re-importing will not (usually) work, best way is to use ctrl-D in the REPL to
