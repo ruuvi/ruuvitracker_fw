@@ -35,10 +35,6 @@ class GPS:
         self.uart.add_re_callback(r'RMC', r'^\$G[PLN]RMC,.*', self.gprmc_received)
         self.uart.add_re_callback(r'GGA', r'^\$G[PLN]GGA,.*', self.gpgga_received)
         self.uart.add_re_callback(r'GSA', r'^\$G[PLN]GSA,.*', self.gpgsa_received)
-        
-        # The parsers start method is a generator so it's called like this
-        get_event_loop().create_task(self.uart.start())
-        get_event_loop().call_later(100, self.set_interval, 5000)
 
     # TODO: Add GPS command methods (like setting the interval, putting the module to various sleep modes etc)
 
