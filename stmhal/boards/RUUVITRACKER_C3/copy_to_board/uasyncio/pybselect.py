@@ -3,6 +3,8 @@ import pyb
 import select
 from .core import *
 
+# TODO: add decorators or wrapper classes that add fileno-method to pyb.UART (and pyb.USB_VCP) which return the object as filedescriptor
+
 class PybPollEventLoop(EventLoop):
     """PyBoard select.poll based eventloop, NOTE: uses *milliseconds* as the time unit"""
     def __init__(self):
@@ -45,13 +47,14 @@ class PybPollEventLoop(EventLoop):
 
     def wait(self, delay):
         if __debug__:
-            log.debug("epoll.wait(%d)", delay)
+            log.debug("poll.wait(%d)", delay)
         if delay == -1:
             res = self.poller.poll(-1)
         else:
             res = self.poller.poll(delay)
         #log.debug("epoll result: %s", res)
         for cb, ev in res:
+            # TODO: We should probably unregister the poller since the source version used epoll ONESHOT pollers
             if __debug__:
                 log.debug("Calling IO callback: %s%s", cb[0], cb[1])
             cb[0](*cb[1])
