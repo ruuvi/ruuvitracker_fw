@@ -68,7 +68,7 @@ class PybPollEventLoop(EventLoop):
             if ev & 1: # Read event
                 cb = self.reader_cbs[str(fd)]
                 self.remove_reader(fd)
-            if ev & 2: # Write event
+            elif ev & 2: # Write event
                 cb = self.writer_cbs[str(fd)]
                 self.remove_writer(fd)
             if __debug__:
