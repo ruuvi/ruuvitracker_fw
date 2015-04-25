@@ -53,7 +53,7 @@ class PybPollEventLoop(EventLoop):
             res = self.poller.poll(-1)
         else:
             res = self.poller.poll(delay)
-        log.debug("epoll result: %s", res)
+        log.debug("poll result: %s", res)
         for cb, ev in res:
             # TODO: We should probably unregister the poller since the source version used epoll ONESHOT pollers
             if __debug__:
