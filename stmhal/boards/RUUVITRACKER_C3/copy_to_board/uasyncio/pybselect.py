@@ -7,6 +7,10 @@ from .core import *
 
 class PybPollEventLoop(EventLoop):
     """PyBoard select.poll based eventloop, NOTE: uses *milliseconds* as the time unit"""
+
+    reader_cbs = {}
+    writer_cbs = {}
+
     def __init__(self):
         EventLoop.__init__(self)
         self.poller = select.poll()
@@ -14,24 +18,27 @@ class PybPollEventLoop(EventLoop):
     def add_reader(self, fd, cb, *args):
         if __debug__:
             log.debug("add_reader%s", (fd, cb, args))
-        # pollers do not actually support the third argumennt, what gives with this example ???
-        self.poller.register(fd, 1, (cb, args))
+        self.reader_cbs[str(fd)] = (cb, args)
+        self.poller.register(fd, 1)
 
     def remove_reader(self, fd):
         if __debug__:
             log.debug("remove_reader(%s)", fd)
         self.poller.unregister(fd)
+        del(self.reader_cbs[str(fd)])
 
     def add_writer(self, fd, cb, *args):
         if __debug__:
             log.debug("add_writer%s", (fd, cb, args))
-        self.poller.register(fd, 2, (cb, args))
+        self.writer_cbs[str(fd)] = (cb, args)
+        self.poller.register(fd, 2)
 
     def remove_writer(self, fd):
         if __debug__:
             log.debug("remove_writer(%s)", fd)
         try:
             self.poller.unregister(fd)
+            del(self.writer_cbs[str(fd)])
 # I don't think we have this on pyboard
 #        except OSError as e:
 #            # StreamWriter.awrite() first tries to write to an fd,
@@ -54,8 +61,14 @@ class PybPollEventLoop(EventLoop):
         else:
             res = self.poller.poll(delay)
         log.debug("poll result: %s", res)
-        for cb, ev in res:
-            # TODO: We should probably unregister the poller since the source version used epoll ONESHOT pollers
+        for fd, ev in res:
+            if __debug__:
+                log.debug("Got event %s on fd %s", ev, fd)
+            # TODO: We should probably/maybe unregister the poller since the source version used epoll ONESHOT pollers
+            if ev & 1: # Read event
+                cb = self.reader_cbs[str(fd)]
+            if ev & 2: # Write event
+                cb = self.writer_cbs[str(fd)]
             if __debug__:
                 log.debug("Calling IO callback: %s%s", cb[0], cb[1])
             cb[0](*cb[1])

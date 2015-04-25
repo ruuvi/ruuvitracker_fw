@@ -4,19 +4,22 @@ import rtb.eventloop
 from uasyncio import get_event_loop, sleep, StreamReader, StreamWriter
 
 class UART_with_fileno:
+    """Wraps the pyb.UART object (we cannot just subclass from it, select.poll will choke) to have support for fileno() to be compatible with uasyncio IORead et co"""
     uart_lld = None
-    uart_no = None
-    
-    def __init__(self, uart_no, *args, **kwargs):
-        self.uart_no = uart_no
-        self.uart_lld = pyb.UART(uart_no, *args, **kwargs)
+
+    def __init__(self, *args, **kwargs):
+        self.uart_lld = pyb.UART(*args, **kwargs)
 
     def fileno(self):
         """The IO Scheduling eventloops expect io objects to have fileno() method, MicroPythons select.poll expects the UART/USB object"""
         return self.uart_lld
 
     def __str__(self):
-        return 'UART_%d' % self.uart_no
+        return str(self.uart_lld)
+
+    def __getattr__(self, attr):
+        return getattr(self.uart_lld, attr)
+
 
 
 class RWStream(StreamReader, StreamWriter):
