@@ -64,14 +64,17 @@ class PybPollEventLoop(EventLoop):
         for fd, ev in res:
             if __debug__:
                 log.debug("Got event %s on fd %s", ev, fd)
-            # TODO: We should probably/maybe unregister the poller since the source version used epoll ONESHOT pollers
+            # TODO: We should probably/maybe unregister the poller since the source version used epoll ONESHOT pollers and the stream class will register another one...
             if ev & 1: # Read event
                 cb = self.reader_cbs[str(fd)]
+                self.remove_reader(fd)
             if ev & 2: # Write event
                 cb = self.writer_cbs[str(fd)]
+                self.remove_writer(fd)
             if __debug__:
                 log.debug("Calling IO callback: %s%s", cb[0], cb[1])
             cb[0](*cb[1])
+            
 
 
 

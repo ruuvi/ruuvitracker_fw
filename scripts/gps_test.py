@@ -1,6 +1,6 @@
 import rtb
 import logging
-logging.basicConfig(logging.DEBUG)
+#logging.basicConfig(logging.DEBUG)
 from uasyncio.core import get_event_loop,sleep
 from rtb.gps import instance as gps
 rtb.pwr.GPS_VCC.status()
