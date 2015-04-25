@@ -21,6 +21,9 @@ GSM_DGB_UART_N = None
 #///   - `UART(3)` is on `YB`: `(TX, RX) = (Y9, Y10) = (PB10, PB11)`
 #///   - `UART(2)` is on: `(TX, RX) = (X3, X4) = (PA2, PA3)`
 
+GSM_PWR_PIN = pyb.Pin('GSM_PWRKEY', pyb.Pin.OUT_OD) # TODO: Do we need to set this to high explicitly ?? probably not
+GSM_DTR_PIN = pyb.Pin('GSM_DTR', pyb.Pin.OUT_OD)
+
 # This is a coroutine, we do not use the decorator to indicate that due to resource constrainst of pyboard
 def heartbeat(ledno=1):
     led = pyb.LED(ledno)
