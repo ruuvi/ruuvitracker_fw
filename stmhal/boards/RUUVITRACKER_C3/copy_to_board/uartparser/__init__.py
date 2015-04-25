@@ -1,13 +1,23 @@
 """UART parser helper, requires uasyncio"""
 import pyb
 import rtb.eventloop
-from uasyncio.core import get_event_loop, sleep
+from uasyncio import get_event_loop, sleep, StreamReader, StreamWriter
+
+class UART_with_fileno(pyb.UART):
+    def fileno(self):
+        """The IO Scheduling eventloops expect io objects to have fileno() method, MicroPythons select.poll expects the UART/USB object"""
+        return self
+
+class RWStream(StreamReader, StreamWriter):
+    pass
 
 class UARTParser():
     recv_bytes = b''
     EOL = b'\r\n'
     line = b'' # Last detected complete line without EOL marker
     sleep_time = 10 # When we have no data sleep this long
+    uart = None
+    stream = None
 
     _run = False
     _sol = 0 # Start of line
@@ -19,6 +29,7 @@ class UARTParser():
 
     def __init__(self, uart):
         self.uart = uart
+        self.stream = RWStream(self.uart)
 
     def flush(self):
         self.recv_bytes = b''
@@ -139,10 +150,7 @@ class UARTParser():
     def start(self):
         self._run = True
         while self._run:
-            if not self.uart.any():
-                yield from sleep(self.sleep_time)
-                continue
-            recv = self.uart.read(100)
+            recv = yield from self.stream.read(100)
             if len(recv) == 0:
                 # Timed out (it should be impossible though...)
                 continue

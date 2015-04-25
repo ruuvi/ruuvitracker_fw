@@ -14,6 +14,7 @@ class PybPollEventLoop(EventLoop):
     def add_reader(self, fd, cb, *args):
         if __debug__:
             log.debug("add_reader%s", (fd, cb, args))
+        # pollers do not actually support the third argumennt, what gives with this example ???
         self.poller.register(fd, 1, (cb, args))
 
     def remove_reader(self, fd):
@@ -52,14 +53,15 @@ class PybPollEventLoop(EventLoop):
             res = self.poller.poll(-1)
         else:
             res = self.poller.poll(delay)
-        #log.debug("epoll result: %s", res)
+        log.debug("epoll result: %s", res)
         for cb, ev in res:
             # TODO: We should probably unregister the poller since the source version used epoll ONESHOT pollers
             if __debug__:
                 log.debug("Calling IO callback: %s%s", cb[0], cb[1])
             cb[0](*cb[1])
 
-# I'm not sure we actually can/want to use these
+
+
 class StreamReader:
 
     def __init__(self, s):

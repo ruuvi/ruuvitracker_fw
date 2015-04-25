@@ -26,7 +26,7 @@ class GPS:
             rtb.pwr.GPS_VBACKUP.request()
         rtb.pwr.GPS_VCC.request()
         rtb.pwr.GPS_ANT.request()
-        self.uart_lld = pyb.UART(rtb.GPS_UART_N, 115200, timeout=0, read_buf_len=256)
+        self.uart_lld = uartparser.UART_with_fileno(rtb.GPS_UART_N, 115200, timeout=0, read_buf_len=256)
         self.uart = uartparser.UARTParser(self.uart_lld)
         
         # TODO: Add NMEA parsing callbacks here
@@ -35,6 +35,9 @@ class GPS:
         self.uart.add_re_callback(r'RMC', r'^\$G[PLN]RMC,.*', self.gprmc_received)
         self.uart.add_re_callback(r'GGA', r'^\$G[PLN]GGA,.*', self.gpgga_received)
         self.uart.add_re_callback(r'GSA', r'^\$G[PLN]GSA,.*', self.gpgsa_received)
+        
+        # Return the uartparser coro
+        return self.uart.start()
 
     # TODO: Add GPS command methods (like setting the interval, putting the module to various sleep modes etc)
 
