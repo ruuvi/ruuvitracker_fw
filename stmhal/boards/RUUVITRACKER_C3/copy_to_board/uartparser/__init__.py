@@ -28,7 +28,6 @@ class UARTParser():
     recv_bytes = b''
     EOL = b'\r\n'
     line = b'' # Last detected complete line without EOL marker
-    sleep_time = 10 # When we have no data sleep this long
     uart = None
     stream = None
 
@@ -64,19 +63,28 @@ class UARTParser():
         self.flush()
         self._raw_cb = None
 
-    def cmd(self, cmd):
+    def cmd(self, cmd, timeout=1000):
         """Send a command string to the uart and returns next line as response, call with value = yield from parser.cmd("AT"), linebreak is added automatically"""
         print("cmd called")
-        _cmd_line = None
+#        if not self._run:
+#            raise Exception("parser must be running first!")
+        self._cmd_line = None
         # TODO: handle timeouts
         def _cb(recv):
-            print("in _cb")
+            print("in _cb, recv=%s" % recv)
             self._cmd_line = recv
+            self._cmd_cb = None
         self._cmd_cb = _cb
-        self.uart.write(b'%s%s' % (cmd, self.EOL))
+        # This will return immediately
+        yield from self.stream.awrite(b'%s%s' % (cmd, self.EOL))
+        started = pyb.millis()
         while not self._cmd_line:
             print("Waiting for line")
-            yield from sleep(self.sleep_time)
+            yield from sleep(100)
+            if pyb.elapsed_millis(started) > timeout:
+                print("cmd timed out!!")
+                # PONDER: raise a TimeoutError or somethign ??
+                return None
         return self._cmd_line
 
     def parse_buffer(self):
@@ -176,4 +184,6 @@ class UARTParser():
 
     def stop(self):
         self._run = False
+        # Just to keep consistent API, make this a coroutine too
+        yield
 

@@ -19,7 +19,12 @@ class PybPollEventLoop(EventLoop):
         if __debug__:
             log.debug("add_reader%s", (fd, cb, args))
         self.reader_cbs[str(fd)] = (cb, args)
-        self.poller.register(fd, 1)
+        if str(fd) in self.writer_cbs.keys():
+            if __debug__:
+                log.debug("modifying poller (%s)", fd)
+            self.poller.modify(fd, 3)
+        else:
+            self.poller.register(fd, 1)
 
     def remove_reader(self, fd):
         if __debug__:
@@ -31,7 +36,12 @@ class PybPollEventLoop(EventLoop):
         if __debug__:
             log.debug("add_writer%s", (fd, cb, args))
         self.writer_cbs[str(fd)] = (cb, args)
-        self.poller.register(fd, 2)
+        if str(fd) in self.reader_cbs.keys():
+            if __debug__:
+                log.debug("modifying poller (%s)", fd)
+            self.poller.modify(fd, 3)
+        else:
+            self.poller.register(fd, 2)
 
     def remove_writer(self, fd):
         if __debug__:
