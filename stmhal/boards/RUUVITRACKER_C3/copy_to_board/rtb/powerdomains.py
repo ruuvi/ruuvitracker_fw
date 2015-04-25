@@ -31,7 +31,7 @@ class powerdomains_base:
         return False
 
     def status(self):
-        return bool((self.pin.value() != self.invert))
+        return bool(self.pin.value()) != self.invert
 
 class powermanager:
     domains = []
