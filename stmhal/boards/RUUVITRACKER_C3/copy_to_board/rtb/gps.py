@@ -13,7 +13,7 @@ from nmea import MSG_GPRMC, MSG_GPGSA, MSG_GPGGA
 
 # The handler class
 class GPS:
-    uart_lld = None # Low-Level UART
+    uart_wrapper = None # Low-Level UART
     uart = None # This is the parser
     last_fix = None
 
@@ -26,8 +26,8 @@ class GPS:
             rtb.pwr.GPS_VBACKUP.request()
         rtb.pwr.GPS_VCC.request()
         rtb.pwr.GPS_ANT.request()
-        self.uart_lld = uartparser.UART_with_fileno(rtb.GPS_UART_N, 115200, timeout=0, read_buf_len=256)
-        self.uart = uartparser.UARTParser(self.uart_lld)
+        self.uart_wrapper = uartparser.UART_with_fileno(rtb.GPS_UART_N, 115200, timeout=0, read_buf_len=256)
+        self.uart = uartparser.UARTParser(self.uart_wrapper)
         
         # TODO: Add NMEA parsing callbacks here
         self.uart.add_line_callback(r'all', r'startswith', r'$', self.print_line)
@@ -36,7 +36,7 @@ class GPS:
         self.uart.add_re_callback(r'GGA', r'^\$G[PLN]GGA,.*', self.gpgga_received)
         self.uart.add_re_callback(r'GSA', r'^\$G[PLN]GSA,.*', self.gpgsa_received)
         
-        # Return the uartparser coro
+        # Return the uartparser 
         return self.uart.start()
 
     # TODO: Add GPS command methods (like setting the interval, putting the module to various sleep modes etc)
@@ -84,7 +84,7 @@ class GPS:
 
     def set_standby(self, state):
         """Set or exit the standby mode, set to True or False"""
-        self.uart_lld.write(nmea.checksum("$PMTK161,%d\r\n" % ms))
+        self.uart_wrapper.write(nmea.checksum("$PMTK161,%d\r\n" % ms))
         # TODO: Check the response somehow ?
 
     def print_line(self, line):
@@ -96,7 +96,7 @@ class GPS:
         self.uart.del_re_callback('GSA')
         self.uart.del_line_callback('all')
         self.uart.stop()
-        self.uart_lld.deinit()
+        self.uart_wrapper.deinit()
         rtb.pwr.GPS_VCC.release()
         rtb.pwr.GPS_ANT.release()
         # GPS_VBACKUP is left ureleased on purpose to allow for warm starts
