@@ -14,9 +14,6 @@ class UART_with_fileno:
         """The IO Scheduling eventloops expect io objects to have fileno() method, MicroPythons select.poll expects the UART/USB object"""
         return self.uart_lld
 
-    def __str__(self):
-        return str(self.uart_lld)
-
     def __getattr__(self, attr):
         return getattr(self.uart_lld, attr)
 
