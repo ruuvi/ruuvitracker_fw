@@ -84,12 +84,13 @@ class UARTParser():
             # Start the parser coroutine
             get_event_loop().create_task(self.start())
             stop_when_done = True
+
         self._cmd_line = None
+
         # This is the callback for the parser
         def _cb(recv):
             self._cmd_line = recv
             self._cmd_cb = None
-        self._cmd_cb = _cb
 
         # Wait for the read-buffer to be empty before sending our command
         if not do_not_wait:
@@ -98,6 +99,7 @@ class UARTParser():
         
         # This claims to return immediately
         yield from self.stream.awrite(b'%s%s' % (cmd, self.EOL.decode('ascii')))
+        self._cmd_cb = _cb
         print("CMD sent")
         # This might block but awrite will also first call the write and only then if it was a partial write schedule next one...
         #self.uart.write(b'%s%s' % (cmd, self.EOL.decode('ascii')))
@@ -216,5 +218,6 @@ class UARTParser():
             while (   not self._stopped
                     and self.uart.any()):
                 yield from sleep(10)
+        self.flush()
         #yield
 
