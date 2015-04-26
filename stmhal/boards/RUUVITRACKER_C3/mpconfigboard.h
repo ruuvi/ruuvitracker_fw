@@ -27,7 +27,7 @@
 
 // HSE is 16MHz
 #define MICROPY_HW_CLK_PLLM (16)
-// TODO: Doublecheck these numbers they're copied from PYBv10 which has 8MHz HSE
+// TODO: Doublecheck these numbers they're copied from PYBv10 which has 8MHz HSE <- just about every other board has same numbers regardles of their HSE (8, 12 or 25)
 #define MICROPY_HW_CLK_PLLN (336)
 #define MICROPY_HW_CLK_PLLP (RCC_PLLP_DIV2)
 #define MICROPY_HW_CLK_PLLQ (7)
