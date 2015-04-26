@@ -86,7 +86,7 @@ class GPS:
 
     def set_standby(self, state):
         """Set or exit the standby mode, set to True or False"""
-        resp = yield from self.uart.cmd(nmea.checksum("$PMTK161,%d\r\n" % state))
+        resp = yield from self.uart.cmd(nmea.checksum("$PMTK161,%d" % state))
         print("set_standby: Got response: %s" % resp)
         # TODO: Check the response somehow ?
 
