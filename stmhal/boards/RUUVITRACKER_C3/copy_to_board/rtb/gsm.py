@@ -14,8 +14,9 @@ class GSM:
         pass
 
     def start(self):
-        # Try with flow control
-        self.uart_wrapper = uartparser.UART_with_fileno(rtb.GSM_UART_N, 115200, read_buf_len=256, flow=pyb.UART.RTS | pyb.UART.CTS)
+        # Try without flow control first
+        self.uart_wrapper = uartparser.UART_with_fileno(rtb.GSM_UART_N, 115200, read_buf_len=256)
+        #self.uart_wrapper = uartparser.UART_with_fileno(rtb.GSM_UART_N, 115200, read_buf_len=256, flow=pyb.UART.RTS | pyb.UART.CTS)
         # TODO: schedule something that will reset the board to autobauding mode if it had not initialized within X seconds
         self.uart = uartparser.UARTParser(self.uart_wrapper)
 
@@ -60,6 +61,8 @@ class GSM:
         yield from self.push_powerbutton()
         yield from self.uart.stop()
         self.uart_wrapper.deinit()
+        # de-assert DTR
+        rtb.GSM_DTR_PIN.high()
         rtb.pwr.GSM_VBAT.release()
 
 instance = GSM()
