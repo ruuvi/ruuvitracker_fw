@@ -44,6 +44,7 @@ class UARTParser():
     stream = None
 
     _run = False
+    _stopped = True
     _sol = 0 # Start of line
     _str_cbs = {} # map of 3 value tuples (functionname, comparevalue, callback)
     _re_cbs = {} # map of 2 value tuples (compiled_re, callback)
@@ -77,26 +78,28 @@ class UARTParser():
 
     def cmd(self, cmd, timeout=1000):
         """Send a command string to the uart and returns next line as response, call with value = yield from parser.cmd("AT"), linebreak is added automatically"""
-        print("cmd called")
+        # If parser was not running start it until we are done (the eventloop obviously must be running)
         stop_when_done = False
         if not self._run:
             # Start the parser coroutine
             get_event_loop().create_task(self.start())
             stop_when_done = True
         self._cmd_line = None
-        # TODO: handle timeouts
+        # This is the callback for the parser
         def _cb(recv):
-            print("in _cb, recv=%s" % recv)
             self._cmd_line = recv
             self._cmd_cb = None
         self._cmd_cb = _cb
+
+        # PONDER: Wait for the receive buffer to be empty ??
         # This claims to return immediately
         yield from self.stream.awrite(b'%s%s' % (cmd, self.EOL.decode('ascii')))
         # This might block but awrite will also first call the write and only then if it was a partial write schedule next one...
         #self.uart.write(b'%s%s' % (cmd, self.EOL.decode('ascii')))
+        # Loop until timeout or received line
         started = pyb.millis()
         while not self._cmd_line:
-            yield from sleep(100)
+            yield from sleep(10)
             if pyb.elapsed_millis(started) > timeout:
                 self._cmd_line = CommandTimeout()
         if stop_when_done:
@@ -189,20 +192,24 @@ class UARTParser():
             # Just in case someone calls this twice...
             return
         self._run = True
+        self._stopped = False
         while self._run:
             recv = yield from self.stream.read(100)
-            if len(recv) == 0:
-                # Timed out (it should be impossible though...)
-                continue
+            # TODO: Check if we get an error
             self.recv_bytes += recv
             if not self._raw_cb:
                 # TODO: We may want to inline the parsing due to cost of method calls
                 self.parse_buffer()
             else:
                 self._raw_cb(self)
+        self._stopped = True
 
     def stop(self):
         self._run = False
-        # Just to keep consistent API, make this a coroutine too
+        # Wait for the start-coroutine to complete stopping itself
+# Actually this might not be such a good idea afterall
+#        while not self._stopped:
+#            yield from sleep(10)
+        # Keep it a coroutine though
         yield
 

@@ -79,7 +79,6 @@ class GPS:
 
     def set_interval(self, ms):
         """Set update interval in milliseconds"""
-        print("set_interval called")
         resp = yield from self.uart.cmd(nmea.checksum("$PMTK300,%d,0,0,0,0" % ms))
         print("set_interval: Got response: %s" % resp)
         # TODO: Check the response somehow ?
@@ -95,13 +94,11 @@ class GPS:
         self.uart.del_re_callback('GGA')
         self.uart.del_re_callback('GSA')
         self.uart.del_line_callback('all')
-        get_event_loop().create_task(self.uart.stop())
+        yield from self.uart.stop()
         self.uart_wrapper.deinit()
         rtb.pwr.GPS_VCC.release()
         rtb.pwr.GPS_ANT.release()
         # GPS_VBACKUP is left ureleased on purpose to allow for warm starts
 
-        # Just to keep consistent API, make this a coroutine too
-        yield
 
 instance = GPS()
