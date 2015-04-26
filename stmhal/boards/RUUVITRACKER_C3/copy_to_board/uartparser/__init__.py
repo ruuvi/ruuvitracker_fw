@@ -76,7 +76,7 @@ class UARTParser():
         self.flush()
         self._raw_cb = None
 
-    def cmd(self, cmd, timeout=1000):
+    def cmd(self, cmd, timeout=1000, do_not_wait=False):
         """Send a command string to the uart and returns next line as response, call with value = yield from parser.cmd("AT"), linebreak is added automatically"""
         # If parser was not running start it until we are done (the eventloop obviously must be running)
         stop_when_done = False
@@ -91,7 +91,11 @@ class UARTParser():
             self._cmd_cb = None
         self._cmd_cb = _cb
 
-        # PONDER: Wait for the receive buffer to be empty ??
+        # Wait for the read-buffer to be empty before sending our command
+        if not do_not_wait:
+            while self.uart.any():
+                yield from sleep(10)
+        
         # This claims to return immediately
         yield from self.stream.awrite(b'%s%s' % (cmd, self.EOL.decode('ascii')))
         # This might block but awrite will also first call the write and only then if it was a partial write schedule next one...
@@ -204,12 +208,12 @@ class UARTParser():
                 self._raw_cb(self)
         self._stopped = True
 
-    def stop(self):
+    def stop(self, do_not_wait=False):
         self._run = False
         # Wait for the start-coroutine to complete stopping itself
-# Actually this might not be such a good idea afterall
-#        while not self._stopped:
-#            yield from sleep(10)
-        # Keep it a coroutine though
-        yield
+        if not do_not_wait:
+            while (   not self._stopped
+                    and self.uart.any()):
+                yield from sleep(10)
+        #yield
 
