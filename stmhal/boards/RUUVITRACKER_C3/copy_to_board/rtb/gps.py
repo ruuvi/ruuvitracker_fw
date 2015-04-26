@@ -80,7 +80,7 @@ class GPS:
     def set_interval(self, ms):
         """Set update interval in milliseconds"""
         print("set_interval called")
-        resp = yield from self.uart.cmd(nmea.checksum("$PMTK300,%d,0,0,0,0\r\n" % ms))
+        resp = yield from self.uart.cmd(nmea.checksum("$PMTK300,%d,0,0,0,0" % ms))
         print("set_interval: Got response: %s" % resp)
         # TODO: Check the response somehow ?
 
