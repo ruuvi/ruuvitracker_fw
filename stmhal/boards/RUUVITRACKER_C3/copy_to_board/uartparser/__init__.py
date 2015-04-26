@@ -75,12 +75,10 @@ class UARTParser():
             self._cmd_line = recv
             self._cmd_cb = None
         self._cmd_cb = _cb
-        sendstr = b'%s%s' % (cmd, self.EOL.decode('ascii'))
         # This claims to return immediately
-        yield from self.stream.awrite(sendstr)
+        yield from self.stream.awrite(b'%s%s' % (cmd, self.EOL.decode('ascii')))
         # This might block but awrite will also first call the write and only then if it was a partial write schedule next one...
-        #self.uart.write(sendstr)
-        print("Sent %s" % repr(sendstr))
+        #self.uart.write(b'%s%s' % (cmd, self.EOL.decode('ascii')))
         started = pyb.millis()
         while not self._cmd_line:
             print("Waiting for line")

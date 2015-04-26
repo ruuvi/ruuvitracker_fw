@@ -7,6 +7,7 @@ rtb.pwr.GPS_VCC.status()
 
 get_event_loop().create_task(gps.start())
 #get_event_loop().create_task(rtb.heartbeat(1))
+# Apparently this does the UART song&dance immediately
 get_event_loop().call_later(5000, gps.set_interval(5000))
 
 loop = get_event_loop()
