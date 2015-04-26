@@ -98,6 +98,7 @@ class UARTParser():
         
         # This claims to return immediately
         yield from self.stream.awrite(b'%s%s' % (cmd, self.EOL.decode('ascii')))
+        print("CMD sent")
         # This might block but awrite will also first call the write and only then if it was a partial write schedule next one...
         #self.uart.write(b'%s%s' % (cmd, self.EOL.decode('ascii')))
         # Loop until timeout or received line
@@ -210,7 +211,7 @@ class UARTParser():
 
     def stop(self, do_not_wait=False):
         self._run = False
-        # Wait for the start-coroutine to complete stopping itself
+        # Wait for the start-coroutine to complete stopping itself (or at least for the input-buffer to be empty)
         if not do_not_wait:
             while (   not self._stopped
                     and self.uart.any()):
