@@ -26,9 +26,8 @@ class GSM:
         # The parsers start method is a generator so it's called like this
         get_event_loop().create_task(self.uart.start())
 
-        # TODO: Doublecheck the schema, was there a to control line for GSM RTC as well ??
+        # Power on
         rtb.pwr.GSM_VBAT.request()
-        
         yield from self.push_powerbutton()
         # Assert DTR to enable module UART (we can also sample the DTR pin to see if the module is powered on
         rtb.GSM_DTR_PIN.low()
