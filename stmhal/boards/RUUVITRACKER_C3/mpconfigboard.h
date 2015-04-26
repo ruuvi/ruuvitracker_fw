@@ -24,6 +24,18 @@
 #define MICROPY_HW_ENABLE_SPI3      (0)
 #define MICROPY_HW_ENABLE_CAN       (1)
 
+
+// HSE is 16MHz
+#define MICROPY_HW_CLK_PLLM (16)
+// TODO: Doublecheck these numbers they're copied from PYBv10 which has 8MHz HSE
+#define MICROPY_HW_CLK_PLLN (336)
+#define MICROPY_HW_CLK_PLLP (RCC_PLLP_DIV2)
+#define MICROPY_HW_CLK_PLLQ (7)
+
+// The pyboard has a 32kHz crystal for the RTC
+#define MICROPY_HW_RTC_USE_LSE      (1)
+
+
 // map RT WKUP to USRSW (though this may be a bad idea when using accelerometer wakeup...
 #define MICROPY_HW_USRSW_PIN        (pin_A0)
 #define MICROPY_HW_USRSW_PULL       (GPIO_PULLDOWN)
