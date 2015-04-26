@@ -35,8 +35,8 @@ class GPS:
         # We might call start/stop multiple times and in stop we do not release VBACKUP by default
         if not rtb.pwr.GPS_VBACKUP.status():
             rtb.pwr.GPS_VBACKUP.request()
-        rtb.pwr.GPS_VCC.request()
         rtb.pwr.GPS_ANT.request()
+        rtb.pwr.GPS_VCC.request()
 
         # Just to keep consistent API, make this a coroutine too
         yield
