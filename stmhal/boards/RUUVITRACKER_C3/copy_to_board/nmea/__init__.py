@@ -2,10 +2,13 @@
 import ure as re
 
 # Errors
-class FormatError(RuntimeError):
+class NMEAError(RuntimeError):
     pass
 
-class ChecksumError(RuntimeError):
+class FormatError(NMEAError):
+    pass
+
+class ChecksumError(NMEAError):
     pass
 
 

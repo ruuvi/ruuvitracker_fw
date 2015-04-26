@@ -3,6 +3,18 @@ import pyb
 import rtb.eventloop
 from uasyncio import get_event_loop, sleep, StreamReader, StreamWriter
 
+# Errors
+class UARTParserError(RuntimeError):
+    pass
+
+class CommandTimeout(UARTParserError):
+    pass
+
+class CallbackError(UARTParserError):
+    pass
+
+
+
 class UART_with_fileno:
     """Wraps the pyb.UART object (we cannot just subclass from it, select.poll will choke) to have support for fileno() to be compatible with uasyncio IORead et co"""
     uart_lld = None
@@ -66,8 +78,11 @@ class UARTParser():
     def cmd(self, cmd, timeout=1000):
         """Send a command string to the uart and returns next line as response, call with value = yield from parser.cmd("AT"), linebreak is added automatically"""
         print("cmd called")
-#        if not self._run:
-#            raise Exception("parser must be running first!")
+        stop_when_done = False
+        if not self._run:
+            # Start the parser coroutine
+            get_event_loop().create_task(self.start())
+            stop_when_done = True
         self._cmd_line = None
         # TODO: handle timeouts
         def _cb(recv):
@@ -81,12 +96,11 @@ class UARTParser():
         #self.uart.write(b'%s%s' % (cmd, self.EOL.decode('ascii')))
         started = pyb.millis()
         while not self._cmd_line:
-            print("Waiting for line")
             yield from sleep(100)
             if pyb.elapsed_millis(started) > timeout:
-                print("cmd timed out!!")
-                # PONDER: raise a TimeoutError or somethign ??
-                return None
+                self._cmd_line = CommandTimeout()
+        if stop_when_done:
+            get_event_loop().create_task(self.stop())
         return self._cmd_line
 
     def parse_buffer(self):
@@ -139,7 +153,7 @@ class UARTParser():
         import ure
         # Sanity-check
         if cbid in self._re_cbs:
-            raise RuntimeError("Trying to add same callback twice")
+            raise CallbackError("Trying to add same callback twice")
         # Compile the regex
         re = ure.compile(regex)
         # And add the the callback list
@@ -157,7 +171,7 @@ class UARTParser():
         The check is performed (and callback will receive  the matched line) with End Of Line removed. Return True from the callback to flush the buffer"""
         # Sanity-check
         if cbid in self._str_cbs:
-            raise RuntimeError("Trying to add same callback twice")
+            raise CallbackError("Trying to add same callback twice")
         # Check that the method is valid
         getattr(self.recv_bytes, method)
         # And add the the callback list
@@ -171,6 +185,9 @@ class UARTParser():
         return False
 
     def start(self):
+        if self._run:
+            # Just in case someone calls this twice...
+            return
         self._run = True
         while self._run:
             recv = yield from self.stream.read(100)

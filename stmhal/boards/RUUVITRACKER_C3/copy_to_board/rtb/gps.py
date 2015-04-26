@@ -95,7 +95,7 @@ class GPS:
         self.uart.del_re_callback('GGA')
         self.uart.del_re_callback('GSA')
         self.uart.del_line_callback('all')
-        self.uart.stop()
+        get_event_loop().create_task(self.uart.stop())
         self.uart_wrapper.deinit()
         rtb.pwr.GPS_VCC.release()
         rtb.pwr.GPS_ANT.release()
