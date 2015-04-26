@@ -3,6 +3,9 @@ import rtb
 import uartparser
 from uasyncio.core import get_event_loop, sleep
 
+
+# TODO: This thing needs a proper state machine to keep track of the sleep modes
+
 class GSM:
     uart_wrapper = None # Low-Level UART
     uart = None # This is the parser
@@ -25,8 +28,9 @@ class GSM:
         # TODO: Doublecheck the schema, was there a to control line for GSM RTC as well ??
         rtb.pwr.GSM_VBAT.request()
         
-        get_event_loop().create_task(self.push_powerbutton())
-
+        yield from self.push_powerbutton()
+        # Assert DTR to enable module UART (we can also sample the DTR pin to see if the module is powered on
+        rtb.GSM_DTR_PIN.low()
 
         # Just to keep consistent API, make this a coroutine too
         yield
@@ -35,13 +39,10 @@ class GSM:
         rtb.GSM_PWR_PIN.low()
         yield from sleep(push_time)
         rtb.GSM_PWR_PIN.high()
-        
 
-    # TODO: The GPIO song&dance with the GSM "powerbutton"
-    
     # TODO: Autobauding -> set baud and flow control (rmember to reinit the UART...)
 
-    # TODO: Add GSM command methods (like setting the interval, putting the module to various sleep modes etc)
+    # TODO: Add GSM command methods (putting the module to various sleep modes etc)
     
     # TODO: Add possibility to attach callbacks to SMS received etc
 
@@ -56,7 +57,8 @@ class GSM:
     
     def stop(self):
         self.uart.del_line_callback('pls')
-        self.uart.stop()
+        yield from self.push_powerbutton()
+        yield from self.uart.stop()
         self.uart_wrapper.deinit()
         rtb.pwr.GSM_VBAT.release()
 

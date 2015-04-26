@@ -21,12 +21,15 @@ GSM_DGB_UART_N = None
 #///   - `UART(3)` is on `YB`: `(TX, RX) = (Y9, Y10) = (PB10, PB11)`
 #///   - `UART(2)` is on: `(TX, RX) = (X3, X4) = (PA2, PA3)`
 
-GSM_PWR_PIN = pyb.Pin('GSM_PWRKEY', pyb.Pin.OUT_OD)
-GSM_DTR_PIN = pyb.Pin('GSM_DTR', pyb.Pin.OUT_OD)
 # Default the open-drains to high, this is run only on the first module import so it does not cause weird side-effect when someone imports rtb to access features
-# TODO: Do we (just to be sure) want to sample them first in input mode and set to the sampled value ??
+# NOTE: Even though these have external pull-ups, they're only enabled when the GSM module is powered on, this is good to remember if you want to sample the external value
+GSM_PWR_PIN = pyb.Pin('GSM_PWRKEY')
 GSM_PWR_PIN.high()
+GSM_PWR_PIN.init(pyb.Pin.OUT_OD)
+
+GSM_DTR_PIN = pyb.Pin('GSM_DTR')
 GSM_DTR_PIN.high()
+GSM_DTR_PIN.init(pyb.Pin.OUT_OD)
 
 # This is a coroutine, we do not use the decorator to indicate that due to resource constrainst of pyboard
 def heartbeat(ledno=1):
