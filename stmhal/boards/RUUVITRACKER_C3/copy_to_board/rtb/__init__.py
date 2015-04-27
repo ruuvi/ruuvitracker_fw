@@ -31,6 +31,9 @@ GSM_DTR_PIN = pyb.Pin('GSM_DTR')
 GSM_DTR_PIN.high()
 GSM_DTR_PIN.init(pyb.Pin.OUT_OD)
 
+GPS_WAKEUP_PIN = pyb.Pin('GPS_WAKEUP', pyb.Pin.OUT_PP)
+
+
 # This is a coroutine, we do not use the decorator to indicate that due to resource constrainst of pyboard
 def heartbeat(ledno=1):
     led = pyb.LED(ledno)

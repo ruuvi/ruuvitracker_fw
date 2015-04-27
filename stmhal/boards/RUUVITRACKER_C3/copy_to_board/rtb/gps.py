@@ -31,6 +31,9 @@ class GPS:
         # Start the parser
         get_event_loop().create_task(self.uart.start())
 
+        # Assert wakeup
+        GPS_WAKEUP_PIN.high()
+
         # And turn on the power
         # We might call start/stop multiple times and in stop we do not release VBACKUP by default
         if not rtb.pwr.GPS_VBACKUP.status():
@@ -42,6 +45,7 @@ class GPS:
         yield
 
     # TODO: Add GPS command methods (like setting the interval, putting the module to various sleep modes etc)
+    # @see https://github.com/RuuviTracker/ruuvitracker_hw/blob/revC3/datasheets/SIM28_SIM68R_SIM68V_NMEA_Messages_Specification_V1.01.pdf
 
     def gprmc_received(self, match):
         line = match.group(0)
@@ -94,6 +98,8 @@ class GPS:
         self.uart.del_re_callback('GGA')
         self.uart.del_re_callback('GSA')
         self.uart.del_line_callback('all')
+        # Drive the wakeup pin low
+        GPS_WAKEUP_PIN.low()
         yield from self.uart.stop()
         self.uart_wrapper.deinit()
         rtb.pwr.GPS_VCC.release()
