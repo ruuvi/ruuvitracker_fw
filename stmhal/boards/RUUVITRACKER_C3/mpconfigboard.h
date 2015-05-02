@@ -32,7 +32,7 @@
 #define MICROPY_HW_CLK_PLLP (RCC_PLLP_DIV2)
 #define MICROPY_HW_CLK_PLLQ (7)
 
-// The pyboard has a 32kHz crystal for the RTC
+// We do not have 32kHz crystal for the RTC
 #define MICROPY_HW_RTC_USE_LSE      (0)
 
 
