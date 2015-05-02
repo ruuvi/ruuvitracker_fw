@@ -32,7 +32,7 @@ class GPS:
         get_event_loop().create_task(self.uart.start())
 
         # Assert wakeup
-        GPS_WAKEUP_PIN.high()
+        rtb.GPS_WAKEUP_PIN.high()
 
         # And turn on the power
         # We might call start/stop multiple times and in stop we do not release VBACKUP by default
@@ -99,7 +99,7 @@ class GPS:
         self.uart.del_re_callback('GSA')
         self.uart.del_line_callback('all')
         # Drive the wakeup pin low
-        GPS_WAKEUP_PIN.low()
+        rtb.GPS_WAKEUP_PIN.low()
         yield from self.uart.stop()
         self.uart_wrapper.deinit()
         rtb.pwr.GPS_VCC.release()
