@@ -11,7 +11,7 @@ pwrmgr = powermanager_singleton
 GSM_UART_N = 3 # PB10/PB11 and PB13/PB14 (flow control), see http://forum.micropython.org/viewtopic.php?t=376
 GPS_UART_N = 2 # PA2/PA3
 # We probably need to remap this with some alternate-function system or something...
-GSM_DGB_UART = 1 # PA9/PA10
+GSM_DGB_UART_N = 1 # PA9/PA10
 
 # Default the open-drains to high, this is run only on the first module import so it does not cause weird side-effect when someone imports rtb to access features
 # NOTE: Even though these have external pull-ups, they're only enabled when the GSM module is powered on, this is good to remember if you want to sample the external value
