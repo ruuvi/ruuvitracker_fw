@@ -51,7 +51,7 @@ class GSM:
         resp = yield from self.uart.cmd("AT")
         print("at_test: Got response: %s" % resp)
 
-    def print_line(self, line, parser):
+    def print_line(self, line):
         print(line)
         return True
     
