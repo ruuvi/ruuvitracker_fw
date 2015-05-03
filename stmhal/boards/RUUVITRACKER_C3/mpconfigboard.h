@@ -66,21 +66,21 @@
 
 // UARTs config
 // GSM DEBUG port
-#define PYB_USART_1_PORT    GPIOA
-#define PYB_USART_1_PINS    (GPIO_PIN_10 | GPIO_PIN_9)
-// GPS port (not using RTS/CTS but they must be defined)
-#define PYB_USART_2_PORT    GPIOA
-#define PYB_USART_2_PINS    (GPIO_PIN_2 | GPIO_PIN_3)
-#define PYB_USART_2_RTS     GPIO_PIN_1
-#define PYB_USART_2_CTS     GPIO_PIN_0
+#define MICROPY_HW_UART1_PORT    GPIOA
+#define MICROPY_HW_UART1_PINS    (GPIO_PIN_10 | GPIO_PIN_9)
+// GPS port (not using RTS/CTS but they should be defined)
+#define MICROPY_HW_UART2_PORT    GPIOA
+#define MICROPY_HW_UART2_PINS    (GPIO_PIN_2 | GPIO_PIN_3)
+#define MICROPY_HW_UART2_RTS     GPIO_PIN_1
+#define MICROPY_HW_UART2_CTS     GPIO_PIN_0
 // GSM normal port
-#define PYB_USART_3_PORT    GPIOB
-#define PYB_USART_3_PINS    (GPIO_PIN_10 | GPIO_PIN_11)
-#define PYB_USART_3_RTS     GPIO_PIN_14
-#define PYB_USART_3_CTS     GPIO_PIN_13
+#define MICROPY_HW_UART3_PORT    GPIOB
+#define MICROPY_HW_UART3_PINS    (GPIO_PIN_10 | GPIO_PIN_11)
+#define MICROPY_HW_UART3_RTS     GPIO_PIN_14
+#define MICROPY_HW_UART3_CTS     GPIO_PIN_13
 // Not used but should be defined
-#define PYB_USART_4_PORT    GPIOA
-#define PYB_USART_4_PINS    (GPIO_PIN_0 | GPIO_PIN_1)
+#define MICROPY_HW_UART4_PORT    GPIOA
+#define MICROPY_HW_UART4_PINS    (GPIO_PIN_0 | GPIO_PIN_1)
 // Not used but should be defined
-#define PYB_USART_6_PORT    GPIOC
-#define PYB_USART_6_PINS    (GPIO_PIN_6 | GPIO_PIN_7)
+#define MICROPY_HW_UART6_PORT    GPIOC
+#define MICROPY_HW_UART6_PINS    (GPIO_PIN_6 | GPIO_PIN_7)
