@@ -29,7 +29,7 @@ class GSM:
         # Power on
         rtb.pwr.GSM_VBAT.request()
         yield from self.push_powerbutton()
-        # Assert DTR to enable module UART (we can also sample the DTR pin to see if the module is powered on
+        # Assert DTR to enable module UART (we can also sample the DTR pin to see if the module is powered on)
         rtb.GSM_DTR_PIN.low()
 
         # Just to keep consistent API, make this a coroutine too
@@ -39,6 +39,40 @@ class GSM:
         rtb.GSM_PWR_PIN.low()
         yield from sleep(push_time)
         rtb.GSM_PWR_PIN.high()
+
+    def at_mode_init(self):
+        # Make sure autobauding autobauds
+        resp = yield from self.uart.cmd("AT")
+        # Echo off
+        resp = yield from self.uart.cmd("ATE0")
+        # Set fixed baudrate
+        resp = yield from self.uart.cmd("AT+IPR=115200")
+        # Network registration messages enable
+        resp = yield from self.uart.cmd("AT+CREG=2")
+
+    def sleep():
+        """Put module to sleep. This assumes slow-clock is set to 1"""
+        rtb.GSM_DTR_PIN.high()
+
+    def wakeup():
+        """Wake up from sleep. This assumes slow-clock is set to 1"""
+        rtb.GSM_DTR_PIN.low()
+        # The serial port is ready after 50ms
+        yield from sleep(50)
+
+    def set_slow_clock(mode=1):
+        """Sets slow-clock mode, 1 is recommended, DTR controls sleep mode then"""
+        resp = yield from self.uart.cmd("AT+CSCLK=%d" % mode)
+
+    def set_flow_control(value=True):
+        """Enables/disables RTS/CTS flow control on the module and UART"""
+        if value:
+            resp = yield from self.uart.cmd("AT+IFC=2,2")
+            self.uart_wrapper.init(115200, read_buf_len=256, flow=pyb.UART.RTS | pyb.UART.CTS)
+        else:
+            resp = yield from self.uart.cmd("AT+IFC=0,0")
+            self.uart_wrapper.init(115200, read_buf_len=256, flow=0)
+
 
     # TODO: Autobauding -> set baud and flow control (rmember to reinit the UART...)
 
