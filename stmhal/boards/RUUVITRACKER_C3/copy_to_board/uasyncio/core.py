@@ -55,7 +55,11 @@ class EventLoop:
                 tnow = self.time()
                 delay = t - tnow
                 if delay > 0:
+                    # Put the task back to the queue
+                    heapq.heappush(self.q, (t, cnt, cb, args))
+                    # Wait and continue
                     self.wait(delay)
+                    continue
             else:
                 self.wait(-1)
                 # Assuming IO completion scheduled some tasks
