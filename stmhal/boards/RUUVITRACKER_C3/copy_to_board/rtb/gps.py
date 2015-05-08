@@ -14,6 +14,7 @@ class GPS:
     uart_wrapper = None # Low-Level UART
     uart = None # This is the parser
     last_fix = None
+    _next_fix = None
 
     def __init__(self):
         pass
@@ -24,9 +25,9 @@ class GPS:
 
 
         # TODO: Add NMEA parsing callbacks here
-        self.uart.add_re_callback(r'RMC', r'^\$G[PLN]RMC,.*', self.gprmc_received)
         self.uart.add_re_callback(r'GGA', r'^\$G[PLN]GGA,.*', self.gpgga_received)
         self.uart.add_re_callback(r'GSA', r'^\$G[PLN]GSA,.*', self.gpgsa_received)
+        self.uart.add_re_callback(r'RMC', r'^\$G[PLN]RMC,.*', self.gprmc_received)
         
         # Start the parser
         get_event_loop().create_task(self.uart.start())
@@ -52,34 +53,40 @@ class GPS:
         # Skip checksum failures
         if not nmea.checksum(line):
             return
-        # Reset the last_fix
-        # TODO: Actually I think we get GGA/GSA first and RMC after them so this might not be the correct order (OTOH without RMC we can't do much...)
-        self.last_fix = nmea.Fix()
-        nmea.parse_gprmc(line, self.last_fix)
-        self.last_fix.last_update = pyb.millis()
-        # TODO: Check if anyone wants to see the fix yet
-        if self.last_fix:
-            print("===\r\nRMC lat=%s lon=%s\r\n==" % (self.last_fix.lat, self.last_fix.lon))
+
+        if not self._next_fix:
+            self._next_fix = nmea.Fix()
+        nmea.parse_gprmc(line, self._next_fix)
+        if self._next_fix.lat != None:
+            self.last_fix = self._next_fix
+            self.last_fix.last_update = pyb.millis()
+            self._next_fix = None
+            print("===\r\nRMC lat=%s lon=%s altitude=%s\r\n==" % (self.last_fix.lat, self.last_fix.lon, self.last_fix.altitude))
+            # TODO: Check if anyone wants to see the fix yet
 
     def gpgga_received(self, match):
         line = match.group(0)
         # Skip checksum failures
         if not nmea.checksum(line):
             return
-        nmea.parse_gpgga(line, self.last_fix)
-        # TODO: Check if anyone wants to see the fix yet
-        if self.last_fix:
-            print("===\r\nGGA lat=%s lon=%s altitude=%s\r\n==" % (self.last_fix.lat, self.last_fix.lon, self.last_fix.altitude))
+
+        if not self._next_fix:
+            self._next_fix = nmea.Fix()
+        nmea.parse_gpgga(line, self._next_fix)
+        if self._next_fix.lat != None:
+            print("===\r\nGGA lat=%s lon=%s altitude=%s\r\n==" % (self._next_fix.lat, self._next_fix.lon, self._next_fix.altitude))
 
     def gpgsa_received(self, match):
         line = match.group(0)
         # Skip checksum failures
         if not nmea.checksum(line):
             return
-        nmea.parse_gpgsa(line, self.last_fix)
-        # TODO: Check if anyone wants to see the fix yet
-        if self.last_fix:
-            print("===\r\nGSA lat=%s lon=%s altitude=%s fix_type=%s\r\n==" % (self.last_fix.lat, self.last_fix.lon, self.last_fix.altitude, self.last_fix.fix_type))
+
+        if not self._next_fix:
+            self._next_fix = nmea.Fix()
+        nmea.parse_gpgsa(line, self._next_fix)
+        if self._next_fix.lat != None:
+            print("===\r\nGSA lat=%s lon=%s altitude=%s\r\n==" % (self._next_fix.lat, self._next_fix.lon, self._next_fix.altitude))
 
     def set_interval(self, ms):
         """Set update interval in milliseconds"""
