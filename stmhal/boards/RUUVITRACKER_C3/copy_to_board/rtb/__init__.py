@@ -6,6 +6,9 @@ from uasyncio.core import sleep
 from .powerdomains import powermanager_singleton
 from . import powerdomains_config as pwr
 
+from .accelerometer import onboard as accel
+
+
 pwrmgr = powermanager_singleton
 
 GSM_UART_N = 3 # PB10/PB11 and PB13/PB14 (flow control), see http://forum.micropython.org/viewtopic.php?t=376
