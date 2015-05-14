@@ -26,9 +26,6 @@ class mma8652:
         else:
             config |= 0x1
         self.bus.mem_write(chr(config), self.addr, 0x2c, timeout=200)
-        
-        #make this a coroutine
-        yield
             
 
 onboard = mma8652()
