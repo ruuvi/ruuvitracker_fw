@@ -16,13 +16,12 @@
 #define MICROPY_HW_ENABLE_RNG       (1)
 #define MICROPY_HW_ENABLE_RTC       (1)
 #define MICROPY_HW_ENABLE_TIMER     (1)
-#define MICROPY_HW_ENABLE_SERVO     (1)
-#define MICROPY_HW_ENABLE_DAC       (1)
-#define MICROPY_HW_ENABLE_I2C1      (1)
-#define MICROPY_HW_ENABLE_SPI1      (1)
-#define MICROPY_HW_ENABLE_SPI2      (1)
+#define MICROPY_HW_ENABLE_SERVO     (0) // The PWM pins used byt PYBV10 are all reserved for other uses
+#define MICROPY_HW_ENABLE_DAC       (0) // All the DAC capable pins are reserved for other uses.
+#define MICROPY_HW_ENABLE_SPI1      (1) // Only SPI1 available, other pins reserved
+#define MICROPY_HW_ENABLE_SPI2      (0)
 #define MICROPY_HW_ENABLE_SPI3      (0)
-#define MICROPY_HW_ENABLE_CAN       (1)
+#define MICROPY_HW_ENABLE_CAN       (0) // All the CAN capable pins are reserved for other uses.
 
 
 // HSE is 16MHz
@@ -36,8 +35,9 @@
 #define MICROPY_HW_RTC_USE_LSE      (0)
 
 
-// map RT WKUP to USRSW (though this may be a bad idea when using accelerometer wakeup...
-#define MICROPY_HW_USRSW_PIN        (pin_A0)
+// Map MicroPython usrsw to PB0 just in case the user needs safe-mode or factory reset
+// The actual onboard button is connected to PA0 (along with the accelerometer interrupt output which sadly is active-low push-pull at boot time)
+#define MICROPY_HW_USRSW_PIN        (pin_B0)
 #define MICROPY_HW_USRSW_PULL       (GPIO_PULLDOWN)
 #define MICROPY_HW_USRSW_EXTI_MODE  (GPIO_MODE_IT_RISING)
 #define MICROPY_HW_USRSW_PRESSED    (1)
@@ -63,6 +63,11 @@
 #define MICROPY_HW_USB_VBUS_DETECT_PIN (pin_A9)
 #define MICROPY_HW_USB_OTG_ID_PIN      (pin_A10)
 */
+
+// I2C config
+#define MICROPY_HW_I2C1_SCL (pin_B6)
+#define MICROPY_HW_I2C1_SDA (pin_B7)
+
 
 // UARTs config
 // GSM DEBUG port
