@@ -35,8 +35,9 @@
 #define MICROPY_HW_RTC_USE_LSE      (0)
 
 
-// map RT WKUP to USRSW (though this may be a bad idea when using accelerometer wakeup...
-#define MICROPY_HW_USRSW_PIN        (pin_A0)
+// Map MicroPython usrsw to PB0 just in case the user needs safe-mode or factory reset
+// The actual onboard button is connected to PA0 (along with the accelerometer interrupt output which sadly is active-low push-pull at boot time)
+#define MICROPY_HW_USRSW_PIN        (pin_B0)
 #define MICROPY_HW_USRSW_PULL       (GPIO_PULLDOWN)
 #define MICROPY_HW_USRSW_EXTI_MODE  (GPIO_MODE_IT_RISING)
 #define MICROPY_HW_USRSW_PRESSED    (1)
