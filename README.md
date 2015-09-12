@@ -2,7 +2,7 @@
 
 ## Using
 
-See [MicroPython documentation](http://docs.micropython.org/en/latest/quickref.html) for details about execution environment.
+See [MicroPython documentation](http://docs.micropython.org/en/latest/) for details about execution environment.
 
 TODO: Document the board specific python modules via [gh-pages](https://pages.github.com/) as they get more functionality.
 
