@@ -51,10 +51,15 @@ class EventLoop:
                 if __debug__:
                     log.debug("Next coroutine to run: %s", (t, cnt, cb, args))
 #                __main__.mem_info()
+                # TODO: We are going to have a problem with millis() overflow here at some point
                 tnow = self.time()
                 delay = t - tnow
                 if delay > 0:
+                    # Put the task back to the queue
+                    heapq.heappush(self.q, (t, cnt, cb, args))
+                    # Wait and continue
                     self.wait(delay)
+                    continue
             else:
                 self.wait(-1)
                 # Assuming IO completion scheduled some tasks

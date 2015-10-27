@@ -1,1 +1,2 @@
-# This file is just to make this dir a module
+# Two purposes 1. make this dis a module 2. if imported directly, import the pybselect eventloop
+from .pybselect import *

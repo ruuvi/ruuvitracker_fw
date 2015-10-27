@@ -1,21 +1,60 @@
 """UART parser helper, requires uasyncio"""
 import pyb
-from uasyncio.core import get_event_loop, sleep
+import rtb.eventloop
+from uasyncio import get_event_loop, sleep, StreamReader, StreamWriter
+
+# Errors
+class UARTParserError(RuntimeError):
+    pass
+
+class CommandTimeout(UARTParserError):
+    pass
+
+class CallbackError(UARTParserError):
+    pass
+
+
+
+class UART_with_fileno:
+    """Wraps the pyb.UART object (we cannot just subclass from it, select.poll will choke) to have support for fileno() to be compatible with uasyncio IORead et co"""
+    uart_lld = None
+
+    def __init__(self, *args, **kwargs):
+        self.uart_lld = pyb.UART(*args, **kwargs)
+
+    def fileno(self):
+        """The IO Scheduling eventloops expect io objects to have fileno() method, MicroPythons select.poll expects the UART/USB object"""
+        return self.uart_lld
+
+    def __getattr__(self, attr):
+        return getattr(self.uart_lld, attr)
+
+
+
+class RWStream(StreamReader, StreamWriter):
+    pass
+
+
 
 class UARTParser():
     recv_bytes = b''
     EOL = b'\r\n'
     line = b'' # Last detected complete line without EOL marker
-    sleep_time = 0.01 # When we have no data sleep this long
+    uart = None
+    stream = None
 
     _run = False
+    _stopped = True
     _sol = 0 # Start of line
     _str_cbs = {} # map of 3 value tuples (functionname, comparevalue, callback)
     _re_cbs = {} # map of 2 value tuples (compiled_re, callback)
     _raw_cb = None
+    _cmd_cb = None
+    _cmd_line = None
 
     def __init__(self, uart):
         self.uart = uart
+        self.stream = RWStream(self.uart)
 
     def flush(self):
         self.recv_bytes = b''
@@ -37,6 +76,43 @@ class UARTParser():
         self.flush()
         self._raw_cb = None
 
+    def cmd(self, cmd, timeout=1000, do_not_wait=False):
+        """Send a command string to the uart and returns next line as response, call with value = yield from parser.cmd("AT"), linebreak is added automatically"""
+        # If parser was not running start it until we are done (the eventloop obviously must be running)
+        stop_when_done = False
+        if not self._run:
+            # Start the parser coroutine
+            get_event_loop().create_task(self.start())
+            stop_when_done = True
+
+        self._cmd_line = None
+
+        # This is the callback for the parser
+        def _cb(recv):
+            self._cmd_line = recv
+            self._cmd_cb = None
+
+        # Wait for the read-buffer to be empty before sending our command
+        if not do_not_wait:
+            while self.uart.any():
+                yield from sleep(10)
+        
+        # This claims to return immediately
+        yield from self.stream.awrite(b'%s%s' % (cmd, self.EOL.decode('ascii')))
+        self._cmd_cb = _cb
+        print("CMD sent")
+        # This might block but awrite will also first call the write and only then if it was a partial write schedule next one...
+        #self.uart.write(b'%s%s' % (cmd, self.EOL.decode('ascii')))
+        # Loop until timeout or received line
+        started = pyb.millis()
+        while not self._cmd_line:
+            yield from sleep(10)
+            if pyb.elapsed_millis(started) > timeout:
+                self._cmd_line = CommandTimeout()
+        if stop_when_done:
+            get_event_loop().create_task(self.stop())
+        return self._cmd_line
+
     def parse_buffer(self):
         if self._raw_cb:
             # PONDER: Should we raise an exception ?
@@ -47,6 +123,19 @@ class UARTParser():
             # End Of Line detected
             self.line = self.recv_bytes[self._sol:eolpos]
             flushnow = True
+            print("_line=%s" % self.line)
+            
+            # The special case of a command callback
+            if self._cmd_cb:
+                if self._cmd_cb(self.line):
+                    flushnow = False
+                if flushnow:
+                    self.flushto(eolpos+len(self.EOL))
+                else:
+                    # Point the start-of-line to next line
+                    self._sol = eolpos+len(self.EOL)
+                continue
+
             for cbid in self._str_cbs:
                 cbinfo =  self._str_cbs[cbid]
                 if getattr(self.line, cbinfo[0])(cbinfo[1]):
@@ -74,7 +163,7 @@ class UARTParser():
         import ure
         # Sanity-check
         if cbid in self._re_cbs:
-            raise RuntimeError("Trying to add same callback twice")
+            raise CallbackError("Trying to add same callback twice")
         # Compile the regex
         re = ure.compile(regex)
         # And add the the callback list
@@ -92,7 +181,7 @@ class UARTParser():
         The check is performed (and callback will receive  the matched line) with End Of Line removed. Return True from the callback to flush the buffer"""
         # Sanity-check
         if cbid in self._str_cbs:
-            raise RuntimeError("Trying to add same callback twice")
+            raise CallbackError("Trying to add same callback twice")
         # Check that the method is valid
         getattr(self.recv_bytes, method)
         # And add the the callback list
@@ -106,22 +195,29 @@ class UARTParser():
         return False
 
     def start(self):
+        if self._run:
+            # Just in case someone calls this twice...
+            return
         self._run = True
+        self._stopped = False
         while self._run:
-            if not self.uart.any():
-                yield from sleep(self.sleep_time)
-                continue
-            recv = self.uart.read(100)
-            if len(recv) == 0:
-                # Timed out (it should be impossible though...)
-                continue
+            recv = yield from self.stream.read(100)
+            # TODO: Check if we get an error
             self.recv_bytes += recv
             if not self._raw_cb:
                 # TODO: We may want to inline the parsing due to cost of method calls
                 self.parse_buffer()
             else:
                 self._raw_cb(self)
+        self._stopped = True
 
-    def stop(self):
+    def stop(self, do_not_wait=False):
         self._run = False
+        # Wait for the start-coroutine to complete stopping itself (or at least for the input-buffer to be empty)
+        if not do_not_wait:
+            while (   not self._stopped
+                    and self.uart.any()):
+                yield from sleep(10)
+        self.flush()
+        #yield
 

@@ -1,11 +1,13 @@
 class powerdomains_base:
     pin = None
     reservations = 0
+    invert = False
 
-    def __init__(self, pin):
+    def __init__(self, pin, invert=False):
         self.pin = pin
+        self.invert = invert
         # For some weird reason the pin was already up, make sure we track that...
-        if self.pin.value():
+        if self.pin.value() != self.invert:
             self.reservations += 1
 
     def request(self):
@@ -14,7 +16,7 @@ class powerdomains_base:
             raise RuntimeError("Trying to request domain for the 255th time, something must be wrong")
         self.reservations += 1
         if self.reservations == 1:
-            self.pin.high()
+            self.pin.value((not self.invert))
             return True
         return False
 
@@ -24,12 +26,12 @@ class powerdomains_base:
             raise RuntimeError("Trying to release a domain that is already fully released")
         self.reservations -= 1
         if self.reservations == 0:
-            self.pin.low()
+            self.pin.value(self.invert)
             return True
         return False
 
     def status(self):
-        return bool(self.pin.value())
+        return bool(self.pin.value()) != self.invert
 
 class powermanager:
     domains = []
