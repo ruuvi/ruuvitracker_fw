@@ -26,11 +26,11 @@ def mount():
     if pyb.Pin.board.SD_CARD_INSERTED.value():
         raise NoCardError("No card detected")
     card_instance = sdcardlib.SDCard(pyb.SPI(1), pyb.Pin.board.MICROSD_CS)
-    pyb.mount(card_instance, '/sd')
+    pyb.mount(card_instance, '/spisd')
 
 def unmount():
     global card_instance
-    pyb.mount(None, '/sd')
+    pyb.mount(None, '/spisd')
     card_instance = None
     rtb.pwr.SDCARD.release()
 
