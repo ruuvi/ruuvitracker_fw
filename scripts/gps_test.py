@@ -6,10 +6,13 @@ from rtb.gps import instance as gps
 rtb.pwr.GPS_VCC.status()
 
 get_event_loop().create_task(gps.start())
+
 get_event_loop().create_task(rtb.heartbeat(1))
 # this call_later thing doesn't quite seem to work event this way (the problem is that uart get data first and poll return "early"
 get_event_loop().call_later(5000, lambda: get_event_loop().call_soon(gps.set_interval(5000)))
 get_event_loop().call_later(10000, lambda: get_event_loop().call_soon(gps.set_interval(1000)))
+# Apparently this does the UART song&dance immediately
+#get_event_loop().call_later(5000, gps.set_interval(5000))
 
 loop = get_event_loop()
 loop.run_forever()

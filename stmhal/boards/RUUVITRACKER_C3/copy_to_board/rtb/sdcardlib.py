@@ -1,4 +1,6 @@
 """
+from https://github.com/micropython/micropython/blob/master/drivers/sdcard/sdcard.py
+
 Micro Python driver for SD cards using SPI bus.
 
 Requires an SPI bus and a CS pin.  Provides readblocks and writeblocks
@@ -7,11 +9,10 @@ methods so the device can be mounted as a filesystem.
 Example usage:
 
     import pyb, sdcard, os
-    sd = sdcard.SDCard(pyb.SPI(1), pyb.Pin.board.MICROSD_CS)
+    sd = sdcard.SDCard(pyb.SPI(1), pyb.Pin.board.X5)
     pyb.mount(sd, '/sd2')
     os.listdir('/')
 
-Copyright Damien George
 """
 
 import pyb
@@ -52,10 +53,12 @@ class SDCard:
         for i in range(16):
             self.spi.send(0xff)
 
-        # CMD0: init card; should return R1_IDLE_STATE (allow 2 attempts)
-        if self.cmd(0, 0, 0x95) != R1_IDLE_STATE:
-            if self.cmd(0, 0, 0x95) != R1_IDLE_STATE:
-                raise OSError("no SD card")
+        # CMD0: init card; should return R1_IDLE_STATE (allow 5 attempts)
+        for _ in range(5):
+            if self.cmd(0, 0, 0x95) == R1_IDLE_STATE:
+                break
+        else:
+            raise OSError("no SD card")
 
         # CMD8: determine card version
         r = self.cmd(8, 0x01aa, 0x87, 4)
